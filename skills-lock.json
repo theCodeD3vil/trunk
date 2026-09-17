@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "ink": {
+      "source": "vercel-labs/json-render",
+      "sourceType": "github",
+      "skillPath": "skills/ink/SKILL.md",
+      "computedHash": "c9c5320c208e406cf0621d3843b14dcabb04934360d8ce816f29600394b2478f"
+    },
+    "typescript-advanced-types": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/javascript-typescript/skills/typescript-advanced-types/SKILL.md",
+      "computedHash": "8cbf2bf600f392d7260e476e3202932a876e2281cda3b15a8b6a5a43f383252d"
+    }
+  }
+}
