@@ -70,7 +70,7 @@ package.json                   version, repository, keywords, files
 
 - [ ] `bun pm pack` contains `dist/` and nothing else of consequence, and
       `npx @thecoded3vil/trunk` prints usage from a clean machine (users install with npm).
-- [ ] CI is green on both platforms, including shellcheck over generated hook bodies and the
+- [x] CI is green on both platforms, including shellcheck over generated hook bodies and the
       end-to-end clone test.
 - [x] `trunk --version` matches `package.json`, and the same string appears in the header of
       a generated file.
