@@ -1,6 +1,6 @@
 {
 	"name": "@cod3vil/trunk",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Set up a Git repository for Worktrunk: a bare layout and a shared, language-agnostic worktree config with a tmux workspace per worktree.",
 	"repository": {
 		"type": "git",
