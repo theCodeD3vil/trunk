@@ -60,6 +60,14 @@ export function installCommand(settings: Settings): string {
 }
 
 export function serverCommand(settings: Settings): string {
+	return `wt step tether -- ${developmentCommand(settings)}`;
+}
+
+/** The command inside the tether, also used by the setup summary. */
+export function developmentCommand(
+	settings: Settings,
+	port: string = portTemplate,
+): string {
 	const script = shellQuote(settings.devScript);
 	const directory = settings.appDir ? shellQuote(settings.appDir) : undefined;
 	let command: string;
@@ -67,14 +75,14 @@ export function serverCommand(settings: Settings): string {
 		case 'npm': {
 			command = `npm${
 				directory ? ` --prefix ${directory}` : ''
-			} run ${script} -- --port ${portTemplate}`;
+			} run ${script} -- --port ${port}`;
 			break;
 		}
 
 		case 'pnpm': {
 			command = `pnpm${
 				directory ? ` --dir ${directory}` : ''
-			} run ${script} --port ${portTemplate}`;
+			} run ${script} --port ${port}`;
 			break;
 		}
 
@@ -84,12 +92,12 @@ export function serverCommand(settings: Settings): string {
 			// command, leaving the server running loose in the wrong directory.
 			command = `bun${
 				directory ? ` --cwd=${directory}` : ''
-			} run ${script} --port ${portTemplate}`;
+			} run ${script} --port ${port}`;
 			break;
 		}
 	}
 
-	return `wt step tether -- ${command}`;
+	return command;
 }
 
 function serverNotes(settings: Settings): string {

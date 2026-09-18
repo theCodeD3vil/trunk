@@ -35,3 +35,7 @@ export function badUsage(message: string): Outcome {
 export function unsupportedEnvironment(message: string): Outcome {
 	return {code: exitCodes.unsupportedEnvironment, message};
 }
+
+export function userAborted(message = 'setup aborted'): Outcome {
+	return {code: exitCodes.userAborted, message};
+}

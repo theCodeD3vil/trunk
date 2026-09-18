@@ -42,10 +42,11 @@ test/resolve.test.ts
    | Caddy route | on if caddy present | only shown when the dev server is on (D10) |
    | `mc` alias | on | |
 
-3. **Prefix field.** Text input pre-filled with the initials. Keys: `r` inserts a random
-   word, `c` clears for custom entry. Validation from phase 1 runs on every keystroke and
-   shows the reason inline. No clash checking of any kind (D7) — the field's help line is
-   `keep it unique across your repos`.
+3. **Prefix field.** Text input pre-filled with the initials. Keys: `r` replaces the value
+   with a random word (pressing it again draws another), `c` clears for custom entry. Both
+   stop once the value has been typed into, so an `r` or a `c` can still be entered as text.
+   Validation from phase 1 runs on every keystroke and shows the reason inline. No clash
+   checking of any kind (D7) — the field's help line is `keep it unique across your repos`.
 
 4. **Agent multi-select.** All six listed in a fixed order (claude, codex, opencode, copilot,
    antigravity, pi). Installed ones are pre-checked up to four, in that order. Missing ones
@@ -85,14 +86,14 @@ test/resolve.test.ts
 
 ## Acceptance criteria
 
-- [ ] `resolve()` with all flags set returns a complete `Settings` and asks nothing.
-- [ ] `--yes` with no flags returns the documented defaults for an npm Next.js fixture.
-- [ ] Flags beat detection, and detection beats built-in defaults (table-driven test).
-- [ ] `--agents claude,codex,opencode,copilot,pi` fails with `max 4`.
-- [ ] `--agents antigravity` maps to the `agy` command in the generated file.
-- [ ] Piping trunk's output (no TTY) with no `--yes` exits `2` and prints the re-run command.
-- [ ] Aborting the form exits `4` and writes nothing.
-- [ ] The form renders at 80 columns without wrapping damage (ink-testing-library snapshot).
+- [x] `resolve()` with all flags set returns a complete `Settings` and asks nothing.
+- [x] `--yes` with no flags returns the documented defaults for an npm Next.js fixture.
+- [x] Flags beat detection, and detection beats built-in defaults (table-driven test).
+- [x] `--agents claude,codex,opencode,copilot,pi` fails with `max 4`.
+- [x] `--agents antigravity` maps to the `agy` command in the generated file.
+- [x] Piping trunk's output (no TTY) with no `--yes` exits `2` and prints the re-run command.
+- [x] Aborting the form exits `4` and writes nothing.
+- [x] The form renders at 80 columns without wrapping damage (ink-testing-library snapshot).
 
 ## Risks & notes
 

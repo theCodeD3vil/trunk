@@ -57,6 +57,11 @@ export function generateList(settings: Settings): string | undefined {
 		return undefined;
 	}
 
-	const url = `http://${branchTemplate}.${settings.hostLabel}.localhost:8080`;
+	const url = routeUrl(settings, branchTemplate);
 	return `[list]\nurl = ${inlineCommand(url)}`;
+}
+
+/** The generated route with a caller-selected branch placeholder. */
+export function routeUrl(settings: Settings, branch: string): string {
+	return `http://${branch}.${settings.hostLabel}.localhost:8080`;
 }
