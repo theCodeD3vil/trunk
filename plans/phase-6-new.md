@@ -74,17 +74,17 @@ test/new.test.ts             local-only path, fully offline
 
 ## Acceptance criteria
 
-- [ ] `trunk new demo --no-remote --yes` produces `demo/.git` (bare), `demo/main` with a
+- [x] `trunk new demo --no-remote --yes` produces `demo/.git` (bare), `demo/main` with a
       first commit containing `.config/wt.toml` and `.gitignore`, and `wt config show` clean —
       with no network access at all.
-- [ ] In the no-remote file, the Caddy host, route id, `list.url` and port template all use
+- [x] In the no-remote file, the Caddy host, route id, `list.url` and port template all use
       the literal project name, and the explanatory note is present.
 - [ ] With `--remote --owner <org>`, the created remote URL uses the SSH alias that matches
       the sibling projects, and the confirmation screen shows it before anything is created.
 - [ ] A failure after `gh repo create` reaches the phase 4 keep/rollback question, and the
       journal names the GitHub repository as something trunk created but will **not** delete
       (print the `gh repo delete` command instead).
-- [ ] An existing non-empty folder exits `2` before anything is created.
+- [x] An existing non-empty folder exits `2` before anything is created.
 
 ## Risks & notes
 

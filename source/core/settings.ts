@@ -29,6 +29,12 @@ export type Settings = Readonly<{
 	 * that already excludes something does not lose it on overwrite.
 	 */
 	copyIgnoredExclude?: readonly string[];
+	/**
+	 * A project created before its remote exists. `remote_repo` renders empty
+	 * without an origin, and every URL-bearing template is built from it, so the
+	 * project name is written out literally instead.
+	 */
+	noRemote?: boolean;
 }>;
 
 export const settingsDefaults = Object.freeze({

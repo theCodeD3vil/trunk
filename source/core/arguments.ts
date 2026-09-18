@@ -24,6 +24,11 @@ export const helpText = `
 	  --copy/--no-copy      wt step copy-ignored
 	  --mc/--no-mc          \`wt mc\` alias
 	  --direct              commit on the current branch instead of chore/trunk-setup
+
+	Options for \`trunk new\`
+	  --remote/--no-remote  create the GitHub repository too
+	  --owner <name>        account or organisation that owns it
+	  --public              create it public instead of private
 `;
 
 /**
@@ -61,6 +66,16 @@ export const flagDefinitions = {
 		type: 'boolean',
 	},
 	direct: {
+		type: 'boolean',
+	},
+	// `trunk new` only.
+	remote: {
+		type: 'boolean',
+	},
+	owner: {
+		type: 'string',
+	},
+	public: {
 		type: 'boolean',
 	},
 } as const;

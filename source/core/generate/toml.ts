@@ -1,4 +1,21 @@
 /** TOML and shell escaping shared by every generated fragment. */
+import type {Settings} from '../settings.js';
+
+/**
+ * What stands in for the repository name in a generated template. With an
+ * origin this is Worktrunk's own variable; without one it is the name written
+ * out, because `remote_repo` would render empty.
+ */
+export function repoExpression(settings: Settings): string {
+	return settings.noRemote ? settings.hostLabel : '{{ remote_repo | lower }}';
+}
+
+/** The port hashes repo and branch together; the repo half follows the same rule. */
+export function portExpression(settings: Settings): string {
+	return settings.noRemote
+		? `{{ ('${settings.hostLabel}/' ~ branch) | hash_port }}`
+		: "{{ (remote_repo ~ '/' ~ branch) | hash_port }}";
+}
 
 const allowedTemplates = Object.freeze([
 	'{{ branch | sanitize }}',
@@ -52,7 +69,12 @@ export function assertShellTemplate(body: string): void {
 		);
 	}
 
-	let remainder = body;
+	// The no-remote port form carries a literal project name, so it is matched
+	// by shape rather than listed.
+	let remainder = body.replaceAll(
+		/{{ \('[^'{}]*\/' ~ branch\) \| hash_port }}/g,
+		'',
+	);
 	for (const template of allowedTemplates) {
 		remainder = remainder.split(template).join('');
 	}

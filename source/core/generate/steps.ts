@@ -4,10 +4,9 @@ import {
 	commentText,
 	inlineCommand,
 	multilineCommand,
+	portExpression,
 	shellQuote,
 } from './toml.js';
-
-const portTemplate = "{{ (remote_repo ~ '/' ~ branch) | hash_port }}";
 
 export function generatePostStart(
 	settings: Settings,
@@ -66,7 +65,7 @@ export function serverCommand(settings: Settings): string {
 /** The command inside the tether, also used by the setup summary. */
 export function developmentCommand(
 	settings: Settings,
-	port: string = portTemplate,
+	port: string = portExpression(settings),
 ): string {
 	const script = shellQuote(settings.devScript);
 	const directory = settings.appDir ? shellQuote(settings.appDir) : undefined;

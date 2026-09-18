@@ -62,7 +62,9 @@ async function dispatch(): Promise<Outcome> {
 		}
 
 		case 'new': {
-			return runNew(rest, cli.flags, tools!);
+			return runNew(rest, cli.flags, tools!, {
+				invocation: {executable: 'trunk', arguments: process.argv.slice(2)},
+			});
 		}
 
 		case undefined: {

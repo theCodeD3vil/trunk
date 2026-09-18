@@ -47,12 +47,12 @@ describe('CLI', () => {
 		expect(run.stderr).not.toContain('\u001B[');
 	});
 
-	test('runs the commands still stubbed without a stack trace', async () => {
-		const run = await runBuiltCli(['new', 'example']);
+	test('rejects a project name GitHub would not accept', async () => {
+		const run = await runBuiltCli(['new', 'not valid/name']);
 		runs.push(run);
 
 		expect(run.exitCode).toBe(exitCodes.badUsage);
-		expect(run.stderr).toContain('not implemented');
+		expect(run.stderr).toContain('not a valid repository name');
 		expect(run.stderr).not.toContain('    at ');
 	});
 

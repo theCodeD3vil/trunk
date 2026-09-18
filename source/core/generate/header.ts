@@ -43,6 +43,14 @@ export function generateHeader(settings: Settings): string {
 		);
 	}
 
+	if (settings.noRemote) {
+		lines.push(
+			`# No git remote yet, so the repo name is written out below. After you add one`,
+			'# (git remote add origin <url>), you can switch these back to',
+			'# {{ remote_repo | lower }}.',
+		);
+	}
+
 	lines.push(
 		'# Hook bodies are POSIX sh. Worktrunk template expressions are intentional; avoid',
 		'# introducing shell forms that collide with them (notably shell length expansion).',
