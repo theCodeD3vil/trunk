@@ -1,6 +1,6 @@
 # Phase 7 — Docs, CI and release
 
-**Goal.** Ship `@thecoded3vil/trunk` to npm, with documentation aimed at two audiences: the
+**Goal.** Ship `@cod3vil/trunk` to npm, with documentation aimed at two audiences: the
 person running trunk, and the teammate who only ever sees the generated `wt.toml`.
 
 **Depends on.** Phases 0–6.
@@ -19,7 +19,7 @@ package.json                   version, repository, keywords, files
 1. **Readme.** Replace the create-ink-app text with:
    - what trunk does in three lines, and what it explicitly does not do (no global config, no
      management after setup);
-   - install: `npm i -g @thecoded3vil/trunk` (or `bun add -g @thecoded3vil/trunk`), noting
+   - install: `npm i -g @cod3vil/trunk` (or `bun add -g @cod3vil/trunk`), noting
      that the command is `trunk` and may clash with the Rust `trunk` or Trunk.io if those are
      installed;
    - the three commands with a real example each;
@@ -78,7 +78,7 @@ package.json                   version, repository, keywords, files
 ## Acceptance criteria
 
 - [ ] `bun run release --dry-run` completes, and `bun pm pack` contains `dist/` and nothing else of consequence, and
-      `npx @thecoded3vil/trunk` prints usage from a clean machine (users install with npm).
+      `npx @cod3vil/trunk` prints usage from a clean machine (users install with npm).
 - [x] CI is green on both platforms, including shellcheck over generated hook bodies and the
       end-to-end clone test.
 - [x] `trunk --version` matches `package.json`, and the same string appears in the header of
@@ -93,8 +93,12 @@ package.json                   version, repository, keywords, files
   `wt step copy-ignored`, the `hash_port` and `sanitize` filters, hook names). Pin the wt
   version in CI and mention the tested version in the readme; when wt changes, the snapshots
   are what will tell you.
-- npm scope: publishing under `@thecoded3vil` requires being logged in as that account with
-  `--access public` on the first publish.
+- npm scope: the scope has to be one npm knows you own, which is the npm account name and
+  not the GitHub one. `@cod3vil` matches the `cod3vil` account; the earlier `@thecoded3vil`
+  matched the GitHub handle and does not exist on npm, so the first publish failed a
+  prerequisite check with a 403 rather than a clear message — npm will not say whether a
+  package exists in a scope you cannot see. `--access public` is still needed on the first
+  publish.
 - Development runs on bun; the published package targets Node. Keep the node smoke job
   green, or a bun-only API will slip into `dist/` unnoticed.
 - Keep the readme honest about the command-name clash rather than trying to work around it.
@@ -106,5 +110,5 @@ package.json                   version, repository, keywords, files
 - The tarball installed into an empty npm prefix, its linked binary and a local `npx`
   invocation printed `0.1.0`, and the packed CLI did the same under Node 20 and Node 22.
 - The local suite passes with generated hooks validated by Worktrunk and ShellCheck.
-- Hosted CI, the registry-backed `npx @thecoded3vil/trunk` check, and the three credentialed
+- Hosted CI, the registry-backed `npx @cod3vil/trunk` check, and the three credentialed
   manual acceptance runs remain pending before the `v0.1.0` tag.

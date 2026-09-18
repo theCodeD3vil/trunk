@@ -7,13 +7,13 @@
 ## Install
 
 ```sh
-npm install --global @thecoded3vil/trunk
+npm install --global @cod3vil/trunk
 ```
 
 or:
 
 ```sh
-bun add --global @thecoded3vil/trunk
+bun add --global @cod3vil/trunk
 ```
 
 The installed command is `trunk`. That name is also used by the Rust/Wasm `trunk` tool and by Trunk.io, so check `command -v trunk` if one of those is already installed.

@@ -9,7 +9,7 @@ later phases plug into. No feature logic yet.
 **Deliverables.**
 
 ```
-package.json                  name @thecoded3vil/trunk, bin trunk, scripts
+package.json                  name @cod3vil/trunk, bin trunk, scripts
 source/cli.tsx                argv parsing + dispatch, no UI
 source/commands/clone.tsx     stub: prints "not implemented", exit 2
 source/commands/init.tsx      stub
@@ -23,7 +23,7 @@ plans/                        these documents
 
 ## Steps
 
-1. **Package identity.** In `package.json`: `"name": "@thecoded3vil/trunk"`,
+1. **Package identity.** In `package.json`: `"name": "@cod3vil/trunk"`,
    `"bin": { "trunk": "dist/cli.js" }`, `"engines": { "node": ">=20" }` (Ink 4 plus modern
    `node:` APIs), `"files": ["dist"]`, `"publishConfig": { "access": "public" }`, and
    `"type": "module"` (already set). Set `"version": "0.0.0"` until phase 7.
