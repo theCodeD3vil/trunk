@@ -7,7 +7,7 @@ type it by hand, then gets out of the way.
 - It has **no global config**, no registry, no spec file, no `sync`, no `doctor`.
 - The generated `wt.toml` is **self-contained**: every hook body is inline POSIX sh, and
   every optional tool guards itself with `command -v`. Teammates only need `wt`.
-- Node CLI built with Ink, published to npm as **`@thecoded3vil/trunk`**, command `trunk`.
+- Node CLI built with Ink, published to npm as **`@cod3vil/trunk`**, command `trunk`.
 - **Development runs on bun** (`bun install`, `bun run build`, `bun test`, `bunx xo`); npm is
   never used for this repo's own workflow. The published artifact still targets plain Node.
 - Supported platforms: macOS and Linux/WSL. Native Windows is refused with a message.
@@ -34,7 +34,7 @@ Without a TTY and without `--yes`, trunk stops and prints the command it would n
 | 4 | [phase-4-clone.md](phase-4-clone.md) | `trunk clone` end to end, including PR and smoke test |
 | 5 | [phase-5-init.md](phase-5-init.md) | `trunk init`, adoption, prefix rename, plain-clone refusal |
 | 6 | [phase-6-new.md](phase-6-new.md) | `trunk new`, gh repo creation, local-only projects |
-| 7 | [phase-7-release.md](phase-7-release.md) | Docs, CI, npm publish as `@thecoded3vil/trunk` |
+| 7 | [phase-7-release.md](phase-7-release.md) | Docs, CI, npm publish as `@cod3vil/trunk` |
 
 Phases are ordered by dependency. Phases 5 and 6 can be built in parallel once phase 4 lands.
 
@@ -66,7 +66,7 @@ implements it.
 | D19 | On failure, trunk asks keep or roll back; with no TTY it keeps everything and prints how to resume. |
 | D20 | `trunk init` in a normal clone refuses and prints the migration recipe. |
 | D21 | Tests: snapshots per option combination, shellcheck on every hook body, one end-to-end run. |
-| D22 | npm only (`@thecoded3vil/trunk`), subcommands only, flags for every field plus `--yes`. |
+| D22 | npm only (`@cod3vil/trunk`), subcommands only, flags for every field plus `--yes`. |
 
 ## Verified facts these plans rely on
 
