@@ -1,6 +1,22 @@
 {
 	"name": "@thecoded3vil/trunk",
-	"version": "0.0.0",
+	"version": "0.1.0",
+	"description": "Generate shared Worktrunk automation for a Git repository.",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/theCodeD3vil/trunk.git"
+	},
+	"homepage": "https://github.com/theCodeD3vil/trunk#readme",
+	"bugs": {
+		"url": "https://github.com/theCodeD3vil/trunk/issues"
+	},
+	"keywords": [
+		"worktrunk",
+		"git-worktree",
+		"tmux",
+		"caddy",
+		"cli"
+	],
 	"license": "MIT",
 	"bin": {
 		"trunk": "dist/cli.js"
@@ -10,9 +26,10 @@
 		"node": ">=20"
 	},
 	"scripts": {
-		"build": "tsc",
-		"dev": "tsc --watch",
-		"test": "prettier --check . && xo && bun test"
+		"build": "node scripts/prepare-build.mjs && tsc",
+		"dev": "node scripts/prepare-build.mjs && tsc --watch",
+		"test": "prettier --check . && xo && bun test",
+		"prepack": "bun run build"
 	},
 	"files": [
 		"dist"

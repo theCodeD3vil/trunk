@@ -1,8 +1,8 @@
 /**
- * `trunk new`, entirely offline. The local path never touches the network, so
- * these tests exercise the real pipeline with `gh` absent from the probe.
+ * `trunk new`, entirely offline. The local path has no `gh`; remote tests fake
+ * GitHub while still exercising the real local Git and Worktrunk pipeline.
  */
-import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, rm, stat, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import process from 'node:process';
@@ -12,7 +12,11 @@ import {agentIds} from '../source/core/agents.js';
 import type {CliFlags} from '../source/core/arguments.js';
 import {resolveExecutable, type ToolProbe} from '../source/core/env.js';
 import {sshRemoteUrl} from '../source/core/gh.js';
-import {runCommand, type CommandOptions} from '../source/core/process.js';
+import {
+	runCommand,
+	type CommandOptions,
+	type CommandRunner,
+} from '../source/core/process.js';
 import {exitCodes} from '../source/core/result.js';
 
 describe('trunk new, offline', () => {
@@ -180,23 +184,120 @@ describe('choosing the ssh host for a new remote', () => {
 
 	test('prefers the alias a sibling project already uses', () => {
 		expect(
-			sshRemoteUrl('Example-Org', 'demo', 'github.com', aliases, [
-				'github.com-work',
-			]),
+			sshRemoteUrl('Example-Org', 'demo', {
+				realHost: 'github.com',
+				aliases,
+				siblingHosts: ['github.com-work'],
+			}),
 		).toBe('git@github.com-work:Example-Org/demo.git');
 	});
 
 	test('falls back to an alias that resolves to the host', () => {
-		expect(sshRemoteUrl('someone', 'demo', 'github.com', aliases)).toBe(
-			'git@github.com:someone/demo.git',
-		);
+		expect(
+			sshRemoteUrl('someone', 'demo', {realHost: 'github.com', aliases}),
+		).toBe('git@github.com:someone/demo.git');
 	});
 
 	test('uses the host itself when no alias matches', () => {
-		expect(sshRemoteUrl('someone', 'demo', 'example.com', aliases)).toBe(
-			'git@example.com:someone/demo.git',
-		);
+		expect(
+			sshRemoteUrl('someone', 'demo', {realHost: 'example.com', aliases}),
+		).toBe('git@example.com:someone/demo.git');
 	});
+});
+
+describe('trunk new with a GitHub remote', () => {
+	test('shows and uses the ssh alias already used by a sibling project', async () => {
+		const workspace = await createWorkspace();
+		const events: string[] = [];
+		try {
+			await createSiblingProject(workspace, 'github.com-work');
+			await writeSshConfig(workspace);
+			const run = githubRunner(workspace, events);
+
+			const outcome = await runNew(
+				['demo'],
+				flags({yes: true, remote: true, owner: 'Example-Org'}),
+				await probeTools('gh-test'),
+				{
+					...dependencies(workspace),
+					run,
+					report(_kind, line) {
+						events.push(`report ${line}`);
+					},
+				},
+			);
+
+			expect(outcome.code).toBe(exitCodes.success);
+			const url = 'git@github.com-work:Example-Org/demo.git';
+			const reportIndex = events.indexOf(`report remote will be ${url}`);
+			const localCreateIndex = events.findIndex(event =>
+				event.includes(' init --bare '),
+			);
+			const remoteCreateIndex = events.findIndex(event =>
+				event.includes('gh-test repo create Example-Org/demo'),
+			);
+			expect(reportIndex).toBeGreaterThanOrEqual(0);
+			expect(reportIndex).toBeLessThan(localCreateIndex);
+			expect(reportIndex).toBeLessThan(remoteCreateIndex);
+
+			const configured = await git([
+				'--git-dir',
+				join(workspace.root, 'demo', '.git'),
+				'remote',
+				'get-url',
+				'origin',
+			]);
+			expect(configured.trim()).toBe(url);
+		} finally {
+			await rm(workspace.root, {recursive: true, force: true});
+		}
+	}, 60_000);
+
+	test('rolls back local files but leaves a created GitHub repository', async () => {
+		const workspace = await createWorkspace();
+		const events: string[] = [];
+		const questions: string[] = [];
+		try {
+			await writeSshConfig(workspace);
+			const outcome = await runNew(
+				['demo'],
+				flags({remote: true, owner: 'Example-Org'}),
+				await probeTools('gh-test'),
+				{
+					...dependencies(workspace),
+					interactive: true,
+					run: githubRunner(workspace, events, true),
+					prompts: {
+						async choose(question) {
+							questions.push(question);
+							return 'rollback';
+						},
+						async confirm() {
+							return true;
+						},
+					},
+					report(_kind, line) {
+						events.push(`report ${line}`);
+					},
+				},
+			);
+
+			expect(outcome.code).toBe(exitCodes.userAborted);
+			expect(questions).toContain('keep, or roll back what this run created?');
+			const reported = events.join('\n');
+			expect(reported).toContain('Example-Org/demo');
+			expect(reported).toContain(
+				'GitHub repository (trunk will not delete it)',
+			);
+			expect(reported).toContain('gh repo delete Example-Org/demo --yes');
+			expect(events.some(event => event.startsWith('gh repo delete '))).toBe(
+				false,
+			);
+			expect(await exists(join(workspace.root, 'demo'))).toBe(false);
+		} finally {
+			await rm(workspace.root, {recursive: true, force: true});
+		}
+	}, 60_000);
 });
 
 type Workspace = Readonly<{root: string; environment: NodeJS.ProcessEnv}>;
@@ -249,7 +350,7 @@ async function createWorkspace(): Promise<Workspace> {
 }
 
 /** `gh` is deliberately absent: the offline path must not need it. */
-async function probeTools(): Promise<ToolProbe> {
+async function probeTools(ghPath?: string): Promise<ToolProbe> {
 	const [gitPath, wtPath] = await Promise.all([
 		resolveExecutable('git'),
 		resolveExecutable('wt'),
@@ -261,11 +362,93 @@ async function probeTools(): Promise<ToolProbe> {
 		tmux: {name: 'tmux'},
 		caddy: {name: 'caddy'},
 		brew: {name: 'brew'},
-		gh: {name: 'gh'},
+		gh: {name: 'gh', path: ghPath},
 		agents: Object.fromEntries(
 			agentIds.map(id => [id, {name: id}]),
 		) as ToolProbe['agents'],
 	};
+}
+
+function githubRunner(
+	workspace: Workspace,
+	events: string[],
+	failRemoteAdd = false,
+): CommandRunner {
+	return async (command, arguments_, options) => {
+		events.push(`${command} ${arguments_.join(' ')}`);
+		if (command === 'gh-test') {
+			if (arguments_[0] === 'api' && arguments_[1] === 'user') {
+				return {code: 0, stdout: 'signed-in-user\n', stderr: ''};
+			}
+
+			if (arguments_[0] === 'repo' && arguments_[1] === 'create') {
+				return {
+					code: 0,
+					stdout: 'https://github.com/Example-Org/demo\n',
+					stderr: '',
+				};
+			}
+		}
+
+		if (
+			failRemoteAdd &&
+			arguments_.includes('remote') &&
+			arguments_.includes('add') &&
+			arguments_.includes('origin')
+		) {
+			return {code: 1, stdout: '', stderr: 'simulated remote failure'};
+		}
+
+		if (arguments_.includes('fetch') || arguments_.includes('push')) {
+			return {code: 0, stdout: '', stderr: ''};
+		}
+
+		return runCommand(command, arguments_, {
+			...options,
+			env: options?.env ?? workspace.environment,
+		});
+	};
+}
+
+async function createSiblingProject(
+	workspace: Workspace,
+	host: string,
+): Promise<void> {
+	const sibling = join(workspace.root, 'existing-project');
+	const gitDirectory = join(sibling, '.git');
+	await mkdir(sibling);
+	await git(['init', '--bare', gitDirectory]);
+	await git([
+		'--git-dir',
+		gitDirectory,
+		'remote',
+		'add',
+		'origin',
+		`git@${host}:Example-Org/existing-project.git`,
+	]);
+}
+
+async function writeSshConfig(workspace: Workspace): Promise<void> {
+	const ssh = join(workspace.root, 'home', '.ssh');
+	await mkdir(ssh, {recursive: true});
+	await writeFile(
+		join(ssh, 'config'),
+		`Host github.com
+  HostName github.com
+
+Host github.com-work
+  HostName github.com
+`,
+	);
+}
+
+async function exists(path: string): Promise<boolean> {
+	try {
+		await stat(path);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 async function git(arguments_: readonly string[]): Promise<string> {

@@ -7,7 +7,9 @@
  * the first worktree has to be created before any commit exists, and without a
  * remote the generated config cannot use `remote_repo` at all.
  */
-import {mkdir, writeFile} from 'node:fs/promises';
+import {mkdir, readdir, writeFile} from 'node:fs/promises';
+import type {Dirent} from 'node:fs';
+import {homedir} from 'node:os';
 import {dirname, join, resolve as resolvePath} from 'node:path';
 import type {CliFlags} from '../core/arguments.js';
 import type {ToolProbe} from '../core/env.js';
@@ -33,10 +35,11 @@ import {
 	finish,
 	folderState,
 	interrupted,
+	outputOf,
 	type SetupContext,
 	type SetupDependencies,
 } from '../core/pipeline.js';
-import {loadSshAliases, parseRemote, type SshAliases} from '../core/repo.js';
+import {loadSshAliases, parseRemote} from '../core/repo.js';
 import {setupFlagsFromCli} from '../core/resolve.js';
 import {badUsage, exitCodes, type Outcome} from '../core/result.js';
 import type {Settings} from '../core/settings.js';
@@ -128,16 +131,10 @@ async function create(
 	await setHeadBranch(gitDirectory, branch, context.git);
 
 	if (remote.kind === 'remote') {
-		const created = await createRemote(context, remote, name);
-		if (created) {
-			return interrupted(context, projectDirectory, created);
+		const failure = await setUpRemote(context, remote, name, gitDirectory);
+		if (failure) {
+			return interrupted(context, projectDirectory, failure);
 		}
-
-		await runGit(
-			['--git-dir', gitDirectory, 'remote', 'add', 'origin', remote.url],
-			context.git,
-		);
-		await configureOriginFetch(gitDirectory, context.git);
 	}
 
 	// A bare repository has no commits, so the first worktree starts an orphan
@@ -300,14 +297,18 @@ async function decideRemote(
 		return {kind: 'aborted'};
 	}
 
-	const aliases = await loadSshAliases();
-	const url = sshRemoteUrl(
-		owner,
-		name,
-		'github.com',
-		aliases,
-		await siblingHosts(context, projectDirectory),
+	const aliases = await loadSshAliases(
+		join(
+			context.env?.['HOME'] ?? context.env?.['USERPROFILE'] ?? homedir(),
+			'.ssh',
+			'config',
+		),
 	);
+	const url = sshRemoteUrl(owner, name, {
+		realHost: 'github.com',
+		aliases,
+		siblingHosts: await siblingHosts(context, projectDirectory),
+	});
 	context.report('info', `remote will be ${url}`);
 
 	return {
@@ -356,22 +357,43 @@ async function siblingHosts(
 	projectDirectory: string,
 ): Promise<readonly string[]> {
 	const parent = dirname(projectDirectory);
-	const listed = await runGit(
-		['-C', parent, 'config', '--get', 'remote.origin.url'],
-		context.git,
-	);
-	if (listed.code !== 0 || !listed.stdout.trim()) {
-		return Object.freeze([]);
-	}
-
+	let entries: Dirent[];
 	try {
-		const remote = parseRemote(listed.stdout.trim(), {} as SshAliases, parent);
-		return remote.kind === 'hosted'
-			? Object.freeze([remote.host])
-			: Object.freeze([]);
+		entries = await readdir(parent, {withFileTypes: true});
 	} catch {
 		return Object.freeze([]);
 	}
+
+	const hosts = await Promise.all(
+		entries
+			.filter(entry => entry.isDirectory())
+			.map(async entry => {
+				const sibling = join(parent, entry.name);
+				if (sibling === projectDirectory) {
+					return undefined;
+				}
+
+				const listed = await context.run(
+					context.git.gitPath ?? 'git',
+					['-C', sibling, 'config', '--get', 'remote.origin.url'],
+					{env: context.env},
+				);
+				if (listed.code !== 0 || !listed.stdout.trim()) {
+					return undefined;
+				}
+
+				try {
+					const remote = parseRemote(listed.stdout.trim(), {}, sibling);
+					return remote.kind === 'hosted' ? remote.host : undefined;
+				} catch {
+					return undefined;
+				}
+			}),
+	);
+
+	return Object.freeze([
+		...new Set(hosts.filter((host): host is string => host !== undefined)),
+	]);
 }
 
 async function createRemote(
@@ -386,7 +408,11 @@ async function createRemote(
 		visibility: remote.visibility,
 	});
 	if (result.code === 0) {
-		// Recorded so an interrupted run names it, though trunk never deletes it.
+		context.journal.record({
+			kind: 'github-repo',
+			path: `${remote.owner}/${name}`,
+			note: 'trunk will not delete it',
+		});
 		context.report('success', `created ${remote.owner}/${name} on GitHub`);
 		context.report(
 			'info',
@@ -400,7 +426,32 @@ async function createRemote(
 
 	return `gh repo create failed: ${
 		result.stderr.trim() || result.stdout.trim()
-	}`;
+	}. Check the active account or run \`gh auth switch\``;
+}
+
+async function setUpRemote(
+	context: SetupContext,
+	remote: Extract<RemoteChoice, {kind: 'remote'}>,
+	name: string,
+	gitDirectory: string,
+): Promise<string | undefined> {
+	const created = await createRemote(context, remote, name);
+	if (created) {
+		return created;
+	}
+
+	const origin = await runGit(
+		['--git-dir', gitDirectory, 'remote', 'add', 'origin', remote.url],
+		context.git,
+	);
+	if (origin.code !== 0) {
+		return `could not add origin: ${outputOf(origin)}`;
+	}
+
+	const configured = await configureOriginFetch(gitDirectory, context.git);
+	return configured.code === 0
+		? undefined
+		: `could not configure origin: ${outputOf(configured)}`;
 }
 
 /**

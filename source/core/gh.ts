@@ -163,10 +163,13 @@ export function deleteRepositoryCommand(owner: string, name: string): string {
 export function sshRemoteUrl(
 	owner: string,
 	name: string,
-	realHost: string,
-	aliases: SshAliases,
-	siblingHosts: readonly string[] = [],
+	options: Readonly<{
+		realHost: string;
+		aliases: SshAliases;
+		siblingHosts?: readonly string[];
+	}>,
 ): string {
+	const {realHost, aliases, siblingHosts = []} = options;
 	const matching = Object.entries(aliases)
 		.filter(([, hostName]) => hostName.toLowerCase() === realHost.toLowerCase())
 		.map(([alias]) => alias);

@@ -12,6 +12,7 @@ import {delimiter, dirname, join} from 'node:path';
 import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 import {promisify} from 'node:util';
+import {resolveExecutable} from '../../source/core/env.js';
 
 const projectRoot = fileURLToPath(new URL('../../', import.meta.url));
 const executeFile = promisify(execFile);
@@ -37,6 +38,7 @@ export type CliRunOptions = Readonly<{
 }>;
 
 export async function buildCli(): Promise<CliBuild> {
+	const nodePath = await requiredNode();
 	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'trunk-build-'));
 	const outputDirectory = join(temporaryDirectory, 'dist');
 	const typescript = join(
@@ -60,13 +62,9 @@ export async function buildCli(): Promise<CliBuild> {
 	]);
 
 	try {
-		await executeFile(
-			process.execPath,
-			[typescript, '--outDir', outputDirectory],
-			{
-				cwd: projectRoot,
-			},
-		);
+		await executeFile(nodePath, [typescript, '--outDir', outputDirectory], {
+			cwd: projectRoot,
+		});
 	} catch (error: unknown) {
 		await rm(temporaryDirectory, {recursive: true, force: true});
 		throw error;
@@ -84,6 +82,7 @@ export async function runCli(
 	arguments_: readonly string[] = [],
 	options: CliRunOptions = {},
 ): Promise<CliRun> {
+	const nodePath = await requiredNode();
 	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'trunk-test-'));
 	const workingDirectory = join(temporaryDirectory, 'project');
 	const homeDirectory = join(temporaryDirectory, 'home');
@@ -125,7 +124,7 @@ export async function runCli(
 		['XDG_CONFIG_HOME', join(homeDirectory, '.config')],
 		...Object.entries(options.environment ?? {}),
 	]);
-	const child = spawn(process.execPath, [cliPath, ...arguments_], {
+	const child = spawn(nodePath, [cliPath, ...arguments_], {
 		cwd: workingDirectory,
 		env: environment,
 		stdio: ['ignore', 'pipe', 'pipe'],
@@ -159,4 +158,16 @@ export async function runCli(
 		environment,
 		cleanup: async () => rm(temporaryDirectory, {recursive: true, force: true}),
 	};
+}
+
+async function requiredNode(): Promise<string> {
+	const launcher = await resolveExecutable('node');
+	if (!launcher) {
+		throw new Error('Node is required to run the built CLI tests.');
+	}
+
+	// Version managers may put a launcher on PATH that needs PATH itself. Ask it
+	// for the real runtime so the missing-tools test can safely clear child PATH.
+	const {stdout} = await executeFile(launcher, ['-p', 'process.execPath']);
+	return stdout.trim() || launcher;
 }

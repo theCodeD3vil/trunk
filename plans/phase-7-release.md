@@ -72,7 +72,7 @@ package.json                   version, repository, keywords, files
       `npx @thecoded3vil/trunk` prints usage from a clean machine (users install with npm).
 - [ ] CI is green on both platforms, including shellcheck over generated hook bodies and the
       end-to-end clone test.
-- [ ] `trunk --version` matches `package.json`, and the same string appears in the header of
+- [x] `trunk --version` matches `package.json`, and the same string appears in the header of
       a generated file.
 - [ ] The readme's example commands were all run by hand at least once.
 - [ ] The three manual acceptance runs in step 9 are done and their results noted in the
@@ -89,3 +89,13 @@ package.json                   version, repository, keywords, files
 - Development runs on bun; the published package targets Node. Keep the node smoke job
   green, or a bun-only API will slip into `dist/` unnoticed.
 - Keep the readme honest about the command-name clash rather than trying to work around it.
+
+## Pre-release verification (2026-09-18)
+
+- `bun pm pack` produced a 0.1.0 tarball containing `dist/` plus npm's required
+  `package.json`, readme and MIT license.
+- The tarball installed into an empty npm prefix, its linked binary and a local `npx`
+  invocation printed `0.1.0`, and the packed CLI did the same under Node 20 and Node 22.
+- The local suite passes with generated hooks validated by Worktrunk and ShellCheck.
+- Hosted CI, the registry-backed `npx @thecoded3vil/trunk` check, and the three credentialed
+  manual acceptance runs remain pending before the `v0.1.0` tag.

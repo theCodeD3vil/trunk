@@ -651,6 +651,16 @@ async function rollback(
 	commands: readonly UndoCommand[],
 ): Promise<void> {
 	for (const command of commands) {
+		if (command.manual) {
+			context.report(
+				'warning',
+				`not undone: ${
+					command.purpose
+				}. Run it yourself if you want to: ${describeCommand(command)}`,
+			);
+			continue;
+		}
+
 		// Rollback is ordered newest first, so the steps cannot run in parallel.
 		// eslint-disable-next-line no-await-in-loop
 		const result = await context.run(command.executable, command.arguments, {
@@ -687,6 +697,10 @@ async function reportWorktrunkTrash(
 		'info',
 		`worktrunk kept a copy of the removed worktree in ${trash}; delete it once you are sure you do not need it`,
 	);
+}
+
+function describeCommand(command: UndoCommand): string {
+	return `${command.executable} ${command.arguments.join(' ')}`;
 }
 
 function describeUndo(command: UndoCommand): string {

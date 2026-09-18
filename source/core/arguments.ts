@@ -5,6 +5,7 @@
  */
 import process from 'node:process';
 import meow, {type TypedFlags} from 'meow';
+import {trunkVersion} from './version.js';
 
 /** Printed for `trunk` with no command and for `--help`. */
 export const helpText = `
@@ -88,6 +89,7 @@ export function parseArguments(
 	return meow(helpText, {
 		importMeta: import.meta,
 		argv,
+		version: trunkVersion(),
 		// Booleans stay tri-state: a flag that was never passed reads as
 		// `undefined`, which is how the setup form tells "leave it to me" apart
 		// from an explicit `--no-server`.
