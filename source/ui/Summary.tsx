@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/filename-case -- Phase 3 specifies Summary.tsx. */
+/* eslint-disable unicorn/filename-case -- React components use PascalCase file names. */
 /** Final preview shown before a command is allowed to write wt.toml. */
 import {homedir} from 'node:os';
 import React from 'react';

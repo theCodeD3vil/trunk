@@ -33,9 +33,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # The generated hook bodies are checked with ShellCheck, and the session
-      # rename tests drive a real tmux on an isolated socket. Both tests assert
-      # the tool exists rather than skipping, so both have to be installed.
+      # The generated and documented hook bodies are checked with ShellCheck,
+      # and the tmux hook, docs browser and package tests drive a real tmux on
+      # an isolated socket. They assert the tool exists rather than skipping, so
+      # both have to be installed. Nothing else is: Trunk needs no other tool.
       - name: Install ShellCheck and tmux on Linux
         if: runner.os == 'Linux'
         run: |
@@ -93,26 +94,27 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - name: Isolate Worktrunk configuration
-        shell: bash
-        run: echo "WORKTRUNK_CONFIG_PATH=$RUNNER_TEMP/worktrunk.toml" >> "$GITHUB_ENV"
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build
-        run: bun run build
-
-      - name: Pack and install as an npm consumer
-        shell: bash
+      # The smoke script needs the same three tools as the tests, and nothing
+      # more: it packs the tarball, installs it as an npm consumer on this Node
+      # version, and runs the installed CLI on throwaway repositories.
+      - name: Install tmux
         run: |
-          bun pm pack --ignore-scripts --filename "$RUNNER_TEMP/trunk.tgz"
-          mkdir "$RUNNER_TEMP/trunk-smoke"
-          npm install --prefix "$RUNNER_TEMP/trunk-smoke" "$RUNNER_TEMP/trunk.tgz"
+          sudo apt-get update
+          sudo apt-get install --yes tmux
 
-      - name: Run the installed CLI
+      - name: Install Worktrunk 0.77.0
         shell: bash
+        env:
+          WORKTRUNK_NO_MODIFY_PATH: '1'
         run: |
-          CLI="$RUNNER_TEMP/trunk-smoke/node_modules/.bin/trunk"
-          "$CLI" --help
-          test "$("$CLI" --version)" = "$(node -p "require('./package.json').version")"
+          export WORKTRUNK_INSTALL_DIR="$RUNNER_TEMP/worktrunk"
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/max-sixty/worktrunk/releases/download/v0.77.0/worktrunk-installer.sh | sh
+          echo "$WORKTRUNK_INSTALL_DIR/bin" >> "$GITHUB_PATH"
+          "$WORKTRUNK_INSTALL_DIR/bin/wt" --version
+
+      - name: Smoke-test the packed CLI
+        run: bun run smoke

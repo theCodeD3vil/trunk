@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/filename-case -- Matches SetupForm.tsx and Summary.tsx. */
+/* eslint-disable unicorn/filename-case -- React components use PascalCase file names. */
 /**
  * The offline documentation browser: a menu of topics, a section list, pages
  * with scrolling and copyable snippets, and live search. All navigation lives

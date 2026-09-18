@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/filename-case -- Phase 3 specifies SetupForm.tsx. */
+/* eslint-disable unicorn/filename-case -- React components use PascalCase file names. */
 /** The only interactive surface in trunk: setup fields followed by a preview. */
 import React, {useRef, useState} from 'react';
 import {Box, Text, render, useApp, useInput} from 'ink';
