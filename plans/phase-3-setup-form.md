@@ -62,11 +62,11 @@ test/resolve.test.ts
 6. **Summary screen** (D17). After the form and before anything is written:
 
    ```
-   folder    ~/Projects/nvc/djulah-admin
-   prefix    djulah-a          session djulah-a_<branch>
+   folder    ~/Projects/example-org/acme-admin
+   prefix    acme-a          session acme-a_<branch>
    install   npm install --prefer-offline --no-audit --no-fund
    server    npm run dev -- --port <hash of repo+branch>
-   route     http://<branch>.djulah-admin.localhost:8080
+   route     http://<branch>.acme-admin.localhost:8080
    agents    claude, codex
    steps     tmux · copy-ignored · install · server · proxy · mc
    ```

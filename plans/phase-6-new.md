@@ -37,7 +37,7 @@ test/new.test.ts             local-only path, fully offline
    - **Remote URL with the right SSH alias.** `gh` prints an `https://github.com/...` URL;
      rewrite it to SSH using the alias whose resolved `HostName` matches, preferring the one
      already used by sibling projects in the parent folder:
-     `git@github.com-work:New-Vision-Creatives/<name>.git` for NVC,
+     `git@github.com-work:Example-Org/<name>.git` for Example-Org,
      `git@github.com:<user>/<name>.git` otherwise. Show the final URL for confirmation.
    - **Local repo.** `git init --bare <dir>/.git`, `git remote add origin <url>`, set the
      fetch refspec, and `git symbolic-ref HEAD refs/heads/main` (or `--default-branch`).

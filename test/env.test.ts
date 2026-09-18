@@ -1,7 +1,7 @@
 import {delimiter, join, resolve} from 'node:path';
 import {describe, expect, test} from 'bun:test';
+import {agentCommands} from '../source/core/agents.js';
 import {
-	agentCommands,
 	checkRequiredTools,
 	parseWtVersion,
 	probe,

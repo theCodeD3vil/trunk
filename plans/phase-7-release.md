@@ -58,10 +58,10 @@ package.json                   version, repository, keywords, files
    it: read `package.json` `version` at build time into a generated `source/version.ts`
    (avoid runtime `require` of `package.json`, which breaks when only `dist` ships).
 9. **Manual acceptance run** before tagging, on this machine:
-   - `trunk clone` a real NVC repo that has no config yet (e.g. `hcs-frontend`) into a scratch
+   - `trunk clone` a real Example-Org repo that has no config yet (e.g. `abc-frontend`) into a scratch
      folder, all the way through the PR and smoke test, then delete the scratch folder and
      close the PR;
-   - `trunk init --overwrite` in `djulah-admin`, compare the generated file against the
+   - `trunk init --overwrite` in `acme-admin`, compare the generated file against the
      hand-written one, and check the diff screen shows the `mc` alias and `.next/` exclude
      carried over;
    - `trunk new` with `--no-remote` and confirm the dev server and Caddy URL work.

@@ -41,7 +41,7 @@ test/prefix.test.ts, test/repo.test.ts, test/detect.test.ts
    major/minor is lower than the version trunk's templates were written against; record the
    number so phase 2 can print it in the generated header.
 4. **Remote parsing** (`repo.ts`). Accept every form used in these repos:
-   `git@github.com-work:New-Vision-Creatives/djulah-admin.git`,
+   `git@github.com-work:Example-Org/acme-admin.git`,
    `git@github.com:user/repo.git`, `https://github.com/user/repo(.git)`, and a local path.
    Produce:
 
@@ -50,9 +50,9 @@ test/prefix.test.ts, test/repo.test.ts, test/detect.test.ts
      url: string;          // as given
      host: string;         // github.com-work  (the SSH alias, kept verbatim)
      realHost: string;     // github.com        (resolved from ~/.ssh/config when aliased)
-     owner: string;        // New-Vision-Creatives
-     repo: string;         // djulah-admin      (no .git suffix)
-     identifier: string;   // github.com-work/New-Vision-Creatives/djulah-admin
+     owner: string;        // Example-Org
+     repo: string;         // acme-admin      (no .git suffix)
+     identifier: string;   // github.com-work/Example-Org/acme-admin
    };
    ```
 
@@ -77,7 +77,7 @@ test/prefix.test.ts, test/repo.test.ts, test/detect.test.ts
    For an existing bare repo: `git symbolic-ref HEAD`, falling back to the `worktrunk.default-branch`
    git config key wt maintains. Never assume `main`.
 8. **Package manager detection** (`detect.ts`). Look in the worktree root, and one level
-   down when the root has no `package.json` (Djulah-backend keeps its app in `backend/`):
+   down when the root has no `package.json` (Acme-backend keeps its app in `backend/`):
 
    | File | Result |
    |------|--------|
@@ -99,9 +99,9 @@ test/prefix.test.ts, test/repo.test.ts, test/detect.test.ts
 
    Lowercase, split on any run of non-alphanumerics, drop empty parts. One word → the word
    itself. Otherwise `first + '-' + remaining.map(w => w[0]).join('')`.
-   Verified outputs: `djulah-admin → djulah-a`, `Djulah-backend → djulah-b`,
-   `djulah-website → djulah-w`, `hcs-frontend → hcs-f`, `Now-tech--website → now-tw`,
-   `NowTech-backend- → nowtech-b`, `NVC-WEBSITE → nvc-w`, `aze-farm-backend → aze-fb`.
+   Verified outputs: `acme-admin → acme-a`, `Acme-backend → acme-b`,
+   `acme-website → acme-w`, `abc-frontend → abc-f`, `Web-shop--portal → web-sp`,
+   `WebShop-backend- → webshop-b`, `XYZ-WEBSITE → xyz-w`, `open-data-backend → open-db`.
    The input is the **remote repo name**, not the folder name.
 10. **Word list** (`words.ts`). 120–200 short, unambiguous, lowercase English nouns
     (`otter`, `maple`, `anvil`…). Rules: 3–7 characters, no digits, no hyphens, no word that
@@ -119,7 +119,7 @@ test/prefix.test.ts, test/repo.test.ts, test/detect.test.ts
 - [x] `initials()` matches every verified output in step 9 (table-driven test).
 - [x] `randomWord()` never returns a reserved word, and is stable under a seeded RNG in tests.
 - [ ] Remote parsing handles SSH aliases, HTTPS, and `.git` suffixes; `identifier` matches
-      `wt config show` for djulah-admin in the end-to-end test.
+      `wt config show` for acme-admin in the end-to-end test.
 - [x] Layout detection distinguishes `<proj>/.git` (bare) from a plain clone and from a
       linked worktree, using fixtures created by `git init` in temp dirs.
 - [x] Package-manager detection returns the right answer for fixtures covering npm, pnpm,
@@ -130,7 +130,7 @@ test/prefix.test.ts, test/repo.test.ts, test/detect.test.ts
 - `{{ repo }}` renders `.git` in this layout, so **nothing** downstream may use the folder
   name for identity. `remote.repo` from step 4 is the single source for the prefix, the
   Caddy host and route ids, and `list.url`.
-- Prefix collisions are accepted by design (D7): `djulah-admin` and a future `djulah-api`
-  both give `djulah-a`. The form shows the value; the user can change it.
+- Prefix collisions are accepted by design (D7): `acme-admin` and a future `acme-api`
+  both give `acme-a`. The form shows the value; the user can change it.
 - `ls-remote` needs network and SSH access. Cache the result per run and surface auth
   failures with the raw git error, which is usually the actionable message.

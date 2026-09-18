@@ -7,23 +7,9 @@ import {constants, type Stats} from 'node:fs';
 import {access, stat} from 'node:fs/promises';
 import {delimiter, resolve} from 'node:path';
 import process from 'node:process';
+import {agentCommands, type AgentId} from './agents.js';
 import {runCommand, type CommandRunner} from './process.js';
 import {unsupportedEnvironment, type Outcome} from './result.js';
-
-/**
- * Agent id as the user writes it, mapped to the command that starts it. Most
- * match; antigravity ships as `agy`. Keep this the only place that knows.
- */
-export const agentCommands = Object.freeze({
-	claude: 'claude',
-	codex: 'codex',
-	opencode: 'opencode',
-	copilot: 'copilot',
-	antigravity: 'agy',
-	pi: 'pi',
-});
-
-export type AgentId = keyof typeof agentCommands;
 
 export type Tool = Readonly<{
 	name: string;

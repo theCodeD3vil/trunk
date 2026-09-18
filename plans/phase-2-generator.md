@@ -29,9 +29,9 @@ test/shellcheck.test.ts
    type Settings = {
      trunkVersion: string;
      generatedOn: string;          // YYYY-MM-DD
-     repoName: string;             // remote repo name, e.g. djulah-admin
+     repoName: string;             // remote repo name, e.g. acme-admin
      hostLabel: string;            // repoName.toLowerCase(), used in list.url
-     prefix: string;               // djulah-a
+     prefix: string;               // acme-a
      pm: 'npm' | 'pnpm' | 'bun';
      appDir?: string;              // when package.json is not at the root
      tmux: boolean;
@@ -179,8 +179,8 @@ test/shellcheck.test.ts
       with `WORKTRUNK_CONFIG_PATH` pointed at a temp file.
 - [ ] `wt hook show --expanded` renders the expected session name, port and URL for a fixed
       repo/branch pair.
-- [ ] Generating for `Now-tech--website` yields `[list] url` with `now-tech--website`
-      written out, and Caddy ids of the form `wt:now-tech--website:<branch>`.
+- [ ] Generating for `Web-shop--portal` yields `[list] url` with `web-shop--portal`
+      written out, and Caddy ids of the form `wt:web-shop--portal:<branch>`.
 
 ## Risks & notes
 

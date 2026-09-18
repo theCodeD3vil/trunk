@@ -1,7 +1,7 @@
 # Phase 5 — `trunk init`
 
 **Goal.** Set up a project that already exists on disk in the bare layout: repos cloned by
-hand, repos already using worktrunk (djulah-admin, nowtech-website, djulah-website), and
+hand, repos already using worktrunk (acme-admin, webshop-website, acme-website), and
 runs resumed after a failure. Also the polite refusal for plain clones.
 
 **Depends on.** Phase 4 (it reuses the same pipeline from step 6 onward).
@@ -25,12 +25,12 @@ test/adopt.test.ts, test/init.test.ts
    recipe, filled in with the real paths and remote:
 
    ```
-   ✗ ~/Projects/nvc/hcs-admin is a normal clone; trunk sets up bare-layout projects.
+   ✗ ~/Projects/example-org/abc-admin is a normal clone; trunk sets up bare-layout projects.
 
-     trunk clone git@github.com-work:New-Vision-Creatives/hcs-admin.git hcs-admin-wt
-     cp hcs-admin/.env* hcs-admin-wt/main/
-     # check nothing uncommitted or unpushed is left in hcs-admin, then:
-     rm -rf hcs-admin && mv hcs-admin-wt hcs-admin
+     trunk clone git@github.com-work:Example-Org/abc-admin.git abc-admin-wt
+     cp abc-admin/.env* abc-admin-wt/main/
+     # check nothing uncommitted or unpushed is left in abc-admin, then:
+     rm -rf abc-admin && mv abc-admin-wt abc-admin
    ```
 
    Before printing, check the clone for uncommitted or unpushed work and add a warning line
@@ -66,12 +66,12 @@ test/adopt.test.ts, test/init.test.ts
    diff of the old file against the new one before writing (this is the only place trunk
    shows a diff).
 
-6. **Prefix change** (D8). When adoption read `P=djulah` and the user picks something else,
+6. **Prefix change** (D8). When adoption read `P=acme` and the user picks something else,
    offer to rename live sessions before writing:
 
    ```sh
-   tmux list-sessions -F '#{session_name}'   # filter ^djulah_
-   tmux rename-session -t "=djulah_main" "djulah-a_main"
+   tmux list-sessions -F '#{session_name}'   # filter ^acme_
+   tmux rename-session -t "=acme_main" "acme-a_main"
    ```
 
    Exact `=name` targeting only. Skip silently when tmux is missing or no session matches.
@@ -87,7 +87,7 @@ test/adopt.test.ts, test/init.test.ts
 - [ ] `trunk init` inside `<proj>/main`, `<proj>/.git` and `<proj>` all resolve to the same
       project root.
 - [ ] A plain clone exits `3`, prints the recipe with real paths, and flags uncommitted work.
-- [ ] Adoption of the real djulah-admin `wt.toml` recovers: prefix `djulah`, npm,
+- [ ] Adoption of the real acme-admin `wt.toml` recovers: prefix `acme`, npm,
       server on, caddy on, copy-ignored on, mc on, agents `claude opencode`, and the
       `.next/` exclude.
 - [ ] `--yes` on a repo with an existing `wt.toml` leaves it byte-identical.

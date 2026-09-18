@@ -92,13 +92,13 @@ describe or undo precisely what exists.
     ```
     ✗ validation failed in chore-trunk-setup
       created by this run:
-        ./djulah-admin/.git              bare repo
-        ./djulah-admin/main              worktree
-        ./djulah-admin/chore-trunk-setup worktree + branch (wt.toml uncommitted)
+        ./acme-admin/.git              bare repo
+        ./acme-admin/main              worktree
+        ./acme-admin/chore-trunk-setup worktree + branch (wt.toml uncommitted)
     ? keep, or roll back what this run created? (keep/rollback)
     ```
 
-    - keep → print `resume: trunk init ./djulah-admin` plus the manual undo commands;
+    - keep → print `resume: trunk init ./acme-admin` plus the manual undo commands;
     - rollback → remove in reverse order: `wt remove chore/trunk-setup --no-hooks --yes`,
       `git worktree remove`, and finally the project folder **only if trunk created it**;
     - no TTY → always keep, print both command sets (D19).
