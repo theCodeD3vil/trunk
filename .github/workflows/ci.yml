@@ -62,11 +62,13 @@ jobs:
           git config --global user.name "Trunk CI"
           git config --global user.email "trunk-ci@example.com"
 
-      - name: Build
-        run: bun run build
-
+      # Deliberately before any build: `bun run test` has to work in a clean
+      # checkout, where the generated source/version.ts does not exist yet.
       - name: Test
         run: bun run test
+
+      - name: Build
+        run: bun run build
 
   node-smoke:
     name: Package smoke (Node ${{ matrix.node }})
