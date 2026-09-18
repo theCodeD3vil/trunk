@@ -37,8 +37,61 @@ describe('CLI', () => {
 		runs.push(run);
 
 		expect(run.exitCode).toBe(exitCodes.success);
-		expect(run.stdout).toContain('$ trunk new <name>');
+		expect(run.stdout).toContain('$ trunk docs');
 		expect(run.stderr).toBe('');
+	});
+
+	test('lists only clone, init and docs, with no stack or project-creation flags', async () => {
+		const run = await runBuiltCli(['--help']);
+		runs.push(run);
+
+		const commands = [...run.stdout.matchAll(/^\s*\$ trunk (\w+)/gm)].map(
+			match => match[1],
+		);
+		expect(commands).toEqual(['clone', 'init', 'docs']);
+		for (const removed of [
+			'trunk new',
+			'--pm',
+			'--server',
+			'--caddy',
+			'--remote',
+			'--owner',
+			'--public',
+			'package manager',
+			'Caddy',
+		]) {
+			expect(run.stdout).not.toContain(removed);
+		}
+	});
+
+	test('rejects the removed command and flags', async () => {
+		const removedCommand = await runBuiltCli(['new', 'demo']);
+		runs.push(removedCommand);
+		expect(removedCommand.exitCode).toBe(exitCodes.badUsage);
+		expect(removedCommand.stderr).toContain('unknown command: new');
+
+		for (const flag of [
+			'--pm=npm',
+			'--server',
+			'--no-caddy',
+			'--remote',
+			'--owner=me',
+			'--public',
+		]) {
+			// eslint-disable-next-line no-await-in-loop
+			const run = await runBuiltCli(['clone', 'url', flag]);
+			runs.push(run);
+			expect(run.exitCode, flag).not.toBe(exitCodes.success);
+			expect(run.stdout, flag).toBe('');
+		}
+	});
+
+	test('runs the docs command', async () => {
+		const run = await runBuiltCli(['docs']);
+		runs.push(run);
+
+		// The browser itself is a later phase; the command must at least exist.
+		expect(run.stderr).not.toContain('unknown command');
 	});
 
 	test('reports and generates with the package version', async () => {
@@ -57,18 +110,6 @@ describe('CLI', () => {
 		expect(run.stderr).toBe('');
 	});
 
-	test('asks for flags instead of a form when stdin is a pipe', async () => {
-		// The built CLI runs with stdin ignored, which is exactly the shape that
-		// used to reach Ink and print a React component stack.
-		const run = await runBuiltCli(['new', 'demo']);
-		runs.push(run);
-
-		expect(run.exitCode).toBe(exitCodes.badUsage);
-		expect(run.stderr).toContain('--yes');
-		expect(run.stderr).not.toContain('Raw mode is not supported');
-		expect(run.stderr).not.toContain('component:');
-	});
-
 	test('rejects an unknown command', async () => {
 		const run = await runBuiltCli(['bogus']);
 		runs.push(run);
@@ -77,15 +118,6 @@ describe('CLI', () => {
 		expect(run.stdout).toBe('');
 		expect(run.stderr).toContain('unknown command: bogus');
 		expect(run.stderr).not.toContain('\u001B[');
-	});
-
-	test('rejects a project name GitHub would not accept', async () => {
-		const run = await runBuiltCli(['new', 'not valid/name']);
-		runs.push(run);
-
-		expect(run.exitCode).toBe(exitCodes.badUsage);
-		expect(run.stderr).toContain('not a valid repository name');
-		expect(run.stderr).not.toContain('    at ');
 	});
 
 	test('rejects a remote that names no repository', async () => {
@@ -123,13 +155,14 @@ describe('CLI', () => {
 	});
 
 	test('keeps boolean flags tri-state', () => {
-		expect(parseArguments(['clone', 'url']).flags.server).toBeUndefined();
-		expect(parseArguments(['clone', 'url', '--no-server']).flags.server).toBe(
+		expect(parseArguments(['clone', 'url']).flags.tmux).toBeUndefined();
+		expect(parseArguments(['clone', 'url', '--no-tmux']).flags.tmux).toBe(
 			false,
 		);
 		expect(parseArguments(['clone', 'url', '--copy']).flags.copyIgnored).toBe(
 			true,
 		);
+		expect(parseArguments(['clone', 'url', '--no-mc']).flags.mc).toBe(false);
 	});
 
 	test('rejects native Windows', () => {

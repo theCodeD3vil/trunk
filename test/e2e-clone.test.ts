@@ -88,7 +88,11 @@ describe('trunk clone end to end', () => {
 			'utf8',
 		);
 		expect(config).toContain('# Worktree automation shared by everyone');
-		expect(config).toContain('install = ');
+		// `--yes` defaults: tmux on, no agents, copy-ignored off, mc on.
+		expect(config).toContain("tmux = '''");
+		expect(config).not.toContain('-n Agents');
+		expect(config).not.toContain('copy-ignored');
+		expect(config).toContain('mc = ');
 
 		// Committed, and nothing else came with it.
 		const committed = await git([
@@ -107,6 +111,34 @@ describe('trunk clone end to end', () => {
 
 		const configShow = await wt(['-C', setupWorktree, 'config', 'show']);
 		expect(configShow.toLowerCase()).not.toContain('warning');
+	}, 60_000);
+
+	test('ends by naming the approvals step and wt up, without a smoke test', async () => {
+		const lines: string[] = [];
+		const local = await createFixture('main');
+		try {
+			const outcome = await runClone(
+				[`file://${local.remote}`, 'guided'],
+				flags({yes: true}),
+				local.tools,
+				{
+					...dependencies(local),
+					report(_kind, line) {
+						lines.push(line);
+					},
+				},
+			);
+
+			expect(outcome.code).toBe(exitCodes.success);
+			const reported = lines.join('\n');
+			expect(reported).toContain('next: wt config approvals add');
+			expect(reported).toContain('wt up');
+			expect(reported).not.toContain('smoke');
+			// Trunk never starts a hook: no tmux session appears as a side effect.
+			expect(outcome.message).toContain('set up');
+		} finally {
+			await rm(local.root, {recursive: true, force: true});
+		}
 	}, 60_000);
 
 	test('warns that worktree-path is unset, naming the real identifier', async () => {
@@ -424,15 +456,7 @@ async function createFixture(
 	]);
 
 	await git(['init', '--initial-branch', defaultBranch, source]);
-	await writeFile(
-		join(source, 'package.json'),
-		`${JSON.stringify(
-			{name: 'acme-admin', scripts: {dev: 'next dev'}},
-			undefined,
-			2,
-		)}\n`,
-	);
-	await writeFile(join(source, 'package-lock.json'), '{}\n');
+	await writeFile(join(source, 'README.md'), '# acme-admin\n');
 	if (config) {
 		await mkdir(join(source, '.config'), {recursive: true});
 		await writeFile(join(source, '.config', 'wt.toml'), config);
@@ -491,8 +515,6 @@ async function probeTools(): Promise<ToolProbe> {
 		git: {name: 'git', path: gitPath},
 		wt: {name: 'wt', path: wtPath},
 		tmux: {name: 'tmux'},
-		caddy: {name: 'caddy'},
-		brew: {name: 'brew'},
 		gh: {name: 'gh'},
 		agents: Object.fromEntries(
 			agentIds.map(id => [id, {name: id}]),

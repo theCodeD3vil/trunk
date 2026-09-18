@@ -21,8 +21,6 @@ export type ToolProbe = Readonly<{
 	git: Tool;
 	wt: Tool;
 	tmux: Tool;
-	caddy: Tool;
-	brew: Tool;
 	gh: Tool;
 	agents: Readonly<Record<AgentId, Tool>>;
 }>;
@@ -50,12 +48,11 @@ type ProbeContext = Readonly<{
 /** The wt release trunk's templates were written against. Older only warns. */
 export const minimumWtVersion = Object.freeze({major: 0, minor: 77, patch: 0});
 
-/** Each tool spells its version query differently; brew's is too slow to ask. */
+/** Each tool spells its version query differently. */
 const versionArguments = Object.freeze({
 	git: ['--version'],
 	wt: ['--version'],
 	tmux: ['-V'],
-	caddy: ['version'],
 	gh: ['--version'],
 } satisfies Readonly<Record<string, readonly string[]>>);
 
@@ -69,18 +66,11 @@ export async function probe(options: ProbeOptions = {}): Promise<ToolProbe> {
 	const statPath = options.stat ?? stat;
 	const run = options.run ?? runCommand;
 	const context = {pathValue, accessExecutable, statPath, run};
-	const toolNames = ['git', 'wt', 'tmux', 'caddy', 'brew', 'gh'] as const;
+	const toolNames = ['git', 'wt', 'tmux', 'gh'] as const;
 	const toolEntries = await Promise.all(
 		toolNames.map(
 			async name =>
-				[
-					name,
-					await probeTool(
-						name,
-						versionArguments[name as keyof typeof versionArguments],
-						context,
-					),
-				] as const,
+				[name, await probeTool(name, versionArguments[name], context)] as const,
 		),
 	);
 	const tools = Object.fromEntries(toolEntries) as Record<

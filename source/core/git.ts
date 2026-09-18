@@ -105,6 +105,28 @@ export async function existingDefaultBranch(
 		: undefined;
 }
 
+/**
+ * True when the repository holds no refs at all, which is what a bare repository
+ * that has never received a commit looks like. A repository that only has
+ * remote-tracking refs still counts as having history.
+ */
+export async function isEmptyRepository(
+	gitDirectory: string,
+	options: GitOptions = {},
+): Promise<boolean> {
+	const result = await runGit(
+		[
+			'--git-dir',
+			gitDirectory,
+			'for-each-ref',
+			'--count=1',
+			'--format=%(refname)',
+		],
+		options,
+	);
+	return result.code === 0 && result.stdout.trim() === '';
+}
+
 /** The refspec a bare clone leaves out, which `wt step copy-ignored` needs. */
 export const originFetchRefspec = '+refs/heads/*:refs/remotes/origin/*';
 

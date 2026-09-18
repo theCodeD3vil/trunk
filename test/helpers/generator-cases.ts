@@ -1,47 +1,33 @@
 import type {Settings} from '../../source/core/settings.js';
 import {testSettings} from './settings.js';
 
+/** Representative settings; each name is also the snapshot file it matches. */
 export const generatorCases: ReadonlyArray<
 	readonly [name: string, settings: Settings]
 > = [
-	['npm-full-agents-2', testSettings()],
-	['npm-server-agents-1', testSettings({agents: ['claude'], caddy: false})],
+	// What `--yes` produces.
+	['defaults', testSettings({agents: [], copyIgnored: false})],
+	['copy-and-agents', testSettings()],
 	[
-		'pnpm-subdir-agents-3',
+		'four-agents-no-mc',
 		testSettings({
-			pm: 'pnpm',
-			appDir: 'backend',
-			agents: ['claude', 'opencode', 'antigravity'],
+			agents: ['claude', 'codex', 'opencode', 'antigravity'],
 			copyIgnored: false,
 			mcAlias: false,
 		}),
 	],
+	// Copy-ignored is a start hook, so `up` exists even without a session.
 	[
-		'pnpm-no-server-agents-4',
-		testSettings({
-			pm: 'pnpm',
-			agents: ['claude', 'codex', 'opencode', 'copilot'],
-			server: false,
-			caddy: true,
-		}),
-	],
-	['bun-proxy-agents-0', testSettings({pm: 'bun', agents: []})],
-	[
-		// Guards the tether: `cd <dir> &&` here would end the tethered command and
-		// leave the dev server running loose in the worktree root.
-		'bun-subdir-agents-1',
-		testSettings({pm: 'bun', appDir: 'apps/web', agents: ['claude']}),
+		'copy-without-tmux',
+		testSettings({tmux: false, agents: [], copyIgnored: true}),
 	],
 	[
-		'npm-minimal',
+		'minimal',
 		testSettings({
 			tmux: false,
 			agents: [],
 			copyIgnored: false,
-			server: false,
-			caddy: false,
 			mcAlias: false,
-			scripts: [],
 		}),
 	],
 ];

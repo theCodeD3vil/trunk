@@ -46,6 +46,17 @@ describe('line diff', () => {
 		expect(formatted.length).toBeLessThan(10);
 	});
 
+	test('highlights added and removed lines only when asked', () => {
+		const diff = diffLines('keep\nold\n', 'keep\nnew\n');
+
+		expect(formatDiff(diff)).toEqual(['  keep', '- old', '+ new']);
+		expect(formatDiff(diff, {color: true})).toEqual([
+			'  keep',
+			'\u001B[31m- old\u001B[39m',
+			'\u001B[32m+ new\u001B[39m',
+		]);
+	});
+
 	test('handles a file that was empty before', () => {
 		const diff = diffLines('', 'first\nsecond\n');
 

@@ -9,8 +9,6 @@ import type {Settings} from './settings.js';
 
 export type ValidationPreview = Readonly<{
 	session?: string;
-	port?: number;
-	url?: string;
 }>;
 
 export type ValidationResult = Readonly<{
@@ -143,20 +141,13 @@ function assertExpectedHooks(
 	}
 }
 
+/** The session name the tmux hook will create, read back from its expansion. */
 function extractPreview(records: readonly ExpandedHook[]): ValidationPreview {
 	const tmux = findHook(records, 'pre-start', 'tmux');
-	const server = findHook(records, 'post-start', 'server');
-	const proxy = findHook(records, 'post-start', 'proxy');
 	const prefix = tmux ? assignment(tmux, 'P') : undefined;
 	const branch = tmux ? assignment(tmux, 'B') : undefined;
-	const port = server ? /--port\s+(\d+)/.exec(server)?.[1] : undefined;
-	const host = proxy ? assignment(proxy, 'HOST') : undefined;
 
-	return {
-		session: prefix && branch ? `${prefix}_${branch}` : undefined,
-		port: port ? Number(port) : undefined,
-		url: host ? `http://${host}:8080` : undefined,
-	};
+	return {session: prefix && branch ? `${prefix}_${branch}` : undefined};
 }
 
 function findHook(

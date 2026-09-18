@@ -123,23 +123,34 @@ export function collapseContext(
 	return Object.freeze(output);
 }
 
-/** `+`/`-`/space prefixes, for a terminal without colour. */
-export function formatDiff(diff: Diff, context = 2): readonly string[] {
+/**
+ * `+`/`-`/space prefixes. With `color`, added lines are green and removed lines
+ * red, so what is about to be lost stands out from the context around it.
+ */
+export function formatDiff(
+	diff: Diff,
+	options: Readonly<{context?: number; color?: boolean}> = {},
+): readonly string[] {
+	const {context = 2, color = false} = options;
 	return Object.freeze(
 		collapseContext(diff, context).map(line => {
 			switch (line.kind) {
 				case 'added': {
-					return `+ ${line.text}`;
+					return paint(`+ ${line.text}`, 32, color);
 				}
 
 				case 'removed': {
-					return `- ${line.text}`;
+					return paint(`- ${line.text}`, 31, color);
 				}
 
 				case 'skipped': {
-					return `  … ${line.count} unchanged ${
-						line.count === 1 ? 'line' : 'lines'
-					}`;
+					return paint(
+						`  … ${line.count} unchanged ${
+							line.count === 1 ? 'line' : 'lines'
+						}`,
+						2,
+						color,
+					);
 				}
 
 				default: {
@@ -148,6 +159,16 @@ export function formatDiff(diff: Diff, context = 2): readonly string[] {
 			}
 		}),
 	);
+}
+
+/** Wraps a line in an SGR code, resetting only what it set. */
+function paint(text: string, code: number, enabled: boolean): string {
+	if (!enabled) {
+		return text;
+	}
+
+	const reset = code === 2 ? 22 : 39;
+	return `\u001B[${code}m${text}\u001B[${reset}m`;
 }
 
 function splitLines(value: string): readonly string[] {

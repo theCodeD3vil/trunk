@@ -25,7 +25,7 @@ describe('run journal', () => {
 				[command.executable, ...command.arguments].join(' '),
 			),
 		).toEqual([
-			`/bin/wt -C ${project} remove chore/trunk-setup --no-hooks --yes`,
+			`/bin/wt -C ${project} remove chore/trunk-setup --no-hooks --yes --force`,
 			`/bin/git -C ${project} worktree remove ${project}/main --force`,
 			`rm -rf ${project}`,
 		]);

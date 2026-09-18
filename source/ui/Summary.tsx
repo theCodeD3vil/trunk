@@ -3,9 +3,7 @@
 import {homedir} from 'node:os';
 import React from 'react';
 import {Box, Text, useInput} from 'ink';
-import {developmentCommand, installCommand} from '../core/generate/steps.js';
-import {routeUrl} from '../core/generate/proxy.js';
-import {usesCaddy, type Settings} from '../core/settings.js';
+import type {Settings} from '../core/settings.js';
 
 export type SummaryProperties = Readonly<{
 	folder: string;
@@ -21,15 +19,6 @@ export function summaryRows(
 	settings: Settings,
 	folder: string,
 ): readonly SummaryRow[] {
-	const steps = [
-		settings.tmux ? 'tmux' : undefined,
-		settings.copyIgnored ? 'copy-ignored' : undefined,
-		'install',
-		settings.server ? 'server' : undefined,
-		usesCaddy(settings) ? 'proxy' : undefined,
-		settings.mcAlias ? 'mc' : undefined,
-	].filter((step): step is string => step !== undefined);
-
 	return Object.freeze([
 		Object.freeze({label: 'folder', value: displayPath(folder)}),
 		Object.freeze({
@@ -38,22 +27,18 @@ export function summaryRows(
 				settings.tmux ? `${settings.prefix}_<branch>` : 'off'
 			}`,
 		}),
-		Object.freeze({label: 'install', value: installCommand(settings)}),
-		Object.freeze({
-			label: 'server',
-			value: settings.server
-				? developmentCommand(settings, '<hash of repo+branch>')
-				: 'off',
-		}),
-		Object.freeze({
-			label: 'route',
-			value: usesCaddy(settings) ? routeUrl(settings, '<branch>') : 'off',
-		}),
 		Object.freeze({
 			label: 'agents',
 			value: settings.agents.length > 0 ? settings.agents.join(', ') : 'none',
 		}),
-		Object.freeze({label: 'steps', value: steps.join(' · ')}),
+		Object.freeze({
+			label: 'copy',
+			value: settings.copyIgnored ? 'copy-ignored on start' : 'off',
+		}),
+		Object.freeze({
+			label: 'alias',
+			value: settings.mcAlias ? 'mc' : 'none',
+		}),
 	]);
 }
 

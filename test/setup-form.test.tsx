@@ -13,7 +13,6 @@ const fixed = Object.freeze({
 	trunkVersion: '0.0.0-test',
 	generatedOn: '2026-09-18',
 	repoName: 'acme-admin',
-	hostLabel: 'acme-admin',
 });
 
 afterEach(() => {
@@ -39,6 +38,64 @@ describe('setup form', () => {
 		for (const line of frame.split('\n')) {
 			expect(line.length).toBeLessThanOrEqual(80);
 		}
+	});
+
+	test('shows exactly prefix, tmux, agents, copy-ignored and mc', () => {
+		const view = render(
+			<SetupForm
+				folder="/tmp/acme-admin"
+				options={{fixed, tools: tools()}}
+				onSubmit={noop}
+				onAbort={noop}
+			/>,
+		);
+		const frame = view.lastFrame() ?? '';
+
+		for (const label of [
+			'prefix',
+			'tmux session',
+			'agents',
+			'copy-ignored',
+			'mc alias',
+		]) {
+			expect(frame).toContain(label);
+		}
+
+		for (const gone of ['package manager', 'dev server', 'Caddy', 'install']) {
+			expect(frame).not.toContain(gone);
+		}
+	});
+
+	test('lists only installed agents', () => {
+		const view = render(
+			<SetupForm
+				folder="/tmp/acme-admin"
+				options={{fixed, tools: tools()}}
+				onSubmit={noop}
+				onAbort={noop}
+			/>,
+		);
+		const frame = view.lastFrame() ?? '';
+
+		// `tools()` installs the first two agents only.
+		expect(frame).toContain('[ ] claude');
+		expect(frame).toContain('[ ] codex');
+		for (const missing of agentIds.slice(2)) {
+			expect(frame).not.toContain(missing);
+		}
+	});
+
+	test('leaves the agents field out when none is installed', () => {
+		const view = render(
+			<SetupForm
+				folder="/tmp/acme-admin"
+				options={{fixed, tools: tools(0)}}
+				onSubmit={noop}
+				onAbort={noop}
+			/>,
+		);
+
+		expect(view.lastFrame()).not.toContain('agents');
 	});
 
 	test('routes Ctrl+C through the abort callback', async () => {
@@ -107,7 +164,7 @@ describe('setup form', () => {
 		);
 
 		await tick();
-		for (let index = 0; index < 8; index += 1) {
+		for (let index = 0; index < 5; index += 1) {
 			view.stdin.write('\r');
 			// The active field changes after each key.
 			// eslint-disable-next-line no-await-in-loop
@@ -149,17 +206,15 @@ function AgentLimitFixture({
 	);
 }
 
-function tools(): NonNullable<ResolveOptions['tools']> {
+function tools(installed = 2): ResolveOptions['tools'] {
 	return {
 		tmux: {name: 'tmux', path: '/tools/tmux'},
-		caddy: {name: 'caddy'},
-		brew: {name: 'brew'},
 		agents: Object.fromEntries(
 			agentIds.map((id, index) => [
 				id,
-				index < 2 ? {name: id, path: `/tools/${id}`} : {name: id},
+				index < installed ? {name: id, path: `/tools/${id}`} : {name: id},
 			]),
-		) as NonNullable<ResolveOptions['tools']>['agents'],
+		) as ResolveOptions['tools']['agents'],
 	};
 }
 

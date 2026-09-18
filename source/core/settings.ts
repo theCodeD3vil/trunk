@@ -1,65 +1,35 @@
 /**
  * The complete input to the wt.toml generator. Keeping runtime detection and
  * clocks outside this type makes composition deterministic and easy to test.
+ *
+ * Trunk models only the worktree experience, so these are the five choices a
+ * user makes plus the provenance stamped into the header.
  */
 import {isAgentId, maximumAgents, type AgentId} from './agents.js';
-import type {PackageManager} from './detect.js';
 import {validatePrefix} from './prefix.js';
 
 export type Settings = Readonly<{
 	trunkVersion: string;
 	generatedOn: string;
-	repoName: string;
-	hostLabel: string;
 	prefix: string;
-	pm: PackageManager;
-	appDir?: string;
 	tmux: boolean;
 	agents: readonly AgentId[];
-	editorWindow: true;
 	copyIgnored: boolean;
-	server: boolean;
-	caddy: boolean;
 	mcAlias: boolean;
-	devScript: string;
-	scripts: readonly string[];
-	/**
-	 * Extra paths for `[step.copy-ignored]`. trunk never proposes these; they are
-	 * carried over verbatim when adopting a hand-written config, so a repository
-	 * that already excludes something does not lose it on overwrite.
-	 */
-	copyIgnoredExclude?: readonly string[];
-	/**
-	 * A project created before its remote exists. `remote_repo` renders empty
-	 * without an origin, and every URL-bearing template is built from it, so the
-	 * project name is written out literally instead.
-	 */
-	noRemote?: boolean;
 }>;
 
+/** What `--yes` and an untouched form produce. */
 export const settingsDefaults = Object.freeze({
 	tmux: true,
 	agents: Object.freeze([]) as readonly AgentId[],
-	editorWindow: true,
-	copyIgnored: true,
-	server: true,
-	caddy: true,
+	copyIgnored: false,
 	mcAlias: true,
-	devScript: 'dev',
-	scripts: Object.freeze([]) as readonly string[],
 });
 
 /** Rejects values that cannot be represented safely by the generated config. */
 export function assertSettings(settings: Settings): void {
 	assertSingleLine('trunkVersion', settings.trunkVersion);
 	assertDate(settings.generatedOn);
-	assertSingleLine('repoName', settings.repoName);
-	assertSingleLine('hostLabel', settings.hostLabel);
-	assertSingleLine('devScript', settings.devScript);
-
-	if (settings.hostLabel !== settings.repoName.toLowerCase()) {
-		throw new TypeError('hostLabel must be the lowercase repoName.');
-	}
 
 	const prefix = validatePrefix(settings.prefix);
 	if (!prefix.valid) {
@@ -84,23 +54,6 @@ export function assertSettings(settings: Settings): void {
 			throw new TypeError(`Unknown agent id: ${value}`);
 		}
 	}
-
-	if (settings.appDir) {
-		assertRelativePath(settings.appDir);
-	}
-
-	for (const script of settings.scripts) {
-		assertSingleLine('script name', script);
-	}
-
-	for (const exclude of settings.copyIgnoredExclude ?? []) {
-		assertSingleLine('copy-ignored exclude', exclude);
-	}
-}
-
-/** Caddy has nothing to route when the development server is disabled. */
-export function usesCaddy(settings: Settings): boolean {
-	return settings.server && settings.caddy;
 }
 
 function assertDate(value: string): void {
@@ -120,16 +73,5 @@ function assertDate(value: string): void {
 function assertSingleLine(name: string, value: string): void {
 	if (!value || /[\0\r\n]/.test(value)) {
 		throw new TypeError(`${name} must be a non-empty single line.`);
-	}
-}
-
-function assertRelativePath(value: string): void {
-	assertSingleLine('appDir', value);
-	if (
-		value.startsWith('/') ||
-		value.startsWith('~') ||
-		value.split(/[\\/]/).includes('..')
-	) {
-		throw new TypeError('appDir must be a relative path inside the worktree.');
 	}
 }

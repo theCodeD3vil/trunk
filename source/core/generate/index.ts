@@ -1,19 +1,12 @@
 /** Deterministically composes a complete project `.config/wt.toml`. */
-import {assertSettings, usesCaddy, type Settings} from '../settings.js';
+import {assertSettings, type Settings} from '../settings.js';
 import {generateAliases} from './aliases.js';
 import {generateHeader} from './header.js';
-import {
-	generateList,
-	generateUrlPreStart,
-	proxyRemoveBody,
-	proxyStartBody,
-} from './proxy.js';
-import {generatePostStart} from './steps.js';
-import {generateTmuxPreStart, tmuxRemoveBody} from './tmux.js';
-import {multilineCommand, tomlString} from './toml.js';
+import {tmuxKillBody, tmuxStartBody, tmuxStopBody} from './tmux.js';
+import {inlineCommand, multilineCommand} from './toml.js';
 
 export type GeneratedHook = Readonly<{
-	type: 'pre-start' | 'post-start' | 'pre-remove';
+	type: 'pre-start' | 'pre-remove' | 'post-remove';
 	name: string;
 }>;
 
@@ -22,78 +15,61 @@ export function compose(settings: Settings): string {
 	const sections = [
 		generateHeader(settings),
 		generateAliases(settings),
-		generateTmuxPreStart(settings),
-		generateUrlPreStart(settings),
-		generatePostStart(settings, proxyStartBody(settings)),
+		generatePreStart(settings),
 		generatePreRemove(settings),
-		generateCopyIgnoredStep(settings),
-		generateList(settings),
+		generatePostRemove(settings),
 	].filter(Boolean);
 
 	return `${sections.join('\n\n')}\n`;
 }
 
+/** The hooks a config for these settings must expose, for validation. */
 export function expectedHooks(settings: Settings): readonly GeneratedHook[] {
 	const hooks: GeneratedHook[] = [];
-	if (settings.tmux) {
-		hooks.push({type: 'pre-start', name: 'tmux'});
-	}
-
-	if (usesCaddy(settings)) {
-		hooks.push({type: 'pre-start', name: 'url'});
-	}
-
 	if (settings.copyIgnored) {
-		hooks.push({type: 'post-start', name: 'copy'});
-	}
-
-	hooks.push({type: 'post-start', name: 'install'});
-	if (settings.server) {
-		hooks.push({type: 'post-start', name: 'server'});
-	}
-
-	if (usesCaddy(settings)) {
-		hooks.push({type: 'post-start', name: 'proxy'});
+		hooks.push({type: 'pre-start', name: 'copy'});
 	}
 
 	if (settings.tmux) {
-		hooks.push({type: 'pre-remove', name: 'tmux'});
-	}
-
-	if (usesCaddy(settings)) {
-		hooks.push({type: 'pre-remove', name: 'proxy'});
+		hooks.push(
+			{type: 'pre-start', name: 'tmux'},
+			{type: 'pre-remove', name: 'tmux'},
+			{type: 'post-remove', name: 'tmux'},
+		);
 	}
 
 	return Object.freeze(hooks.map(hook => Object.freeze(hook)));
 }
 
 /**
- * Paths a repository already excluded from `wt step copy-ignored`. Only ever
- * present when adopting a config that had them, so an empty list emits nothing.
+ * One `[[pre-start]]` block per step: Worktrunk runs the blocks in order and
+ * waits for each, so files are copied before the tmux session opens on them.
  */
-function generateCopyIgnoredStep(settings: Settings): string | undefined {
-	const excludes = settings.copyIgnoredExclude ?? [];
-	if (!settings.copyIgnored || excludes.length === 0) {
-		return undefined;
+function generatePreStart(settings: Settings): string | undefined {
+	const blocks: string[] = [];
+	if (settings.copyIgnored) {
+		blocks.push(
+			`[[pre-start]]\ncopy = ${inlineCommand('wt step copy-ignored')}`,
+		);
 	}
 
-	const values = excludes.map(value => tomlString(value)).join(', ');
-	return `[step.copy-ignored]\nexclude = [${values}]`;
+	if (settings.tmux) {
+		blocks.push(
+			`[[pre-start]]\ntmux = ${multilineCommand(tmuxStartBody(settings))}`,
+		);
+	}
+
+	return blocks.length > 0 ? blocks.join('\n\n') : undefined;
 }
 
 function generatePreRemove(settings: Settings): string | undefined {
-	const commands: string[] = [];
-	const tmux = tmuxRemoveBody(settings);
-	if (tmux) {
-		commands.push(`tmux = ${multilineCommand(tmux)}`);
-	}
+	return settings.tmux
+		? `[pre-remove]\ntmux = ${multilineCommand(tmuxStopBody(settings))}`
+		: undefined;
+}
 
-	const proxy = proxyRemoveBody(settings);
-	if (proxy) {
-		commands.push(`proxy = ${multilineCommand(proxy)}`);
-	}
-
-	return commands.length > 0
-		? `[pre-remove]\n${commands.join('\n')}`
+function generatePostRemove(settings: Settings): string | undefined {
+	return settings.tmux
+		? `[post-remove]\ntmux = ${multilineCommand(tmuxKillBody(settings))}`
 		: undefined;
 }

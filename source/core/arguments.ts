@@ -12,30 +12,19 @@ export const helpText = `
 	Usage
 	  $ trunk clone <url> [dir]   set up a bare-layout project from a remote
 	  $ trunk init [dir]          set up an existing bare-layout project
-	  $ trunk new <name>          create a new project (optionally on GitHub)
+	  $ trunk docs                browse the offline documentation
 
 	Options
-	  --yes                 accept detected defaults, no form (needed without a TTY)
+	  --yes                 accept the defaults, no form (needed without a TTY)
 	  --prefix <name>       tmux session prefix
-	  --pm <npm|pnpm|bun>   package manager
-	  --agents <a,b>        up to 4 of claude,codex,opencode,copilot,antigravity,pi
-	  --server/--no-server  dev server step
-	  --caddy/--no-caddy    Caddy route step
+	  --agents <a,b>        up to 4 installed agents of claude,codex,opencode,copilot,antigravity,pi
 	  --tmux/--no-tmux      tmux session hooks
 	  --copy/--no-copy      wt step copy-ignored
 	  --mc/--no-mc          \`wt mc\` alias
 	  --direct              commit on the current branch instead of chore/trunk-setup
-
-	Options for \`trunk new\`
-	  --remote/--no-remote  create the GitHub repository too
-	  --owner <name>        account or organisation that owns it
-	  --public              create it public instead of private
 `;
 
-/**
- * Every flag is declared here even when a later phase is what reads it, so that
- * an unknown flag is always an error rather than silently ignored.
- */
+/** Declaring every flag makes an unknown one an error rather than a no-op. */
 export const flagDefinitions = {
 	yes: {
 		type: 'boolean',
@@ -43,17 +32,8 @@ export const flagDefinitions = {
 	prefix: {
 		type: 'string',
 	},
-	pm: {
-		type: 'string',
-	},
 	agents: {
 		type: 'string',
-	},
-	server: {
-		type: 'boolean',
-	},
-	caddy: {
-		type: 'boolean',
 	},
 	tmux: {
 		type: 'boolean',
@@ -67,16 +47,6 @@ export const flagDefinitions = {
 		type: 'boolean',
 	},
 	direct: {
-		type: 'boolean',
-	},
-	// `trunk new` only.
-	remote: {
-		type: 'boolean',
-	},
-	owner: {
-		type: 'string',
-	},
-	public: {
 		type: 'boolean',
 	},
 } as const;
