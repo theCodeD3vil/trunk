@@ -8,7 +8,14 @@
  * journal before acting, so an interrupted run can describe or undo precisely
  * what exists.
  */
-import {mkdir, readFile, readdir, realpath, writeFile} from 'node:fs/promises';
+import {
+	mkdir,
+	readFile,
+	readdir,
+	realpath,
+	stat,
+	writeFile,
+} from 'node:fs/promises';
 import {basename, join, resolve as resolvePath} from 'node:path';
 import process from 'node:process';
 import type {CliFlags} from '../core/arguments.js';
@@ -675,7 +682,7 @@ async function interrupted(
 		: 'keep';
 
 	if (choice === 'rollback') {
-		await rollback(context, undo);
+		await rollback(context, projectDirectory, undo);
 		return userAborted(`rolled back ${projectDirectory}`);
 	}
 
@@ -692,6 +699,7 @@ async function interrupted(
 
 async function rollback(
 	context: Context,
+	projectDirectory: string,
 	commands: readonly UndoCommand[],
 ): Promise<void> {
 	for (const command of commands) {
@@ -707,6 +715,30 @@ async function rollback(
 			}`,
 		);
 	}
+
+	await reportWorktrunkTrash(context, projectDirectory);
+}
+
+/**
+ * `wt remove` keeps a copy of what it removed, which is a good safety net and a
+ * bad surprise. When the folder survives the rollback, say the copy is there and
+ * whose it is, rather than deleting someone else's undo behind their back.
+ */
+async function reportWorktrunkTrash(
+	context: Context,
+	projectDirectory: string,
+): Promise<void> {
+	const trash = join(projectDirectory, '.git', 'wt', 'trash');
+	try {
+		await stat(trash);
+	} catch {
+		return;
+	}
+
+	context.report(
+		'info',
+		`worktrunk kept a copy of the removed worktree in ${trash}; delete it once you are sure you do not need it`,
+	);
 }
 
 function describeUndo(command: UndoCommand): string {

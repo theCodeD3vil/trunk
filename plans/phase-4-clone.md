@@ -100,7 +100,9 @@ describe or undo precisely what exists.
 
     - keep → print `resume: trunk init ./acme-admin` plus the manual undo commands;
     - rollback → remove in reverse order: `wt remove chore/trunk-setup --no-hooks --yes`,
-      `git worktree remove`, and finally the project folder **only if trunk created it**;
+      `git worktree remove`, and finally the project folder **only if trunk created it**.
+      `wt remove` moves what it removed to `.git/wt/trash` and has no flag to skip that, so
+      when the folder survives, report where the copy is instead of deleting it;
     - no TTY → always keep, print both command sets (D19).
 
 ## Acceptance criteria
@@ -115,8 +117,9 @@ describe or undo precisely what exists.
 - [x] With no TTY, the `.git.<branch>` warning text appears and includes the real identifier.
 - [x] Simulated validation failure leaves no commit, and the keep/rollback prompt lists
       exactly what the journal recorded.
-- [ ] Rollback removes the setup worktree and branch, and leaves no `.git/wt/trash` surprises
-      for a folder trunk did not create.
+- [x] Rollback removes the setup worktree and branch, and removes the project folder only
+      when trunk created it. `wt remove` keeps its own copy of the removed worktree in
+      `.git/wt/trash`; trunk reports where that copy is rather than deleting the user's undo.
 
 ## Risks & notes
 

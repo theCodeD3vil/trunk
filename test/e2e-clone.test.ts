@@ -8,13 +8,17 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import process from 'node:process';
 import {afterAll, beforeAll, describe, expect, test} from 'bun:test';
-import {runClone} from '../source/commands/clone.js';
+import {runClone, type ClonePrompts} from '../source/commands/clone.js';
 import type {CliFlags} from '../source/core/arguments.js';
 import {agentIds} from '../source/core/agents.js';
 import {originFetchRefspec} from '../source/core/git.js';
 import {resolveExecutable, type ToolProbe} from '../source/core/env.js';
 import {runCommand, type CommandOptions} from '../source/core/process.js';
 import {exitCodes} from '../source/core/result.js';
+import {resolve} from '../source/core/resolve.js';
+import type {collectSettings} from '../source/ui/SetupForm.js';
+
+type CollectSettings = typeof collectSettings;
 
 type Fixture = Readonly<{
 	root: string;
@@ -47,7 +51,7 @@ describe('trunk clone end to end', () => {
 
 		const project = join(fixture.workingDirectory, 'acme-admin');
 		const gitDirectory = join(project, '.git');
-		expect(await stat(gitDirectory)).toBeDefined();
+		expect(await exists(gitDirectory)).toBe(true);
 
 		// The refspec a bare clone omits, without which origin/* stays empty.
 		const refspec = await git([
@@ -218,6 +222,114 @@ describe('trunk clone end to end', () => {
 		}
 	}, 60_000);
 
+	test('rolls back the worktree, the branch and the folder it created', async () => {
+		const local = await createFixture('main');
+		try {
+			const outcome = await runClone(
+				[`file://${local.remote}`, 'discarded'],
+				flags(),
+				local.tools,
+				{
+					...dependencies(local),
+					interactive: true,
+					prompts: decliningPrompts('rollback'),
+					collect: acceptDefaults,
+				},
+			);
+
+			expect(outcome.code).toBe(exitCodes.userAborted);
+
+			const project = join(local.workingDirectory, 'discarded');
+			// Trunk created the folder, so rolling back removes all of it.
+			expect(await exists(project)).toBe(false);
+		} finally {
+			await rm(local.root, {recursive: true, force: true});
+		}
+	}, 60_000);
+
+	test('rolling back leaves a folder trunk did not create', async () => {
+		const lines: string[] = [];
+		const local = await createFixture('main');
+		const project = join(local.workingDirectory, 'preexisting');
+		await mkdir(project, {recursive: true});
+		try {
+			const outcome = await runClone(
+				[`file://${local.remote}`, 'preexisting'],
+				flags(),
+				local.tools,
+				{
+					...dependencies(local),
+					interactive: true,
+					prompts: decliningPrompts('rollback'),
+					collect: acceptDefaults,
+					report(_kind, line) {
+						lines.push(line);
+					},
+				},
+			);
+
+			const reported = lines.join('\n');
+
+			expect(outcome.code).toBe(exitCodes.userAborted);
+
+			// The folder was the user's, so only what trunk put inside it goes.
+			expect(await exists(project)).toBe(true);
+			const worktrees = await git([
+				'--git-dir',
+				join(project, '.git'),
+				'worktree',
+				'list',
+				'--porcelain',
+			]);
+			expect(worktrees).not.toContain('chore-trunk-setup');
+			const branches = await git([
+				'--git-dir',
+				join(project, '.git'),
+				'branch',
+				'--list',
+				'chore/trunk-setup',
+			]);
+			expect(branches.trim()).toBe('');
+
+			// Worktrunk keeps its own copy of what it removed. Trunk does not
+			// delete someone else's undo; it says where the copy is.
+			expect(reported).toContain('worktrunk kept a copy');
+			expect(reported).toContain(join(project, '.git', 'wt', 'trash'));
+		} finally {
+			await rm(local.root, {recursive: true, force: true});
+		}
+	}, 60_000);
+
+	test('keeping an interrupted run prints how to resume and how to undo', async () => {
+		const lines: string[] = [];
+		const local = await createFixture('main');
+		try {
+			const outcome = await runClone(
+				[`file://${local.remote}`, 'kept'],
+				flags(),
+				local.tools,
+				{
+					...dependencies(local),
+					interactive: true,
+					prompts: decliningPrompts('keep'),
+					collect: acceptDefaults,
+					report(_kind, line) {
+						lines.push(line);
+					},
+				},
+			);
+
+			expect(outcome.code).toBe(exitCodes.operationFailed);
+
+			const reported = lines.join('\n');
+			expect(reported).toContain('resume: trunk init ./kept');
+			expect(reported).toContain('remove chore/trunk-setup --no-hooks --yes');
+			expect(await exists(join(local.workingDirectory, 'kept'))).toBe(true);
+		} finally {
+			await rm(local.root, {recursive: true, force: true});
+		}
+	}, 60_000);
+
 	test('keeps an existing wt.toml byte for byte under --yes', async () => {
 		const local = await createFixture('main', existing);
 		try {
@@ -239,6 +351,31 @@ describe('trunk clone end to end', () => {
 		}
 	}, 60_000);
 });
+
+/**
+ * Declines the commit, which is the realistic way a run reaches the interrupted
+ * step with a working wt, then answers the keep-or-rollback question.
+ */
+function decliningPrompts(answer: 'keep' | 'rollback'): ClonePrompts {
+	return {
+		async choose(question) {
+			return question.includes('roll back') ? answer : 'keep';
+		},
+		async confirm(question) {
+			return !question.includes('commit');
+		},
+	};
+}
+
+/** Stands in for the form: takes the resolved defaults without asking. */
+const acceptDefaults: CollectSettings = async ({resolveOptions}) => {
+	const resolution = resolve({...resolveOptions, acceptDefaults: true});
+	if (resolution.kind !== 'complete') {
+		throw new Error('Expected the defaults to resolve completely.');
+	}
+
+	return {kind: 'settings', settings: resolution.settings};
+};
 
 const existing = '# hand written\n[aliases]\nup = "echo up"\n';
 
@@ -360,6 +497,16 @@ async function probeTools(): Promise<ToolProbe> {
 			agentIds.map(id => [id, {name: id}]),
 		) as ToolProbe['agents'],
 	};
+}
+
+/** Present or not, without turning a missing path into a thrown test failure. */
+async function exists(path: string): Promise<boolean> {
+	try {
+		await stat(path);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 async function git(arguments_: readonly string[]): Promise<string> {
