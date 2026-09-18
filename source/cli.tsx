@@ -56,7 +56,9 @@ async function dispatch(): Promise<Outcome> {
 		}
 
 		case 'init': {
-			return runInit(rest, cli.flags, tools!);
+			return runInit(rest, cli.flags, tools!, {
+				invocation: {executable: 'trunk', arguments: process.argv.slice(2)},
+			});
 		}
 
 		case 'new': {

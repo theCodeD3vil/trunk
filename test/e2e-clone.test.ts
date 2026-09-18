@@ -8,7 +8,8 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import process from 'node:process';
 import {afterAll, beforeAll, describe, expect, test} from 'bun:test';
-import {runClone, type ClonePrompts} from '../source/commands/clone.js';
+import {runClone} from '../source/commands/clone.js';
+import type {SetupPrompts} from '../source/core/pipeline.js';
 import type {CliFlags} from '../source/core/arguments.js';
 import {agentIds} from '../source/core/agents.js';
 import {originFetchRefspec} from '../source/core/git.js';
@@ -356,7 +357,7 @@ describe('trunk clone end to end', () => {
  * Declines the commit, which is the realistic way a run reaches the interrupted
  * step with a working wt, then answers the keep-or-rollback question.
  */
-function decliningPrompts(answer: 'keep' | 'rollback'): ClonePrompts {
+function decliningPrompts(answer: 'keep' | 'rollback'): SetupPrompts {
 	return {
 		async choose(question) {
 			return question.includes('roll back') ? answer : 'keep';

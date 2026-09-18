@@ -84,17 +84,17 @@ test/adopt.test.ts, test/init.test.ts
 
 ## Acceptance criteria
 
-- [ ] `trunk init` inside `<proj>/main`, `<proj>/.git` and `<proj>` all resolve to the same
+- [x] `trunk init` inside `<proj>/main`, `<proj>/.git` and `<proj>` all resolve to the same
       project root.
-- [ ] A plain clone exits `3`, prints the recipe with real paths, and flags uncommitted work.
+- [x] A plain clone exits `3`, prints the recipe with real paths, and flags uncommitted work.
 - [ ] Adoption of the real acme-admin `wt.toml` recovers: prefix `acme`, npm,
       server on, caddy on, copy-ignored on, mc on, agents `claude opencode`, and the
       `.next/` exclude.
-- [ ] `--yes` on a repo with an existing `wt.toml` leaves it byte-identical.
+- [x] `--yes` on a repo with an existing `wt.toml` leaves it byte-identical.
 - [ ] Overwrite shows a diff and only writes after confirmation.
 - [ ] A prefix change offers renames, and after accepting, `tmux ls` shows the new names
       (tested on an isolated socket with `tmux -L trunk-test`).
-- [ ] A missing fetch refspec is repaired and reported.
+- [x] A missing fetch refspec is repaired and reported.
 
 ## Risks & notes
 

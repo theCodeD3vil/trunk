@@ -10,7 +10,7 @@ import {
 } from './proxy.js';
 import {generatePostStart} from './steps.js';
 import {generateTmuxPreStart, tmuxRemoveBody} from './tmux.js';
-import {multilineCommand} from './toml.js';
+import {multilineCommand, tomlString} from './toml.js';
 
 export type GeneratedHook = Readonly<{
 	type: 'pre-start' | 'post-start' | 'pre-remove';
@@ -26,6 +26,7 @@ export function compose(settings: Settings): string {
 		generateUrlPreStart(settings),
 		generatePostStart(settings, proxyStartBody(settings)),
 		generatePreRemove(settings),
+		generateCopyIgnoredStep(settings),
 		generateList(settings),
 	].filter(Boolean);
 
@@ -64,6 +65,20 @@ export function expectedHooks(settings: Settings): readonly GeneratedHook[] {
 	}
 
 	return Object.freeze(hooks.map(hook => Object.freeze(hook)));
+}
+
+/**
+ * Paths a repository already excluded from `wt step copy-ignored`. Only ever
+ * present when adopting a config that had them, so an empty list emits nothing.
+ */
+function generateCopyIgnoredStep(settings: Settings): string | undefined {
+	const excludes = settings.copyIgnoredExclude ?? [];
+	if (!settings.copyIgnored || excludes.length === 0) {
+		return undefined;
+	}
+
+	const values = excludes.map(value => tomlString(value)).join(', ');
+	return `[step.copy-ignored]\nexclude = [${values}]`;
 }
 
 function generatePreRemove(settings: Settings): string | undefined {

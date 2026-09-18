@@ -48,7 +48,7 @@ describe('CLI', () => {
 	});
 
 	test('runs the commands still stubbed without a stack trace', async () => {
-		const run = await runBuiltCli(['init']);
+		const run = await runBuiltCli(['new', 'example']);
 		runs.push(run);
 
 		expect(run.exitCode).toBe(exitCodes.badUsage);

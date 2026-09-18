@@ -23,6 +23,12 @@ export type Settings = Readonly<{
 	mcAlias: boolean;
 	devScript: string;
 	scripts: readonly string[];
+	/**
+	 * Extra paths for `[step.copy-ignored]`. trunk never proposes these; they are
+	 * carried over verbatim when adopting a hand-written config, so a repository
+	 * that already excludes something does not lose it on overwrite.
+	 */
+	copyIgnoredExclude?: readonly string[];
 }>;
 
 export const settingsDefaults = Object.freeze({
@@ -79,6 +85,10 @@ export function assertSettings(settings: Settings): void {
 
 	for (const script of settings.scripts) {
 		assertSingleLine('script name', script);
+	}
+
+	for (const exclude of settings.copyIgnoredExclude ?? []) {
+		assertSingleLine('copy-ignored exclude', exclude);
 	}
 }
 
