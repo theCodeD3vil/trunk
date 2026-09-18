@@ -27,9 +27,9 @@
 		"node": ">=20"
 	},
 	"scripts": {
-		"build": "node scripts/prepare-build.mjs && tsc",
-		"dev": "node scripts/prepare-build.mjs && tsc --watch",
-		"test": "prettier --check . && xo && bun test",
+		"build": "node scripts/stamp-version.mjs && rm -rf dist && tsc",
+		"dev": "node scripts/stamp-version.mjs && tsc --watch",
+		"test": "node scripts/stamp-version.mjs && prettier --check . && xo && bun test",
 		"prepack": "bun run build",
 		"release": "np"
 	},
