@@ -20,3 +20,7 @@ export function succeed(message?: string): Outcome {
 export function badUsage(message: string): Outcome {
 	return {code: exitCodes.badUsage, message};
 }
+
+export function unsupportedEnvironment(message: string): Outcome {
+	return {code: exitCodes.unsupportedEnvironment, message};
+}

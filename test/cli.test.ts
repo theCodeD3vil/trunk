@@ -59,6 +59,20 @@ describe('CLI', () => {
 		expect(run.stderr).not.toContain('    at ');
 	});
 
+	test('exits 3 with the install hint when required tools are missing', async () => {
+		const {cliPath} = await build;
+		const run = await runCli(
+			cliPath,
+			['clone', 'https://example.com/repository.git'],
+			{environment: Object.fromEntries([['PATH', '']])},
+		);
+		runs.push(run);
+
+		expect(run.exitCode).toBe(exitCodes.unsupportedEnvironment);
+		expect(run.stderr).toContain('Missing required tools: git, wt');
+		expect(run.stderr).toContain('https://worktrunk.dev');
+	});
+
 	test('keeps boolean flags tri-state', () => {
 		expect(parseArguments(['clone', 'url']).flags.server).toBeUndefined();
 		expect(parseArguments(['clone', 'url', '--no-server']).flags.server).toBe(

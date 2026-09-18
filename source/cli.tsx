@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 import process from 'node:process';
 import {parseArguments} from './core/arguments.js';
-import {reportOutcome} from './core/log.js';
+import {
+	checkRequiredTools,
+	probe,
+	wtVersionWarning,
+	type ToolProbe,
+} from './core/env.js';
+import {reportOutcome, step} from './core/log.js';
 import {guardPlatform} from './core/platform.js';
 import {badUsage, succeed, type Outcome} from './core/result.js';
 import {runClone} from './commands/clone.js';
@@ -10,25 +16,38 @@ import {runNew} from './commands/new.js';
 
 const cli = parseArguments();
 
-function dispatch(): Outcome {
+async function dispatch(): Promise<Outcome> {
 	const unsupportedPlatform = guardPlatform();
 	if (unsupportedPlatform) {
 		return unsupportedPlatform;
 	}
 
 	const [command, ...rest] = cli.input;
+	let tools: ToolProbe | undefined;
+	if (command === 'clone' || command === 'init' || command === 'new') {
+		tools = await probe();
+		const missingTools = checkRequiredTools(tools);
+		if (missingTools) {
+			return missingTools;
+		}
+
+		const versionWarning = wtVersionWarning(tools.wt.version);
+		if (versionWarning) {
+			step('warning', versionWarning);
+		}
+	}
 
 	switch (command) {
 		case 'clone': {
-			return runClone(rest, cli.flags);
+			return runClone(rest, cli.flags, tools!);
 		}
 
 		case 'init': {
-			return runInit(rest, cli.flags);
+			return runInit(rest, cli.flags, tools!);
 		}
 
 		case 'new': {
-			return runNew(rest, cli.flags);
+			return runNew(rest, cli.flags, tools!);
 		}
 
 		case undefined: {
@@ -44,6 +63,6 @@ function dispatch(): Outcome {
 	}
 }
 
-const outcome = dispatch();
+const outcome = await dispatch();
 reportOutcome(outcome);
 process.exit(outcome.code);

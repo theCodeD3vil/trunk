@@ -113,16 +113,16 @@ test/prefix.test.ts, test/repo.test.ts, test/detect.test.ts
 
 ## Acceptance criteria
 
-- [ ] `probe()` on this machine finds git, wt, tmux, caddy, brew, gh and all six agents, and
+- [x] `probe()` on this machine finds git, wt, tmux, caddy, brew, gh and all six agents, and
       reports `antigravity → agy`.
-- [ ] Missing `wt` exits `3` with an install hint; missing `tmux` or `caddy` does not fail.
-- [ ] `initials()` matches every verified output in step 9 (table-driven test).
-- [ ] `randomWord()` never returns a reserved word, and is stable under a seeded RNG in tests.
+- [x] Missing `wt` exits `3` with an install hint; missing `tmux` or `caddy` does not fail.
+- [x] `initials()` matches every verified output in step 9 (table-driven test).
+- [x] `randomWord()` never returns a reserved word, and is stable under a seeded RNG in tests.
 - [ ] Remote parsing handles SSH aliases, HTTPS, and `.git` suffixes; `identifier` matches
       `wt config show` for djulah-admin in the end-to-end test.
-- [ ] Layout detection distinguishes `<proj>/.git` (bare) from a plain clone and from a
+- [x] Layout detection distinguishes `<proj>/.git` (bare) from a plain clone and from a
       linked worktree, using fixtures created by `git init` in temp dirs.
-- [ ] Package-manager detection returns the right answer for fixtures covering npm, pnpm,
+- [x] Package-manager detection returns the right answer for fixtures covering npm, pnpm,
       bun, both-lockfiles, subdirectory app, and no lockfile.
 
 ## Risks & notes

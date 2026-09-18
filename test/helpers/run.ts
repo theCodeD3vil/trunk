@@ -1,7 +1,14 @@
 import {execFile, spawn} from 'node:child_process';
-import {copyFile, mkdir, mkdtemp, rm, symlink} from 'node:fs/promises';
+import {
+	copyFile,
+	mkdir,
+	mkdtemp,
+	rm,
+	symlink,
+	writeFile,
+} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {dirname, join} from 'node:path';
+import {delimiter, dirname, join} from 'node:path';
 import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 import {promisify} from 'node:util';
@@ -24,6 +31,10 @@ export type CliRun = {
 	environment: Readonly<Record<string, string>>;
 	cleanup: () => Promise<void>;
 };
+
+export type CliRunOptions = Readonly<{
+	environment?: Readonly<Record<string, string>>;
+}>;
 
 export async function buildCli(): Promise<CliBuild> {
 	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'trunk-build-'));
@@ -71,28 +82,48 @@ export async function buildCli(): Promise<CliBuild> {
 export async function runCli(
 	cliPath: string,
 	arguments_: readonly string[] = [],
+	options: CliRunOptions = {},
 ): Promise<CliRun> {
 	const temporaryDirectory = await mkdtemp(join(tmpdir(), 'trunk-test-'));
 	const workingDirectory = join(temporaryDirectory, 'project');
 	const homeDirectory = join(temporaryDirectory, 'home');
 	const temporaryFiles = join(temporaryDirectory, 'tmp');
+	const toolsDirectory = join(temporaryDirectory, 'tools');
 	const configPath = join(temporaryDirectory, 'config', 'worktrunk.toml');
 
 	await Promise.all([
 		mkdir(workingDirectory),
 		mkdir(homeDirectory),
 		mkdir(temporaryFiles),
+		mkdir(toolsDirectory),
 		mkdir(dirname(configPath)),
+	]);
+	await Promise.all([
+		writeFile(
+			join(toolsDirectory, 'git'),
+			'#!/bin/sh\nprintf "git version 2.42.0\\n"\n',
+			{
+				mode: 0o755,
+			},
+		),
+		writeFile(
+			join(toolsDirectory, 'wt'),
+			'#!/bin/sh\nprintf "wt v0.77.0\\n"\n',
+			{
+				mode: 0o755,
+			},
+		),
 	]);
 
 	const environment = Object.fromEntries([
 		['HOME', homeDirectory],
 		['NO_COLOR', '1'],
-		['PATH', process.env['PATH'] ?? ''],
+		['PATH', [toolsDirectory, process.env['PATH'] ?? ''].join(delimiter)],
 		['TERM', 'dumb'],
 		['TMPDIR', temporaryFiles],
 		['WORKTRUNK_CONFIG_PATH', configPath],
 		['XDG_CONFIG_HOME', join(homeDirectory, '.config')],
+		...Object.entries(options.environment ?? {}),
 	]);
 	const child = spawn(process.execPath, [cliPath, ...arguments_], {
 		cwd: workingDirectory,
