@@ -34,15 +34,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install ShellCheck on Linux
+      # The generated hook bodies are checked with ShellCheck, and the session
+      # rename tests drive a real tmux on an isolated socket. Both tests assert
+      # the tool exists rather than skipping, so both have to be installed.
+      - name: Install ShellCheck and tmux on Linux
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes shellcheck
+          sudo apt-get install --yes shellcheck tmux
 
-      - name: Install ShellCheck on macOS
+      - name: Install ShellCheck and tmux on macOS
         if: runner.os == 'macOS'
-        run: brew install shellcheck
+        run: brew install shellcheck tmux
 
       - name: Install Worktrunk 0.77.0
         shell: bash
