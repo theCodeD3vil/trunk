@@ -184,6 +184,50 @@ export async function addWorktree(
 	return runGit(['--git-dir', gitDirectory, ...arguments_], options);
 }
 
+export type WorktreeEntry = Readonly<{path: string; branch?: string}>;
+
+/**
+ * Every worktree with the branch it holds. Finding a worktree by its branch is
+ * the only reliable way to know where wt put one, since wt may place it beside
+ * the git directory rather than where trunk proposed.
+ */
+export async function listWorktreeEntries(
+	gitDirectory: string,
+	options: GitOptions = {},
+): Promise<readonly WorktreeEntry[]> {
+	const result = await runGit(
+		['--git-dir', gitDirectory, 'worktree', 'list', '--porcelain'],
+		options,
+	);
+	if (result.code !== 0) {
+		return Object.freeze([]);
+	}
+
+	const entries: WorktreeEntry[] = [];
+	let path: string | undefined;
+	let branch: string | undefined;
+	const flush = () => {
+		if (path) {
+			entries.push(Object.freeze({path, branch}));
+		}
+
+		path = undefined;
+		branch = undefined;
+	};
+
+	for (const line of result.stdout.split(/\r?\n/)) {
+		if (line.startsWith('worktree ')) {
+			flush();
+			path = line.slice('worktree '.length).trim();
+		} else if (line.startsWith('branch refs/heads/')) {
+			branch = line.slice('branch refs/heads/'.length).trim();
+		}
+	}
+
+	flush();
+	return Object.freeze(entries);
+}
+
 /** Absolute worktree paths, used to check where wt actually put one. */
 export async function listWorktrees(
 	gitDirectory: string,

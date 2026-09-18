@@ -22,6 +22,7 @@ import {collectSettings} from '../ui/SetupForm.js';
 import type {CliFlags} from './arguments.js';
 import {detectPackageManager} from './detect.js';
 import type {ToolProbe} from './env.js';
+import {diffLines, formatDiff} from './diff.js';
 import {compose} from './generate/index.js';
 import {
 	canOpenPullRequest,
@@ -32,7 +33,7 @@ import {
 import {
 	addWorktree,
 	commitPath,
-	listWorktrees,
+	listWorktreeEntries,
 	type GitOptions,
 } from './git.js';
 import {
@@ -134,6 +135,12 @@ export async function configureProject(
 		/** Values read back out of a config that already exists. */
 		adopted?: Partial<SetupValues>;
 		copyIgnoredExclude?: readonly string[];
+		/**
+		 * Runs once the settings are known and before anything is written, for
+		 * work that depends on what the user chose — `init` uses it to offer the
+		 * tmux session renames a prefix change needs.
+		 */
+		onSettings?: (settings: Settings) => Promise<void>;
 	}>,
 ): Promise<Outcome> {
 	const {
@@ -190,15 +197,51 @@ export async function configureProject(
 			: collected.outcome;
 	}
 
+	const settings = project.copyIgnoredExclude
+		? {...collected.settings, copyIgnoredExclude: project.copyIgnoredExclude}
+		: collected.settings;
+	await project.onSettings?.(settings);
+
 	return setUpBranch(context, {
 		remote,
 		projectDirectory,
 		gitDirectory,
 		defaultWorktree,
-		settings: project.copyIgnoredExclude
-			? {...collected.settings, copyIgnoredExclude: project.copyIgnoredExclude}
-			: collected.settings,
+		settings,
+		replacing: existing,
 	});
+}
+
+/**
+ * Shows what overwriting would change and asks. Without a terminal there is
+ * nobody to ask, and the run only reaches here because a flag already said to
+ * overwrite, so it proceeds and prints the diff for the log.
+ */
+async function confirmOverwrite(
+	context: SetupContext,
+	existing: string,
+	settings: Settings,
+): Promise<boolean> {
+	const diff = diffLines(existing, compose(settings));
+	if (diff.unchanged) {
+		context.report('info', `${configPath} is already up to date`);
+		return true;
+	}
+
+	context.report(
+		'info',
+		`${configPath} changes: ${diff.added} added, ${diff.removed} removed`,
+	);
+	for (const line of formatDiff(diff)) {
+		context.report('info', line);
+	}
+
+	if (!context.interactive) {
+		return true;
+	}
+
+	const answer = await context.prompts?.confirm('write this config?');
+	return answer ?? true;
 }
 
 /**
@@ -214,6 +257,12 @@ export async function setUpBranch(
 		gitDirectory: string;
 		defaultWorktree: string;
 		settings: Settings;
+		/**
+		 * The config the repository has now. It lives in the default worktree,
+		 * not in the freshly created setup worktree, so it is passed in rather
+		 * than read from where the new file is about to go.
+		 */
+		replacing?: string;
 	}>,
 ): Promise<Outcome> {
 	const {remote, projectDirectory, gitDirectory, defaultWorktree, settings} =
@@ -253,6 +302,16 @@ export async function setUpBranch(
 		if (worktree !== target) {
 			context.journal.relocate(target, worktree);
 			warnAboutWorktreePath(context, remote, worktree);
+		}
+	}
+
+	// Anything trunk cannot model is lost here, so the user sees what changes
+	// before it is written, and can still say no.
+	const replacing = plan.replacing ?? (await readExistingConfig(worktree));
+	if (replacing !== undefined) {
+		const approved = await confirmOverwrite(context, replacing, settings);
+		if (!approved) {
+			return interrupted(context, projectDirectory, 'left the existing config');
 		}
 	}
 
@@ -361,20 +420,26 @@ export async function locateWorktree(
 	gitDirectory: string,
 	expected: string,
 	options: GitOptions,
+	branch?: string,
 ): Promise<string> {
-	const worktrees = await listWorktrees(gitDirectory, options);
+	const entries = await listWorktreeEntries(gitDirectory, options);
 	const target = await canonicalPath(expected);
 	const resolved = await Promise.all(
-		worktrees.map(async path => [path, await canonicalPath(path)] as const),
+		entries.map(
+			async entry => [entry, await canonicalPath(entry.path)] as const,
+		),
 	);
 	const match = resolved.find(([, canonical]) => canonical === target);
 	if (match) {
-		return match[0];
+		return match[0].path;
 	}
 
-	// Worktrunk may have placed it beside the git directory instead; the last
-	// entry is the one just added.
-	return worktrees.at(-1) ?? expected;
+	// Worktrunk may have placed it beside the git directory instead. The branch
+	// it holds identifies it; position in the list does not.
+	const byBranch = branch
+		? entries.find(entry => entry.branch === branch)
+		: undefined;
+	return byBranch?.path ?? expected;
 }
 
 async function canonicalPath(path: string): Promise<string> {

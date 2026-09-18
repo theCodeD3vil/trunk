@@ -91,8 +91,8 @@ test/adopt.test.ts, test/init.test.ts
       server on, caddy on, copy-ignored on, mc on, agents `claude opencode`, and the
       `.next/` exclude.
 - [x] `--yes` on a repo with an existing `wt.toml` leaves it byte-identical.
-- [ ] Overwrite shows a diff and only writes after confirmation.
-- [ ] A prefix change offers renames, and after accepting, `tmux ls` shows the new names
+- [x] Overwrite shows a diff and only writes after confirmation.
+- [x] A prefix change offers renames, and after accepting, `tmux ls` shows the new names
       (tested on an isolated socket with `tmux -L trunk-test`).
 - [x] A missing fetch refspec is repaired and reported.
 

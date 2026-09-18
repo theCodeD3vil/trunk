@@ -24,6 +24,7 @@ import {
 } from '../core/git.js';
 import {
 	configureProject,
+	confirmStep,
 	createContext,
 	errorMessage,
 	interrupted,
@@ -45,6 +46,12 @@ import {
 	unsupportedEnvironment,
 	type Outcome,
 } from '../core/result.js';
+import {
+	listSessions,
+	manualKillCommands,
+	planRenames,
+	renameSessions,
+} from '../core/tmuxRename.js';
 import {switchAttached} from '../core/wt.js';
 
 export type {SetupDependencies as InitDependencies} from '../core/pipeline.js';
@@ -143,7 +150,7 @@ async function setUpExisting(
 		context.report('warning', note.message);
 	}
 
-	return configureProject(context, {
+	const outcome = await configureProject(context, {
 		remote,
 		projectDirectory,
 		gitDirectory,
@@ -151,7 +158,74 @@ async function setUpExisting(
 		defaultBranch,
 		adopted: adoption?.values,
 		copyIgnoredExclude: adoption?.copyIgnoredExclude,
+		async onSettings(settings) {
+			await offerSessionRenames(
+				context,
+				adoption?.values.prefix,
+				settings.prefix,
+			);
+		},
 	});
+
+	return outcome;
+}
+
+/**
+ * Sessions are named `<prefix>_<branch>`, so changing the prefix without
+ * renaming them leaves sessions `wt remove` can no longer find. Offered rather
+ * than done: the sessions belong to whoever is working in them.
+ */
+async function offerSessionRenames(
+	context: SetupContext,
+	oldPrefix: string | undefined,
+	newPrefix: string,
+): Promise<void> {
+	if (!oldPrefix || oldPrefix === newPrefix || !context.tools.tmux.path) {
+		return;
+	}
+
+	const tmuxPath = context.tools.tmux.path;
+	const sessions = await listSessions({
+		tmuxPath,
+		run: context.run,
+		env: context.env,
+	});
+	const renames = planRenames(sessions, oldPrefix, newPrefix);
+	if (renames.length === 0) {
+		return;
+	}
+
+	context.report(
+		'info',
+		`the prefix changed from ${oldPrefix} to ${newPrefix}; these tmux sessions would be renamed:`,
+	);
+	for (const rename of renames) {
+		context.report('info', `  ${rename.from} → ${rename.to}`);
+	}
+
+	const wanted = await confirmStep(context, 'rename them now?');
+	if (!wanted) {
+		return;
+	}
+
+	const result = await renameSessions(renames, {
+		tmuxPath,
+		run: context.run,
+		env: context.env,
+	});
+	for (const rename of result.renamed) {
+		context.report('success', `renamed ${rename.from} to ${rename.to}`);
+	}
+
+	if (result.failed.length > 0) {
+		context.report(
+			'warning',
+			'`wt remove` will not find these sessions; kill them by hand:',
+		);
+		for (const command of manualKillCommands(result.failed)) {
+			context.report('info', `  ${command}`);
+		}
+	}
 }
 
 /**

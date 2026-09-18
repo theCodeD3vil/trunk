@@ -14,6 +14,11 @@ import {resolveExecutable, type ToolProbe} from '../source/core/env.js';
 import {originFetchRefspec} from '../source/core/git.js';
 import {runCommand, type CommandOptions} from '../source/core/process.js';
 import {exitCodes} from '../source/core/result.js';
+import type {SetupPrompts} from '../source/core/pipeline.js';
+import {resolve} from '../source/core/resolve.js';
+import type {collectSettings} from '../source/ui/SetupForm.js';
+
+type CollectSettings = typeof collectSettings;
 
 type Fixture = Readonly<{
 	root: string;
@@ -102,6 +107,107 @@ describe('trunk init', () => {
 		}
 	}, 60_000);
 
+	test('shows what overwriting removes before writing', async () => {
+		const fixture = await createBareProject(handWritten);
+		try {
+			const lines: string[] = [];
+			await runInit([fixture.project], flags(), fixture.tools, {
+				...dependencies(fixture),
+				interactive: true,
+				prompts: overwritePrompts(true),
+				collect: acceptDefaults,
+				report(_kind, line) {
+					lines.push(line);
+				},
+			});
+
+			const reported = lines.join('\n');
+			// The hand-written alias is about to be lost; it has to be on screen,
+			// with a count, before anything is written.
+			expect(reported).toContain('- up = "echo up"');
+			expect(reported).toMatch(/changes: \d+ added, \d+ removed/);
+			expect(reported.indexOf('- up = "echo up"')).toBeLessThan(
+				reported.indexOf('wrote .config/wt.toml'),
+			);
+		} finally {
+			await rm(fixture.root, {recursive: true, force: true});
+		}
+	}, 60_000);
+
+	test('declining the diff leaves the existing config alone', async () => {
+		const fixture = await createBareProject(handWritten);
+		try {
+			const outcome = await runInit([fixture.project], flags(), fixture.tools, {
+				...dependencies(fixture),
+				interactive: true,
+				prompts: overwritePrompts(false),
+				collect: acceptDefaults,
+			});
+
+			expect(outcome.code).toBe(exitCodes.operationFailed);
+			const kept = await readFile(
+				join(fixture.project, 'main', '.config', 'wt.toml'),
+				'utf8',
+			);
+			expect(kept).toBe(handWritten);
+		} finally {
+			await rm(fixture.root, {recursive: true, force: true});
+		}
+	}, 60_000);
+
+	test('offers to rename tmux sessions when the prefix changes', async () => {
+		const fixture = await createBareProject(configuredWithPrefix);
+		try {
+			const lines: string[] = [];
+			const renameCalls: string[][] = [];
+			await runInit(
+				[fixture.project],
+				flags({prefix: 'acme-a'}),
+				{
+					...fixture.tools,
+					tmux: {name: 'tmux', path: '/tools/tmux'},
+				},
+				{
+					...dependencies(fixture),
+					interactive: true,
+					prompts: overwritePrompts(true),
+					collect: acceptDefaults,
+					// Stands in for a machine with two live sessions on the old prefix.
+					async run(command, arguments_, options) {
+						if (command === '/tools/tmux') {
+							renameCalls.push([...arguments_]);
+							return arguments_.includes('list-sessions')
+								? {
+										code: 0,
+										stdout: 'acme_main\nacme_ui\nother_main\n',
+										stderr: '',
+								  }
+								: {code: 0, stdout: '', stderr: ''};
+						}
+
+						return runCommand(command, arguments_, options);
+					},
+					report(_kind, line) {
+						lines.push(line);
+					},
+				},
+			);
+
+			const reported = lines.join('\n');
+			expect(reported).toContain('acme_main → acme-a_main');
+			expect(reported).toContain('acme_ui → acme-a_ui');
+			expect(reported).not.toContain('other_main →');
+
+			const renamed = renameCalls.filter(call =>
+				call.includes('rename-session'),
+			);
+			expect(renamed).toHaveLength(2);
+			expect(renamed[0]).toContain('=acme_main');
+		} finally {
+			await rm(fixture.root, {recursive: true, force: true});
+		}
+	}, 60_000);
+
 	test('refuses a plain clone with a recipe and a warning', async () => {
 		const fixture = await createPlainClone();
 		try {
@@ -163,6 +269,46 @@ describe('trunk init', () => {
 	});
 });
 
+/** Overwrites the existing config, then answers the diff confirmation. */
+function overwritePrompts(writeIt: boolean): SetupPrompts {
+	return {
+		async choose(question) {
+			return question.includes('Keep it') ? 'overwrite' : 'keep';
+		},
+		async confirm(question) {
+			if (question.includes('write this config')) {
+				return writeIt;
+			}
+
+			// Approvals, the smoke test and publishing all touch the real machine;
+			// renaming is stubbed, so it is safe to accept.
+			return question.includes('commit') || question.includes('rename');
+		},
+	};
+}
+
+/** Stands in for the form: takes the resolved defaults without asking. */
+const acceptDefaults: CollectSettings = async ({resolveOptions}) => {
+	const resolution = resolve({...resolveOptions, acceptDefaults: true});
+	if (resolution.kind !== 'complete') {
+		throw new Error('Expected the defaults to resolve completely.');
+	}
+
+	return {kind: 'settings', settings: resolution.settings};
+};
+
+/** Shaped like a config trunk generated, so adoption reads `P=acme` back out. */
+const configuredWithPrefix = [
+	'[[pre-start]]',
+	"tmux = '''",
+	'P=acme',
+	"'''",
+	'',
+	'[[post-start]]',
+	'install = "npm install --prefer-offline --no-audit --no-fund"',
+	'',
+].join('\n');
+
 const handWritten = '# hand written\n[aliases]\nup = "echo up"\n';
 
 function flags(overrides: Partial<CliFlags> = {}): CliFlags {
@@ -191,7 +337,7 @@ function dependencies(fixture: Fixture) {
 }
 
 /** A bare-layout project assembled the way a user would by hand. */
-async function createBareProject(): Promise<Fixture> {
+async function createBareProject(config?: string): Promise<Fixture> {
 	const base = await createBase();
 	const project = join(base.workingDirectory, 'acme-admin');
 	await mkdir(project, {recursive: true});
@@ -204,6 +350,10 @@ async function createBareProject(): Promise<Fixture> {
 		join(project, 'main'),
 		'main',
 	]);
+	if (config) {
+		await mkdir(join(project, 'main', '.config'), {recursive: true});
+		await writeFile(join(project, 'main', '.config', 'wt.toml'), config);
+	}
 
 	return {...base, project};
 }
