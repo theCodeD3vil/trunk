@@ -28,6 +28,10 @@ export function succeed(message?: string): Outcome {
 	return {code: exitCodes.success, message};
 }
 
+export function operationFailed(message: string): Outcome {
+	return {code: exitCodes.operationFailed, message};
+}
+
 export function badUsage(message: string): Outcome {
 	return {code: exitCodes.badUsage, message};
 }

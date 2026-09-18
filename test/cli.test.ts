@@ -47,7 +47,16 @@ describe('CLI', () => {
 		expect(run.stderr).not.toContain('\u001B[');
 	});
 
-	test('runs command stubs without a stack trace', async () => {
+	test('runs the commands still stubbed without a stack trace', async () => {
+		const run = await runBuiltCli(['init']);
+		runs.push(run);
+
+		expect(run.exitCode).toBe(exitCodes.badUsage);
+		expect(run.stderr).toContain('not implemented');
+		expect(run.stderr).not.toContain('    at ');
+	});
+
+	test('rejects a remote that names no repository', async () => {
 		const run = await runBuiltCli([
 			'clone',
 			'https://example.com/repository.git',
@@ -55,8 +64,16 @@ describe('CLI', () => {
 		runs.push(run);
 
 		expect(run.exitCode).toBe(exitCodes.badUsage);
-		expect(run.stderr).toContain('not implemented');
+		expect(run.stderr).toContain('must contain an owner and repository');
 		expect(run.stderr).not.toContain('    at ');
+	});
+
+	test('asks for a URL before doing anything', async () => {
+		const run = await runBuiltCli(['clone']);
+		runs.push(run);
+
+		expect(run.exitCode).toBe(exitCodes.badUsage);
+		expect(run.stderr).toContain('needs a remote URL');
 	});
 
 	test('exits 3 with the install hint when required tools are missing', async () => {

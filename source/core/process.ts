@@ -17,6 +17,34 @@ export type CommandOptions = Readonly<{
 }>;
 
 /**
+ * Runs a command with trunk's own terminal, so the child can ask the user its
+ * own questions and stream its own progress. Nothing is captured, so callers
+ * get the exit code only.
+ */
+export type AttachedRunner = (
+	command: string,
+	arguments_: readonly string[],
+	options?: CommandOptions,
+) => Promise<number>;
+
+export const runAttached: AttachedRunner = async (
+	command,
+	arguments_,
+	options = {},
+) =>
+	new Promise((resolve, reject) => {
+		const child = spawn(command, arguments_, {
+			cwd: options.cwd,
+			env: options.env,
+			stdio: 'inherit',
+		});
+		child.once('error', reject);
+		child.once('close', code => {
+			resolve(code ?? 1);
+		});
+	});
+
+/**
  * The shape callers accept, so a test can pass a stub in place of
  * {@link runCommand} and never touch the real machine.
  */

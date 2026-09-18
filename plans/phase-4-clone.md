@@ -105,15 +105,15 @@ describe or undo precisely what exists.
 
 ## Acceptance criteria
 
-- [ ] End to end against a local `file://` bare remote with `--yes`: folder, bare `.git`,
+- [x] End to end against a local `file://` bare remote with `--yes`: folder, bare `.git`,
       fetch refspec set, `origin/*` refs present, default worktree, `chore/trunk-setup`
       worktree with a committed `.config/wt.toml`, and `wt config show` clean.
-- [ ] `git --git-dir <dir>/.git config remote.origin.fetch` returns the standard refspec.
-- [ ] A repo whose default branch is `master` is handled without a hardcoded `main`.
-- [ ] Re-running `trunk clone` into an existing non-empty folder exits `2` and changes nothing.
-- [ ] With an existing `wt.toml` and `--yes`, the file is untouched (byte comparison).
-- [ ] With no TTY, the `.git.<branch>` warning text appears and includes the real identifier.
-- [ ] Simulated validation failure leaves no commit, and the keep/rollback prompt lists
+- [x] `git --git-dir <dir>/.git config remote.origin.fetch` returns the standard refspec.
+- [x] A repo whose default branch is `master` is handled without a hardcoded `main`.
+- [x] Re-running `trunk clone` into an existing non-empty folder exits `2` and changes nothing.
+- [x] With an existing `wt.toml` and `--yes`, the file is untouched (byte comparison).
+- [x] With no TTY, the `.git.<branch>` warning text appears and includes the real identifier.
+- [x] Simulated validation failure leaves no commit, and the keep/rollback prompt lists
       exactly what the journal recorded.
 - [ ] Rollback removes the setup worktree and branch, and leaves no `.git/wt/trash` surprises
       for a folder trunk did not create.

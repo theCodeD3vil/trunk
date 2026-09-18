@@ -50,7 +50,9 @@ async function dispatch(): Promise<Outcome> {
 
 	switch (command) {
 		case 'clone': {
-			return runClone(rest, cli.flags, tools!);
+			return runClone(rest, cli.flags, tools!, {
+				invocation: {executable: 'trunk', arguments: process.argv.slice(2)},
+			});
 		}
 
 		case 'init': {
