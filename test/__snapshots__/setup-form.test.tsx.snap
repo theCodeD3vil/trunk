@@ -7,15 +7,10 @@ exports[`setup form renders cleanly in 80 columns 1`] = `
 
 › prefix           acme-a▌
                     [r] random · [c] custom · keep it unique across your repos
-  package manager  npm
   tmux session     on
   agents
-    [x] claude                          [x] codex
-    [ ] opencode (not installed)        [ ] copilot (not installed)
-    [ ] antigravity (not installed)     [ ] pi (not installed)
-  copy-ignored     on
-  dev server       on
-  include anyway   off (teammates may have it)
+    [ ] claude                          [ ] codex
+  copy-ignored     off
   mc alias         on
 
 arrows choose · space checks · Enter continues · Ctrl+C aborts"

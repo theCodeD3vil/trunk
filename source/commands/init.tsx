@@ -1,20 +1,21 @@
 /**
  * `trunk init [dir]`: set up a project that is already on disk in the bare
- * layout — cloned by hand, already using worktrunk, or left behind by an
- * interrupted `trunk clone`.
+ * layout — cloned by hand, already using worktrunk, created without any remote,
+ * or left behind by an interrupted `trunk clone`.
  *
  * Everything from the existing-config question onward is the same code
  * `trunk clone` runs. What is specific here is finding the project, refusing a
- * plain clone, and repairing whatever a hand-made setup is missing.
+ * plain clone or an empty repository, and repairing whatever a hand-made setup
+ * is missing.
  */
-import {join, resolve as resolvePath} from 'node:path';
-import {adoptConfig} from '../core/adopt.js';
+import {basename, join, resolve as resolvePath} from 'node:path';
 import type {CliFlags} from '../core/arguments.js';
 import type {ToolProbe} from '../core/env.js';
 import {
 	addWorktree,
 	configureOriginFetch,
 	existingDefaultBranch,
+	isEmptyRepository,
 	listWorktrees,
 	originFetchRefspec,
 	remoteDefaultBranch,
@@ -24,12 +25,10 @@ import {
 } from '../core/git.js';
 import {
 	configureProject,
-	confirmStep,
 	createContext,
 	errorMessage,
 	interrupted,
 	locateWorktree,
-	readExistingConfig,
 	warnAboutWorktreePath,
 	type SetupContext,
 	type SetupDependencies,
@@ -46,12 +45,6 @@ import {
 	unsupportedEnvironment,
 	type Outcome,
 } from '../core/result.js';
-import {
-	listSessions,
-	manualKillCommands,
-	planRenames,
-	renameSessions,
-} from '../core/tmuxRename.js';
 import {switchAttached} from '../core/wt.js';
 
 export type {SetupDependencies as InitDependencies} from '../core/pipeline.js';
@@ -108,26 +101,42 @@ async function setUpExisting(
 	projectDirectory: string,
 	gitDirectory: string,
 ): Promise<Outcome> {
+	// The origin is optional: a project that never had one is still a project.
+	// Without it the folder name is the only name there is.
 	const url = await originUrl(gitDirectory, context.git);
-	if (!url) {
-		return badUsage(
-			`${projectDirectory} has no origin remote; trunk needs one to name the project`,
-		);
+	let remote: ParsedRemote | undefined;
+	if (url) {
+		try {
+			remote = parseRemote(url, await loadSshAliases(), context.cwd);
+		} catch (error: unknown) {
+			return badUsage(errorMessage(error));
+		}
 	}
 
-	let remote: ParsedRemote;
-	try {
-		remote = parseRemote(url, await loadSshAliases(), context.cwd);
-	} catch (error: unknown) {
-		return badUsage(errorMessage(error));
-	}
-
+	const repoName = remote?.repo ?? basename(projectDirectory);
 	const defaultBranch = await repairDefaultBranch(
 		context,
 		gitDirectory,
 		remote,
 	);
-	await repairFetchRefspec(context, gitDirectory);
+	if (!defaultBranch) {
+		return badUsage(
+			`${projectDirectory} has no default branch and no origin to ask; check out a branch first`,
+		);
+	}
+
+	if (remote) {
+		await repairFetchRefspec(context, gitDirectory);
+	}
+
+	// Trunk sets up projects and never invents history: with nothing to check
+	// out there is no worktree to configure, and a first commit is the user's.
+	if (await isEmptyRepository(gitDirectory, context.git)) {
+		return badUsage(
+			`${projectDirectory} is an empty bare repository with no commits; make the first commit yourself, then run \`trunk init\` again`,
+		);
+	}
+
 	const defaultWorktree = await ensureWorktree(context, {
 		remote,
 		projectDirectory,
@@ -142,90 +151,13 @@ async function setUpExisting(
 		);
 	}
 
-	// Adoption runs before the form so the repository's own choices become the
-	// defaults, rather than trunk's.
-	const existing = await readExistingConfig(defaultWorktree);
-	const adoption = existing ? adoptConfig(existing) : undefined;
-	for (const note of adoption?.notes ?? []) {
-		context.report('warning', note.message);
-	}
-
-	const outcome = await configureProject(context, {
+	return configureProject(context, {
 		remote,
+		repoName,
 		projectDirectory,
 		gitDirectory,
 		defaultWorktree,
-		defaultBranch,
-		adopted: adoption?.values,
-		copyIgnoredExclude: adoption?.copyIgnoredExclude,
-		async onSettings(settings) {
-			await offerSessionRenames(
-				context,
-				adoption?.values.prefix,
-				settings.prefix,
-			);
-		},
 	});
-
-	return outcome;
-}
-
-/**
- * Sessions are named `<prefix>_<branch>`, so changing the prefix without
- * renaming them leaves sessions `wt remove` can no longer find. Offered rather
- * than done: the sessions belong to whoever is working in them.
- */
-async function offerSessionRenames(
-	context: SetupContext,
-	oldPrefix: string | undefined,
-	newPrefix: string,
-): Promise<void> {
-	if (!oldPrefix || oldPrefix === newPrefix || !context.tools.tmux.path) {
-		return;
-	}
-
-	const tmuxPath = context.tools.tmux.path;
-	const sessions = await listSessions({
-		tmuxPath,
-		run: context.run,
-		env: context.env,
-	});
-	const renames = planRenames(sessions, oldPrefix, newPrefix);
-	if (renames.length === 0) {
-		return;
-	}
-
-	context.report(
-		'info',
-		`the prefix changed from ${oldPrefix} to ${newPrefix}; these tmux sessions would be renamed:`,
-	);
-	for (const rename of renames) {
-		context.report('info', `  ${rename.from} → ${rename.to}`);
-	}
-
-	const wanted = await confirmStep(context, 'rename them now?');
-	if (!wanted) {
-		return;
-	}
-
-	const result = await renameSessions(renames, {
-		tmuxPath,
-		run: context.run,
-		env: context.env,
-	});
-	for (const rename of result.renamed) {
-		context.report('success', `renamed ${rename.from} to ${rename.to}`);
-	}
-
-	if (result.failed.length > 0) {
-		context.report(
-			'warning',
-			'`wt remove` will not find these sessions; kill them by hand:',
-		);
-		for (const command of manualKillCommands(result.failed)) {
-			context.report('info', `  ${command}`);
-		}
-	}
 }
 
 /**
@@ -254,7 +186,7 @@ async function refusePlainClone(
 		`${clone} is a normal clone; trunk sets up bare-layout projects.`,
 		'',
 		`  trunk clone ${url} ${name}-wt`,
-		`  cp ${name}/.env* ${name}-wt/<default branch>/`,
+		`  # copy any local-only files you still need into ${name}-wt/<default branch>/`,
 		`  # check nothing uncommitted or unpushed is left in ${name}, then:`,
 		`  rm -rf ${name} && mv ${name}-wt ${name}`,
 	]) {
@@ -314,14 +246,17 @@ async function repairFetchRefspec(
 	);
 }
 
-/** HEAD first, then the remote; record it the way wt expects to find it. */
+/**
+ * HEAD first, then the remote; record it the way wt expects to find it. Returns
+ * undefined when HEAD names nothing and there is no remote to ask.
+ */
 async function repairDefaultBranch(
 	context: SetupContext,
 	gitDirectory: string,
-	remote: ParsedRemote,
-): Promise<string> {
+	remote: ParsedRemote | undefined,
+): Promise<string | undefined> {
 	const existing = await existingDefaultBranch(gitDirectory, context.git);
-	if (existing) {
+	if (existing !== undefined || !remote) {
 		return existing;
 	}
 
@@ -342,7 +277,7 @@ async function repairDefaultBranch(
 async function ensureWorktree(
 	context: SetupContext,
 	location: Readonly<{
-		remote: ParsedRemote;
+		remote?: ParsedRemote;
 		projectDirectory: string;
 		gitDirectory: string;
 		branch: string;
@@ -351,7 +286,12 @@ async function ensureWorktree(
 	const {remote, projectDirectory, gitDirectory, branch} = location;
 	const expected = join(projectDirectory, branch.replaceAll('/', '-'));
 	const worktrees = await listWorktrees(gitDirectory, context.git);
-	const existing = await locateWorktree(gitDirectory, expected, context.git);
+	const existing = await locateWorktree(
+		gitDirectory,
+		expected,
+		context.git,
+		branch,
+	);
 	if (worktrees.includes(existing) && existing !== projectDirectory) {
 		return existing;
 	}
@@ -377,7 +317,12 @@ async function ensureWorktree(
 		warnAboutWorktreePath(context, remote, expected);
 	}
 
-	const actual = await locateWorktree(gitDirectory, expected, context.git);
+	const actual = await locateWorktree(
+		gitDirectory,
+		expected,
+		context.git,
+		branch,
+	);
 	if (actual !== expected) {
 		context.journal.relocate(expected, actual);
 		warnAboutWorktreePath(context, remote, actual);

@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/filename-case -- Phase 3 specifies MultiSelect.tsx. */
+/* eslint-disable unicorn/filename-case -- React components use PascalCase file names. */
 /** Fixed-order checkboxes with an enforced selection limit. */
 import React, {useState} from 'react';
 import {Box, Text, useInput} from 'ink';

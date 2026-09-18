@@ -1,8 +1,8 @@
 # trunk
 
-`trunk` creates a shared [Worktrunk](https://worktrunk.dev) configuration for a Git repository. It detects the package manager and development script, generates worktree hooks for dependencies and a development server, and can add optional tmux workspaces and Caddy routes. The generated `.config/wt.toml` is committed with the project so every contributor gets the same workflow.
+`trunk` sets a Git repository up for parallel work with [Worktrunk](https://worktrunk.dev). It clones or adopts a project into Worktrunk's bare layout and commits one shared, language-agnostic `.config/wt.toml`: a tmux workspace for every worktree, optional copying of ignored files, and a couple of convenience aliases.
 
-`trunk` is a setup tool, not a worktree manager. It does not write global Worktrunk configuration and does not manage the project after setup; use `wt` and edit the generated file directly from then on.
+`trunk` configures the worktree experience and then gets out of the way. It does not detect, choose, install, start, proxy, or otherwise model your project's stack, and it never writes global Worktrunk configuration. Stack-specific setup is manual, and `trunk docs` teaches it offline.
 
 ## Install
 
@@ -20,15 +20,14 @@ The installed command is `trunk`. That name is also used by the Rust/Wasm `trunk
 
 ## Prerequisites
 
-| Tool                                              | Requirement                                           |
-| ------------------------------------------------- | ----------------------------------------------------- |
-| Node.js                                           | 20 or newer                                           |
-| Git                                               | Required                                              |
-| Worktrunk (`wt`)                                  | Required; generated templates are tested with v0.77.0 |
-| tmux                                              | Optional; creates one workspace per worktree          |
-| Caddy and curl                                    | Optional; creates a stable local URL per worktree     |
-| GitHub CLI (`gh`)                                 | Optional; creates repositories and pull requests      |
-| claude, codex, opencode, copilot, antigravity, pi | Optional; started in tmux when selected               |
+| Tool                                              | Requirement                                                    |
+| ------------------------------------------------- | -------------------------------------------------------------- |
+| Node.js                                           | 20 or newer                                                    |
+| Git                                               | Required                                                       |
+| Worktrunk (`wt`)                                  | Required; generated templates are tested with v0.77.0          |
+| tmux                                              | Optional; creates one workspace per worktree                   |
+| GitHub CLI (`gh`)                                 | Optional; opens the pull request for the setup branch          |
+| claude, codex, opencode, copilot, antigravity, pi | Optional; offered and started in tmux only when installed here |
 
 macOS and Linux are supported, including Linux under WSL. Native Windows is not supported.
 
@@ -44,73 +43,95 @@ storefront/
   feature-checkout/      another worktree created by wt
 ```
 
-Run project commands inside a worktree such as `storefront/main`, not in `storefront`. `trunk clone` and `trunk new` create this layout. `trunk init` adopts an existing bare-layout project and deliberately refuses to rewrite an ordinary clone in place.
+Run project commands inside a worktree such as `storefront/main`, not in `storefront`. `trunk clone` creates this layout. `trunk init` adopts an existing bare-layout project and deliberately refuses to rewrite an ordinary clone in place; it prints the steps to migrate one instead.
 
 ## Commands
 
+`trunk` has three commands.
+
 ### Clone
 
-Clone an existing remote into the bare layout and commit the generated configuration on `chore/trunk-setup`:
+Clone a remote into the bare layout and commit the generated configuration on `chore/trunk-setup`:
 
 ```sh
 trunk clone git@github.com:acme/storefront.git ~/Projects/storefront
 ```
 
+The branch is pushed and a pull request is opened only when you agree to it, and only if `gh` is installed. Nothing is pushed under `--yes`.
+
 ### Init
 
-Set up an existing bare-layout project, whether it was cloned by hand or already uses Worktrunk:
+Set up an existing bare-layout project, whether it was cloned by hand, already uses Worktrunk, or never had a remote:
 
 ```sh
 trunk init ~/Projects/storefront
 ```
 
-### New
+Without an origin, `trunk init` uses the project directory's name for the suggested prefix and prints the local merge command instead of a pull request. It refuses an empty bare repository, because `trunk` never creates Git history.
 
-Create a new bare-layout project and, optionally, its GitHub repository:
+If `.config/wt.toml` already exists, an interactive run shows a highlighted diff and replaces the file only after you confirm. A run with `--yes` keeps the existing file byte for byte. `trunk` never reads values out of an old file and never renames live tmux sessions.
 
-```sh
-trunk new api-service ~/Projects/api-service --remote --owner acme
-```
+### Docs
 
-For a fully local project:
+Browse the offline documentation:
 
 ```sh
-trunk new scratch-app --no-remote --yes
+trunk docs
 ```
+
+`trunk docs` opens an interactive terminal browser with two topics, Config Basics and Node. Press `/` to search, `c` to copy a snippet, and Esc to go back. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
 
 ## Options
 
-| Option                     | Effect                                                                                          |
-| -------------------------- | ----------------------------------------------------------------------------------------------- |
-| `--yes`                    | Accept detected defaults without opening the form; required without a TTY                       |
-| `--prefix <name>`          | Set the tmux session prefix                                                                     |
-| `--pm <npm\|pnpm\|bun>`    | Set the package manager                                                                         |
-| `--agents <a,b>`           | Select up to four agents from `claude`, `codex`, `opencode`, `copilot`, `antigravity`, and `pi` |
-| `--server` / `--no-server` | Enable or disable the development-server step                                                   |
-| `--caddy` / `--no-caddy`   | Enable or disable the Caddy route                                                               |
-| `--tmux` / `--no-tmux`     | Enable or disable tmux session hooks                                                            |
-| `--copy` / `--no-copy`     | Enable or disable `wt step copy-ignored`                                                        |
-| `--mc` / `--no-mc`         | Enable or disable the `wt mc` merge alias                                                       |
-| `--direct`                 | Commit on the current branch instead of `chore/trunk-setup`                                     |
-| `--remote` / `--no-remote` | With `trunk new`, create or skip the GitHub repository                                          |
-| `--owner <name>`           | With `trunk new`, choose the GitHub user or organization                                        |
-| `--public`                 | With `trunk new`, create a public repository instead of a private one                           |
+`clone` and `init` share these options. Without `--yes` they open a short form for whatever you did not pass.
 
-Run `trunk --help` for the same command surface in the terminal.
+| Option                 | Effect                                                                                             | Default                    |
+| ---------------------- | -------------------------------------------------------------------------------------------------- | -------------------------- |
+| `--yes`                | Accept the defaults without opening the form; required without a TTY                               |                            |
+| `--prefix <name>`      | Set the tmux session prefix                                                                        | Initials of the repository |
+| `--agents <a,b>`       | Up to four installed agents from `claude`, `codex`, `opencode`, `copilot`, `antigravity`, and `pi` | none                       |
+| `--tmux` / `--no-tmux` | Enable or disable the tmux workspace hooks                                                         | on                         |
+| `--copy` / `--no-copy` | Enable or disable `wt step copy-ignored` as the first start step                                   | off                        |
+| `--mc` / `--no-mc`     | Enable or disable the `wt mc` merge alias                                                          | on                         |
+| `--direct`             | Commit on the current branch instead of `chore/trunk-setup`                                        | off                        |
+
+`--no-tmux` together with `--agents` is a usage error, and `--agents` only accepts agents that are installed on the machine. Run `trunk --help` for the same surface in the terminal.
 
 ## What It Generates
 
-The generated `.config/wt.toml` can contain:
+The generated `.config/wt.toml` contains only worktree concerns:
 
-- `wt up`, `wt url`, and `wt mc` aliases;
-- pre-start hooks for tmux and the local URL;
-- post-start hooks for copied ignored files, dependency installation, the development server, and Caddy;
-- pre-remove cleanup for tmux processes and Caddy routes;
-- a stable URL shown by `wt list`.
+- a header with where the file came from, how to approve it, and the per-machine tmux overrides `WT_TMUX`, `WT_AGENTS`, and `WT_EDITOR`;
+- `wt up`, which re-runs the start hooks, when there is a start hook to run, and `wt mc`;
+- a `pre-start` pipeline: optionally `wt step copy-ignored`, then a tmux session with an Editor window, a two-pane Terminal window, and an Agents window only for agents you selected;
+- `pre-remove` and `post-remove` hooks that ask the session's processes to exit and then close exactly that session.
 
-The file is normal project configuration, not generated code that must remain untouched. Review and edit it for the repository's real commands. See the [annotated generated configuration](https://github.com/theCodeD3vil/trunk/blob/main/docs/generated-config.md) for the complete lifecycle and the reasons behind the less obvious template expressions.
+It contains no dependency install, dev server, port, proxy, or framework content, not even in comments. The file is normal project configuration, not generated code that must remain untouched: edit it freely. The [annotated generated configuration](https://github.com/theCodeD3vil/trunk/blob/main/docs/generated-config.md) walks through every block and is checked against the generator in the test suite.
 
-Worktrunk treats project hooks as trusted code. Run `wt config approvals add` after reviewing a new file, and run it again whenever `.config/wt.toml` changes.
+Worktrunk treats project hooks as trusted code. Run `wt config approvals add` after reviewing a new file, and run it again whenever `.config/wt.toml` changes. `trunk` offers to run it for you but never approves anything itself, and it never starts a hook. Run `wt up` when you are ready.
+
+## Project-Specific Setup
+
+Installing dependencies, starting a dev server, or routing a local URL is left to you, because only you know the project. `trunk docs` has copyable fragments for the common cases:
+
+- **Config Basics** explains the file: hook lifecycle, pipelines and ordering, templates, approvals, aliases, and how to add your own hooks.
+- **Node** has additive recipes for npm, pnpm, and Bun: dependency install, monorepo subfolders, a tethered dev server, and an optional Caddy route.
+
+The fragments are added to the generated file; they do not replace it, and `trunk` does not detect your package manager for you.
+
+## What It Does Not Do
+
+- It does not detect package managers, lockfiles, scripts, or frameworks.
+- It does not install dependencies, start servers, allocate ports, or configure proxies such as Caddy.
+- It does not create projects, scaffold files, or create GitHub repositories.
+- It does not write global Worktrunk configuration or approve hooks for you.
+- It does not rewrite an existing `.config/wt.toml` without showing a diff and asking, and it does not convert an ordinary clone in place.
+
+## Upgrading From 0.1.x
+
+Version 0.1.x detected a package manager and generated install, dev-server, and Caddy hooks, and shipped `trunk new`. Those features are gone: `trunk new`, `--pm`, `--server`, `--caddy`, `--remote`, `--owner`, and `--public` are removed, and the old generated configuration is not carried over.
+
+Nothing changes on disk until you run `trunk` again. An existing `.config/wt.toml` keeps working with Worktrunk exactly as before. To move to the generic file, run `trunk init` in the project, review the diff, and confirm; the install and server steps you want to keep can then be re-added from `trunk docs`.
 
 ## Development
 
@@ -118,29 +139,14 @@ Worktrunk treats project hooks as trusted code. Run `wt config approvals add` af
 bun install --frozen-lockfile
 bun run build
 bun run test
+bun run smoke
 ```
 
-`bun run build` creates a clean `dist/` and stamps the package version into the compiled CLI. The published package runs on Node.js; the test suite and CI exercise that runtime explicitly.
+`bun run build` creates a clean `dist/`. The published package runs on Node.js; `bun run smoke` packs the tarball, installs it the way an npm consumer would, and exercises the installed CLI on real repositories. The test suite drives a real Worktrunk, tmux, and ShellCheck, so all three must be installed.
 
 ## Releasing
 
-Releases are published by hand, never by CI, so the npm credentials stay on one machine:
-
-```sh
-git checkout main && git pull
-bun run release            # or: bun run release minor
-```
-
-That runs [`np`](https://github.com/sindresorhus/np), which verifies the branch and working
-tree, reinstalls from `bun.lock`, runs the tests, bumps the version, commits, tags, pushes,
-publishes, and opens a GitHub release draft. `bun run release -- --dry-run` shows every step
-without performing any of them.
-
-Releases happen on `main` because that is the published history. `np` tags the commit it
-creates, and a tag only means something if that commit is reachable from `main` — squashing
-or rebasing a release made on a side branch leaves the tag pointing at history that never
-shipped. After releasing, merge `main` back into the working branch to pick up the version
-bump.
+Releases are published by hand from `main`, never by CI. See [docs/releasing.md](https://github.com/theCodeD3vil/trunk/blob/main/docs/releasing.md) for the checklist.
 
 ## License
 

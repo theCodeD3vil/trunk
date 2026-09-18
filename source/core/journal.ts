@@ -14,9 +14,7 @@ export type JournalEntryKind =
 	| 'bare-repo'
 	| 'worktree'
 	/** A worktree together with the branch created for it. */
-	| 'branch-worktree'
-	/** A repository created on GitHub, which rollback never deletes. */
-	| 'github-repo';
+	| 'branch-worktree';
 
 export type JournalEntry = Readonly<{
 	kind: JournalEntryKind;
@@ -31,11 +29,6 @@ export type UndoCommand = Readonly<{
 	arguments: readonly string[];
 	/** What the command is for, shown when the user keeps the run instead. */
 	purpose: string;
-	/**
-	 * Printed for the user to run, never run by trunk. Deleting a repository
-	 * someone may already have pushed to is not trunk's call to make.
-	 */
-	manual?: boolean;
 }>;
 
 const descriptions: Readonly<Record<JournalEntryKind, string>> = {
@@ -43,7 +36,6 @@ const descriptions: Readonly<Record<JournalEntryKind, string>> = {
 	'bare-repo': 'bare repo',
 	worktree: 'worktree',
 	'branch-worktree': 'worktree + branch',
-	'github-repo': 'GitHub repository',
 };
 
 export class Journal {
@@ -96,10 +88,7 @@ export class Journal {
 	 */
 	describe(workingDirectory: string): readonly string[] {
 		const rows = this.records.map(entry => ({
-			path:
-				entry.kind === 'github-repo'
-					? entry.path
-					: displayPath(entry.path, workingDirectory),
+			path: displayPath(entry.path, workingDirectory),
 			description: describeEntry(entry),
 		}));
 		const width = Math.max(0, ...rows.map(row => row.path.length));
@@ -132,6 +121,9 @@ export function undoCommands(
 						entry.branch ?? '',
 						'--no-hooks',
 						'--yes',
+						// The generated config may still be uncommitted in there, and wt
+						// refuses to remove a worktree with uncommitted files.
+						'--force',
 					],
 					purpose: `remove the ${entry.branch ?? 'setup'} worktree and branch`,
 				});
@@ -159,16 +151,6 @@ export function undoCommands(
 					executable: 'rm',
 					arguments: ['-rf', entry.path],
 					purpose: 'remove the project folder trunk created',
-				});
-				break;
-			}
-
-			case 'github-repo': {
-				commands.push({
-					executable: 'gh',
-					arguments: ['repo', 'delete', entry.path, '--yes'],
-					purpose: 'delete the GitHub repository trunk created',
-					manual: true,
 				});
 				break;
 			}

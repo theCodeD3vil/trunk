@@ -9,7 +9,7 @@ export function generatedCommands(source: string): GeneratedCommand[] {
 	const document = TOML.parse(source) as Record<string, unknown>;
 	const commands: GeneratedCommand[] = [];
 
-	for (const hookType of ['pre-start', 'post-start', 'pre-remove']) {
+	for (const hookType of ['pre-start', 'pre-remove', 'post-remove']) {
 		const hook = document[hookType];
 		for (const [name, body] of tableEntries(hook)) {
 			commands.push({label: `${hookType}:${name}`, body});

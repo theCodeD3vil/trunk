@@ -45,12 +45,7 @@ describe('generated config validation', () => {
 				expect(result.preview.session).toBe(`${settings.prefix}_main`);
 			}
 
-			if (settings.server) {
-				expect(result.preview.port).toBeGreaterThanOrEqual(10_000);
-				expect(result.preview.port).toBeLessThanOrEqual(19_999);
-			}
-
-			// Every generated alias must survive expansion, not just `url`.
+			// Every generated alias must survive expansion.
 			for (const alias of aliasNames(settings)) {
 				// eslint-disable-next-line no-await-in-loop
 				const dryRun = await runCommand(
@@ -60,41 +55,63 @@ describe('generated config validation', () => {
 				);
 				expect(dryRun.code, dryRun.stderr || dryRun.stdout).toBe(0);
 			}
-
-			if (settings.server && settings.caddy) {
-				expect(result.preview.url).toBe(
-					`http://main.${settings.hostLabel}.localhost:8080`,
-				);
-				// eslint-disable-next-line no-await-in-loop
-				const aliasResults = await Promise.all([
-					runCommand(
-						wtPath,
-						['-C', worktree, 'config', 'alias', 'dry-run', 'url'],
-						{env: environment},
-					),
-					runCommand(
-						wtPath,
-						[
-							'-C',
-							worktree,
-							'config',
-							'alias',
-							'dry-run',
-							'url',
-							'--',
-							'feature/auth',
-						],
-						{env: environment},
-					),
-				]);
-				for (const aliasResult of aliasResults) {
-					expect(
-						aliasResult.code,
-						aliasResult.stderr || aliasResult.stdout,
-					).toBe(0);
-				}
-			}
 		}
+	}, 30_000);
+
+	test('wt expands the removal hook that ends the tmux session', async () => {
+		const wtPath = await resolveExecutable('wt');
+		expect(wtPath).toBeDefined();
+		if (!wtPath) {
+			return;
+		}
+
+		const {worktree, environment} = await fixture;
+		await writeFile(
+			join(worktree, '.config', 'wt.toml'),
+			compose(testSettings()),
+		);
+		const shown = await runCommand(
+			wtPath,
+			['-C', worktree, 'hook', 'show', '--expanded', '--format', 'json'],
+			{env: environment},
+		);
+		const hooks = JSON.parse(shown.stdout) as Array<{
+			type: string;
+			name: string;
+			expanded: string;
+		}>;
+		const postRemove = hooks.find(
+			hook => hook.type === 'post-remove' && hook.name === 'tmux',
+		);
+
+		// The branch comes from Worktrunk's template variables, so the hook needs
+		// nothing from the worktree that is about to disappear.
+		expect(postRemove?.expanded).toContain('B=main');
+		expect(postRemove?.expanded).toContain('tmux kill-session -t "=$S"');
+	}, 30_000);
+
+	test('reports a hook the config failed to define', async () => {
+		const wtPath = await resolveExecutable('wt');
+		if (!wtPath) {
+			return;
+		}
+
+		const {worktree, environment} = await fixture;
+		// The settings claim a tmux session but the file defines none of its hooks.
+		await writeFile(join(worktree, '.config', 'wt.toml'), '# empty\n');
+
+		let failure: unknown;
+		try {
+			await validateGeneratedConfig(worktree, testSettings(), {
+				wtPath,
+				env: environment,
+			});
+		} catch (error: unknown) {
+			failure = error;
+		}
+
+		expect(failure).toBeInstanceOf(GeneratedConfigError);
+		expect((failure as Error).message).toContain('omitted generated hooks');
 	}, 30_000);
 
 	test('surfaces raw Worktrunk warnings', async () => {
@@ -119,14 +136,9 @@ describe('generated config validation', () => {
 
 function aliasNames(settings: Settings): string[] {
 	const names: string[] = [];
-	// `up` re-runs pre-start, the server step, or both, so it exists whenever
-	// either side does.
-	if (settings.tmux || settings.server) {
+	// `up` re-runs the start hooks, so it exists whenever one does.
+	if (settings.tmux || settings.copyIgnored) {
 		names.push('up');
-	}
-
-	if (settings.server && settings.caddy) {
-		names.push('url');
 	}
 
 	if (settings.mcAlias) {
@@ -166,14 +178,6 @@ async function createFixture(): Promise<{
 		'Initial commit',
 	]);
 	await git(['-C', worktree, 'config', 'worktrunk.default-branch', 'main']);
-	await git([
-		'-C',
-		worktree,
-		'remote',
-		'add',
-		'origin',
-		'git@example.com:example/Web-shop--portal.git',
-	]);
 
 	return {
 		root,

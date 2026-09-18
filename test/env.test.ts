@@ -61,9 +61,6 @@ describe('environment probing', () => {
 			command: join(path, 'tmux'),
 			arguments: ['-V'],
 		});
-		expect(commands.some(command => command.command.endsWith('/brew'))).toBe(
-			false,
-		);
 	});
 
 	test('keeps optional tools missing and identifies hard requirements', async () => {
@@ -102,7 +99,6 @@ describe('environment probing', () => {
 
 		expect(checkRequiredTools(tools)).toBeUndefined();
 		expect(tools.tmux.path).toBeUndefined();
-		expect(tools.caddy.path).toBeUndefined();
 		expect(tools.agents.claude.path).toBeUndefined();
 	});
 

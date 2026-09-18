@@ -90,28 +90,13 @@ async function checkCommand(
 	);
 }
 
+/** Substitutes the only templates a generated body may contain. */
 function renderVariants(body: string): string[] {
-	const conditional = /{% if args %}([\s\S]*?){% else %}([\s\S]*?){% endif %}/;
-	const match = conditional.exec(body);
-	const variants = match
-		? [
-				body.replace(conditional, match[1]!),
-				body.replace(conditional, match[2]!),
-		  ]
-		: [body];
-	return variants.map(variant =>
-		variant
+	return [
+		body
 			.split('{{ branch | sanitize }}')
 			.join('feature-demo')
 			.split('{{ worktree_path }}')
-			.join('/tmp/project/feature-demo')
-			.split('{{ remote_repo | lower }}')
-			.join('web-shop--portal')
-			.split("{{ (remote_repo ~ '/' ~ branch) | hash_port }}")
-			.join('12345')
-			.split('{{ args }}')
-			.join('feature-demo')
-			.split('{{ args[0] | sanitize }}')
-			.join('feature-demo'),
-	);
+			.join('/tmp/project/feature-demo'),
+	];
 }

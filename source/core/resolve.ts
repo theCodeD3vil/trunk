@@ -1,7 +1,10 @@
 /**
- * Turns flags, adopted values, environment detection and built-in defaults into
- * the one Settings object consumed by the generator. This module is deliberately
- * synchronous and headless so scripted and interactive setup share the same path.
+ * Turns flags, form answers and built-in defaults into the one Settings object
+ * consumed by the generator. This module is deliberately synchronous and
+ * headless so scripted and interactive setup share the same path.
+ *
+ * Precedence is flag, then form answer, then built-in default. Nothing is
+ * inferred from the project itself: trunk does not know what stack it holds.
  */
 import {
 	agentCommands,
@@ -11,19 +14,15 @@ import {
 	type AgentId,
 } from './agents.js';
 import type {CliFlags} from './arguments.js';
-import type {PackageDetection, PackageManager} from './detect.js';
 import type {ToolProbe} from './env.js';
 import {initials, validatePrefix} from './prefix.js';
 import {assertSettings, settingsDefaults, type Settings} from './settings.js';
 
 export const setupFieldOrder = Object.freeze([
 	'prefix',
-	'pm',
 	'tmux',
 	'agents',
 	'copyIgnored',
-	'server',
-	'caddy',
 	'mcAlias',
 ] as const);
 
@@ -31,29 +30,26 @@ export type SetupField = (typeof setupFieldOrder)[number];
 
 export type SetupValues = Readonly<{
 	prefix: string;
-	pm: PackageManager;
 	tmux: boolean;
 	agents: readonly AgentId[];
 	copyIgnored: boolean;
-	server: boolean;
-	caddy: boolean;
 	mcAlias: boolean;
 }>;
 
 export type SetupFlags = Readonly<{
 	prefix?: string;
-	pm?: string;
 	tmux?: boolean;
 	agents?: string;
 	copyIgnored?: boolean;
-	server?: boolean;
-	caddy?: boolean;
 	mcAlias?: boolean;
 }>;
 
+/** Facts about this run that no question can change. */
 export type FixedSettings = Readonly<
-	Pick<Settings, 'trunkVersion' | 'generatedOn' | 'repoName' | 'hostLabel'> &
-		Partial<Pick<Settings, 'appDir' | 'devScript' | 'scripts'>>
+	Pick<Settings, 'trunkVersion' | 'generatedOn'> & {
+		/** Only feeds the suggested prefix; it is not written to the config. */
+		repoName: string;
+	}
 >;
 
 export type ResolveOptions = Readonly<{
@@ -61,53 +57,24 @@ export type ResolveOptions = Readonly<{
 	flags?: SetupFlags;
 	/** Values entered by the form. Flags still take precedence over them. */
 	answers?: Partial<SetupValues>;
-	/** Best-effort values read from an existing wt.toml during overwrite. */
-	existing?: Partial<SetupValues>;
-	packageDetection?: PackageDetection;
-	tools?: Pick<ToolProbe, 'tmux' | 'caddy' | 'brew' | 'agents'>;
-	/** Overrides for callers with a command-specific built-in default. */
-	defaults?: Partial<SetupValues>;
+	/** What is installed here: only installed agents can be chosen. */
+	tools: Pick<ToolProbe, 'tmux' | 'agents'>;
 	/** `--yes`: accept every proposed value without opening the form. */
 	acceptDefaults?: boolean;
 }>;
 
-export type ValueSource =
-	| 'flag'
-	| 'answer'
-	| 'existing'
-	| 'detection'
-	| 'built-in'
-	| 'dependency';
-
-export type ResolutionWarning = Readonly<{
-	field?: SetupField;
-	message: string;
-}>;
+export type ValueSource = 'flag' | 'answer' | 'built-in' | 'dependency';
 
 export type AgentOption = Readonly<{
 	id: AgentId;
 	command: string;
-	installed: boolean;
 }>;
-
-export type CaddyAvailability =
-	| Readonly<{kind: 'installed'}>
-	| Readonly<{
-			kind: 'brew-installable';
-			executable: string;
-			arguments: readonly ['install', 'caddy'];
-	  }>
-	| Readonly<{
-			kind: 'missing';
-			installUrl: 'https://caddyserver.com/docs/install';
-	  }>;
 
 type QuestionBase<Field extends SetupField, Value> = Readonly<{
 	field: Field;
 	label: string;
 	flag: string;
 	defaultValue: Value;
-	source: Exclude<ValueSource, 'flag' | 'answer' | 'dependency'>;
 }>;
 
 export type OpenQuestion =
@@ -116,31 +83,22 @@ export type OpenQuestion =
 				kind: 'text';
 				help: 'keep it unique across your repos';
 			}>)
-	| (QuestionBase<'pm', PackageManager> &
-			Readonly<{
-				kind: 'select';
-				options: readonly PackageManager[];
-				needsConfirmation: boolean;
-			}>)
 	| (QuestionBase<'tmux', boolean> &
 			Readonly<{kind: 'boolean'; installed: boolean}>)
 	| (QuestionBase<'agents', readonly AgentId[]> &
 			Readonly<{
 				kind: 'multi-select';
 				maximum: typeof maximumAgents;
+				/** Installed agents only; an uninstalled one cannot be chosen. */
 				options: readonly AgentOption[];
 			}>)
 	| (QuestionBase<'copyIgnored', boolean> & Readonly<{kind: 'boolean'}>)
-	| (QuestionBase<'server', boolean> & Readonly<{kind: 'boolean'}>)
-	| (QuestionBase<'caddy', boolean> &
-			Readonly<{kind: 'boolean'; availability: CaddyAvailability}>)
 	| (QuestionBase<'mcAlias', boolean> & Readonly<{kind: 'boolean'}>);
 
 type ResolutionDetails = Readonly<{
 	draft: Settings;
 	questions: readonly OpenQuestion[];
 	sources: Readonly<Record<SetupField, ValueSource>>;
-	warnings: readonly ResolutionWarning[];
 }>;
 
 export type CompleteResolution = ResolutionDetails &
@@ -161,50 +119,40 @@ type Values = {
 	-readonly [Field in keyof SetupValues]: SetupValues[Field];
 };
 
-type MutablePartialValues = {
-	-readonly [Field in keyof SetupValues]?: SetupValues[Field];
-};
-
 type Sources = Record<SetupField, ValueSource>;
 
 type SelectedValues = Readonly<{
 	values: Values;
 	sources: Sources;
+	/** Fields whose value is settled, so the form must not ask about them. */
 	answered: Record<SetupField, boolean>;
 }>;
 
-const packageManagers = Object.freeze(['npm', 'pnpm', 'bun'] as const);
-const caddyInstallUrl = 'https://caddyserver.com/docs/install';
+/** Agents that are installed here, in the order they are offered. */
+export function installedAgents(
+	tools: Pick<ToolProbe, 'agents'>,
+): readonly AgentId[] {
+	return Object.freeze(
+		agentIds.filter(id => tools.agents[id].path !== undefined),
+	);
+}
 
 /** Resolve a setup without reading the terminal or filesystem. */
 export function resolve(options: ResolveOptions): Resolution {
-	const warnings: ResolutionWarning[] = (
-		options.packageDetection?.warnings ?? []
-	).map(message => Object.freeze({message}));
-	const flags = parseFlags(options.flags ?? {});
-	const answers = validateValues(options.answers ?? {}, 'answer');
-	const existing = sanitizeExisting(options.existing ?? {}, warnings);
-	const detected = detectionValues(options);
-	const defaults = builtInValues(options);
-	const selected = selectValues({
-		flags,
-		answers,
-		existing,
-		detected,
-		defaults,
-	});
+	const installed = installedAgents(options.tools);
+	const flags = parseFlags(options.flags ?? {}, installed);
+	const answers = validateValues(options.answers ?? {}, installed);
+	const selected = selectValues(flags, answers, builtInValues(options));
 
 	normalizeDependencies(selected, flags);
-	warnAboutPackageManagerMismatch(existing, options.packageDetection, warnings);
 
 	const questions = options.acceptDefaults
 		? []
 		: setupFieldOrder
-				.filter(field => shouldAsk(field, selected))
-				.map(field => questionFor(field, selected, options));
+				.filter(field => shouldAsk(field, selected, installed))
+				.map(field => questionFor(field, selected, options, installed));
 	const draft = createSettings(options, selected.values);
 	const sources = Object.freeze({...selected.sources});
-	const frozenWarnings = Object.freeze(warnings);
 
 	if (questions.length > 0) {
 		return Object.freeze({
@@ -212,7 +160,6 @@ export function resolve(options: ResolveOptions): Resolution {
 			draft,
 			questions: Object.freeze(questions),
 			sources,
-			warnings: frozenWarnings,
 		});
 	}
 
@@ -223,7 +170,6 @@ export function resolve(options: ResolveOptions): Resolution {
 		draft,
 		questions: Object.freeze([]),
 		sources,
-		warnings: frozenWarnings,
 	});
 }
 
@@ -231,12 +177,9 @@ export function resolve(options: ResolveOptions): Resolution {
 export function setupFlagsFromCli(flags: CliFlags): SetupFlags {
 	return Object.freeze({
 		prefix: flags.prefix,
-		pm: flags.pm,
 		tmux: flags.tmux,
 		agents: flags.agents,
 		copyIgnored: flags.copyIgnored,
-		server: flags.server,
-		caddy: flags.caddy,
 		mcAlias: flags.mc,
 	});
 }
@@ -280,88 +223,33 @@ export function buildRerunCommand(
 }
 
 function builtInValues(options: ResolveOptions): Values {
-	const values: Values = {
+	return {
 		prefix: initials(options.fixed.repoName),
-		pm: 'npm',
 		tmux: settingsDefaults.tmux,
 		agents: settingsDefaults.agents,
 		copyIgnored: settingsDefaults.copyIgnored,
-		server: settingsDefaults.server,
-		caddy: settingsDefaults.caddy,
 		mcAlias: settingsDefaults.mcAlias,
-		...options.defaults,
-	};
-	return {
-		...values,
-		pm: parsePackageManager(values.pm, 'default package manager'),
-		agents: validateAgents(values.agents),
 	};
 }
 
-function detectionValues(options: ResolveOptions): MutablePartialValues {
-	const detected: MutablePartialValues = {};
-	if (options.packageDetection) {
-		detected.pm = options.packageDetection.packageManager;
-	}
-
-	if (options.tools) {
-		detected.agents = Object.freeze(
-			agentIds
-				.filter(id => options.tools?.agents[id].path !== undefined)
-				.slice(0, maximumAgents),
-		);
-		detected.caddy = options.tools.caddy.path !== undefined;
-	}
-
-	return detected;
-}
-
-function selectValues({
-	flags,
-	answers,
-	existing,
-	detected,
-	defaults,
-}: Readonly<{
-	flags: Partial<SetupValues>;
-	answers: Partial<SetupValues>;
-	existing: Partial<SetupValues>;
-	detected: Partial<SetupValues>;
-	defaults: Values;
-}>): SelectedValues {
+function selectValues(
+	flags: Partial<SetupValues>,
+	answers: Partial<SetupValues>,
+	defaults: Values,
+): SelectedValues {
 	const values: Values = {...defaults};
-	const sources: Sources = {
-		prefix: 'built-in',
-		pm: 'built-in',
-		tmux: 'built-in',
-		agents: 'built-in',
-		copyIgnored: 'built-in',
-		server: 'built-in',
-		caddy: 'built-in',
-		mcAlias: 'built-in',
-	};
-	const answered: Record<SetupField, boolean> = {
-		prefix: false,
-		pm: false,
-		tmux: false,
-		agents: false,
-		copyIgnored: false,
-		server: false,
-		caddy: false,
-		mcAlias: false,
-	};
+	const sources = Object.fromEntries(
+		setupFieldOrder.map(field => [field, 'built-in']),
+	) as Sources;
+	const answered = Object.fromEntries(
+		setupFieldOrder.map(field => [field, false]),
+	) as Record<SetupField, boolean>;
 
 	for (const field of setupFieldOrder) {
 		if (hasValue(flags, field)) {
 			setSelected(field, flags[field]!, 'flag', true);
 		} else if (hasValue(answers, field)) {
 			setSelected(field, answers[field]!, 'answer', true);
-		} else if (hasValue(existing, field)) {
-			setSelected(field, existing[field]!, 'existing', false);
-		} else if (hasValue(detected, field)) {
-			setSelected(field, detected[field]!, 'detection', false);
-		} else {
-			setSelected(field, defaults[field], 'built-in', false);
 		}
 	}
 
@@ -379,6 +267,7 @@ function selectValues({
 	}
 }
 
+/** Agents live inside the tmux session, so turning tmux off turns them off. */
 function normalizeDependencies(
 	selected: SelectedValues,
 	flags: Partial<SetupValues>,
@@ -394,31 +283,20 @@ function normalizeDependencies(
 		selected.sources.agents = 'dependency';
 		selected.answered.agents = true;
 	}
-
-	if (!selected.values.server) {
-		if (hasValue(flags, 'caddy') && flags.caddy) {
-			throw new TypeError(
-				'Caddy requires --server; remove --no-server or use --no-caddy.',
-			);
-		}
-
-		selected.values.caddy = false;
-		selected.sources.caddy = 'dependency';
-		selected.answered.caddy = true;
-	}
 }
 
-function shouldAsk(field: SetupField, selected: SelectedValues): boolean {
+function shouldAsk(
+	field: SetupField,
+	selected: SelectedValues,
+	installed: readonly AgentId[],
+): boolean {
 	if (selected.answered[field]) {
 		return false;
 	}
 
+	// With no installed agent there is nothing to choose from.
 	if (field === 'agents') {
-		return selected.values.tmux;
-	}
-
-	if (field === 'caddy') {
-		return selected.values.server;
+		return selected.values.tmux && installed.length > 0;
 	}
 
 	return true;
@@ -428,11 +306,8 @@ function questionFor(
 	field: SetupField,
 	selected: SelectedValues,
 	options: ResolveOptions,
+	installed: readonly AgentId[],
 ): OpenQuestion {
-	const source = selected.sources[field] as Exclude<
-		ValueSource,
-		'flag' | 'answer' | 'dependency'
-	>;
 	switch (field) {
 		case 'prefix': {
 			return Object.freeze({
@@ -441,21 +316,7 @@ function questionFor(
 				label: 'prefix',
 				flag: '--prefix',
 				defaultValue: selected.values.prefix,
-				source,
 				help: 'keep it unique across your repos',
-			});
-		}
-
-		case 'pm': {
-			return Object.freeze({
-				field,
-				kind: 'select',
-				label: 'package manager',
-				flag: '--pm',
-				defaultValue: selected.values.pm,
-				source,
-				options: packageManagers,
-				needsConfirmation: options.packageDetection?.needsConfirmation ?? false,
 			});
 		}
 
@@ -466,8 +327,7 @@ function questionFor(
 				label: 'tmux session',
 				flag: '--tmux/--no-tmux',
 				defaultValue: selected.values.tmux,
-				source,
-				installed: options.tools?.tmux.path !== undefined,
+				installed: options.tools.tmux.path !== undefined,
 			});
 		}
 
@@ -478,130 +338,55 @@ function questionFor(
 				label: 'agents',
 				flag: '--agents',
 				defaultValue: Object.freeze([...selected.values.agents]),
-				source,
 				maximum: maximumAgents,
 				options: Object.freeze(
-					agentIds.map(id =>
-						Object.freeze({
-							id,
-							command: agentCommands[id],
-							installed: options.tools?.agents[id].path !== undefined,
-						}),
-					),
+					installed.map(id => Object.freeze({id, command: agentCommands[id]})),
 				),
 			});
 		}
 
 		case 'copyIgnored': {
-			return booleanQuestion({
-				field,
-				label: 'copy-ignored',
-				flag: '--copy/--no-copy',
-				defaultValue: selected.values.copyIgnored,
-				source,
-			});
-		}
-
-		case 'server': {
-			return booleanQuestion({
-				field,
-				label: 'dev server',
-				flag: '--server/--no-server',
-				defaultValue: selected.values.server,
-				source,
-			});
-		}
-
-		case 'caddy': {
 			return Object.freeze({
 				field,
 				kind: 'boolean',
-				label:
-					options.tools?.caddy.path === undefined
-						? 'include Caddy anyway'
-						: 'Caddy route',
-				flag: '--caddy/--no-caddy',
-				defaultValue: selected.values.caddy,
-				source,
-				availability: caddyAvailability(options.tools),
+				label: 'copy-ignored',
+				flag: '--copy/--no-copy',
+				defaultValue: selected.values.copyIgnored,
 			});
 		}
 
 		case 'mcAlias': {
-			return booleanQuestion({
+			return Object.freeze({
 				field,
+				kind: 'boolean',
 				label: 'mc alias',
 				flag: '--mc/--no-mc',
 				defaultValue: selected.values.mcAlias,
-				source,
 			});
 		}
 	}
 }
 
-function booleanQuestion<Field extends 'copyIgnored' | 'server' | 'mcAlias'>(
-	properties: Readonly<{
-		field: Field;
-		label: string;
-		flag: string;
-		defaultValue: boolean;
-		source: Exclude<ValueSource, 'flag' | 'answer' | 'dependency'>;
-	}>,
-): Extract<OpenQuestion, {field: Field}> {
-	return Object.freeze({
-		...properties,
-		kind: 'boolean',
-	}) as Extract<OpenQuestion, {field: Field}>;
-}
-
-function caddyAvailability(tools: ResolveOptions['tools']): CaddyAvailability {
-	if (tools?.caddy.path) {
-		return Object.freeze({kind: 'installed'});
-	}
-
-	if (tools?.brew.path) {
-		return Object.freeze({
-			kind: 'brew-installable',
-			executable: tools.brew.path,
-			arguments: Object.freeze(['install', 'caddy'] as const),
-		});
-	}
-
-	return Object.freeze({kind: 'missing', installUrl: caddyInstallUrl});
-}
-
 function createSettings(options: ResolveOptions, values: Values): Settings {
-	const appDirectory = options.fixed.appDir ?? options.packageDetection?.appDir;
 	return Object.freeze({
 		trunkVersion: options.fixed.trunkVersion,
 		generatedOn: options.fixed.generatedOn,
-		repoName: options.fixed.repoName,
-		hostLabel: options.fixed.hostLabel,
 		prefix: values.prefix,
-		pm: values.pm,
-		...(appDirectory ? {appDir: appDirectory} : {}),
 		tmux: values.tmux,
 		agents: Object.freeze([...values.agents]),
-		editorWindow: true,
 		copyIgnored: values.copyIgnored,
-		server: values.server,
-		caddy: values.caddy,
 		mcAlias: values.mcAlias,
-		devScript: options.fixed.devScript ?? settingsDefaults.devScript,
-		scripts: Object.freeze([
-			...(options.fixed.scripts ?? options.packageDetection?.scripts ?? []),
-		]),
 	});
 }
 
-function parseFlags(flags: SetupFlags): Partial<SetupValues> {
-	const values: MutablePartialValues = {};
+function parseFlags(
+	flags: SetupFlags,
+	installed: readonly AgentId[],
+): Partial<SetupValues> {
+	const values: {-readonly [Field in keyof SetupValues]?: SetupValues[Field]} =
+		{};
 	if (flags.prefix !== undefined) {
 		values.prefix = flags.prefix;
-	}
-
-	if (flags.pm !== undefined) {
-		values.pm = parsePackageManager(flags.pm, '--pm');
 	}
 
 	if (flags.tmux !== undefined) {
@@ -616,26 +401,17 @@ function parseFlags(flags: SetupFlags): Partial<SetupValues> {
 		values.copyIgnored = flags.copyIgnored;
 	}
 
-	if (flags.server !== undefined) {
-		values.server = flags.server;
-	}
-
-	if (flags.caddy !== undefined) {
-		values.caddy = flags.caddy;
-	}
-
 	if (flags.mcAlias !== undefined) {
 		values.mcAlias = flags.mcAlias;
 	}
 
-	return validateValues(values, 'flag');
+	return validateValues(values, installed);
 }
 
 function validateValues(
 	values: Partial<SetupValues>,
-	source: 'flag' | 'answer' | 'default',
+	installed: readonly AgentId[],
 ): Partial<SetupValues> {
-	const validated: MutablePartialValues = {...values};
 	if (values.prefix !== undefined) {
 		const result = validatePrefix(values.prefix);
 		if (!result.valid) {
@@ -643,54 +419,21 @@ function validateValues(
 		}
 	}
 
-	if (values.pm !== undefined) {
-		validated.pm = parsePackageManager(values.pm, `${source} package manager`);
+	if (values.agents === undefined) {
+		return values;
 	}
 
-	if (values.agents !== undefined) {
-		validated.agents = validateAgents(values.agents);
+	const agents = validateAgents(values.agents);
+	const missing = agents.filter(id => !installed.includes(id));
+	if (missing.length > 0) {
+		throw new TypeError(
+			`${missing.map(id => `${id} (${agentCommands[id]})`).join(', ')} ${
+				missing.length === 1 ? 'is' : 'are'
+			} not installed; only installed agents can be chosen.`,
+		);
 	}
 
-	return validated;
-}
-
-function sanitizeExisting(
-	values: Partial<SetupValues>,
-	warnings: ResolutionWarning[],
-): Partial<SetupValues> {
-	const valid: MutablePartialValues = {};
-	for (const field of setupFieldOrder) {
-		if (!hasValue(values, field)) {
-			continue;
-		}
-
-		try {
-			Object.assign(
-				valid,
-				validateValues(
-					{[field]: values[field]} as Partial<SetupValues>,
-					'default',
-				),
-			);
-		} catch (error: unknown) {
-			warnings.push(
-				Object.freeze({
-					field,
-					message: `Ignoring invalid existing ${field}: ${errorMessage(error)}`,
-				}),
-			);
-		}
-	}
-
-	return valid;
-}
-
-function parsePackageManager(value: string, name: string): PackageManager {
-	if ((packageManagers as readonly string[]).includes(value)) {
-		return value as PackageManager;
-	}
-
-	throw new TypeError(`${name} must be npm, pnpm, or bun.`);
+	return {...values, agents};
 }
 
 function parseAgents(value: string): readonly AgentId[] {
@@ -725,33 +468,15 @@ function validateAgents(values: readonly string[]): readonly AgentId[] {
 		throw new TypeError(`max ${maximumAgents} (2×2 grid)`);
 	}
 
+	// Canonical order, so the same selection always generates the same file.
 	const selected = new Set(values);
 	return Object.freeze(agentIds.filter(id => selected.has(id)));
-}
-
-function warnAboutPackageManagerMismatch(
-	existing: Partial<SetupValues>,
-	detection: PackageDetection | undefined,
-	warnings: ResolutionWarning[],
-): void {
-	if (existing.pm && detection && existing.pm !== detection.packageManager) {
-		warnings.push(
-			Object.freeze({
-				field: 'pm',
-				message: `Existing config uses ${existing.pm}, but lockfile detection found ${detection.packageManager}.`,
-			}),
-		);
-	}
 }
 
 function questionArgument(question: OpenQuestion): string {
 	switch (question.field) {
 		case 'prefix': {
 			return `--prefix=${question.defaultValue}`;
-		}
-
-		case 'pm': {
-			return `--pm=${question.defaultValue}`;
 		}
 
 		case 'agents': {
@@ -764,14 +489,6 @@ function questionArgument(question: OpenQuestion): string {
 
 		case 'copyIgnored': {
 			return question.defaultValue ? '--copy' : '--no-copy';
-		}
-
-		case 'server': {
-			return question.defaultValue ? '--server' : '--no-server';
-		}
-
-		case 'caddy': {
-			return question.defaultValue ? '--caddy' : '--no-caddy';
 		}
 
 		case 'mcAlias': {
@@ -795,8 +512,4 @@ function hasValue(value: unknown, key: PropertyKey): boolean {
 		Object.hasOwn(value, key) &&
 		(value as Record<PropertyKey, unknown>)[key] !== undefined
 	);
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

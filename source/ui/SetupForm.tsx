@@ -1,12 +1,11 @@
-/* eslint-disable unicorn/filename-case -- Phase 3 specifies SetupForm.tsx. */
+/* eslint-disable unicorn/filename-case -- React components use PascalCase file names. */
 /** The only interactive surface in trunk: setup fields followed by a preview. */
-import {spawn} from 'node:child_process';
-import process from 'node:process';
 import React, {useRef, useState} from 'react';
 import {Box, Text, render, useApp, useInput} from 'ink';
-import {agentIds, maximumAgents, type AgentId} from '../core/agents.js';
+import {maximumAgents, type AgentId} from '../core/agents.js';
 import {
 	buildRerunCommand,
+	installedAgents,
 	resolve,
 	setupFieldOrder,
 	type NeedsInputResolution,
@@ -53,17 +52,10 @@ export type CollectSettingsOptions = Readonly<{
 	yes?: boolean;
 	interactive?: boolean;
 	randomPrefix?: () => string;
-	installCaddy?: (
-		executable: string,
-		arguments_: readonly string[],
-	) => Promise<boolean>;
-	report?: (line: string) => void;
 	/** Injectable so the abort and submit paths are testable without a TTY. */
 	runForm?: (
 		properties: Omit<SetupFormProperties, 'onSubmit' | 'onAbort'>,
 	) => Promise<SetupFormOutcome>;
-	/** Injectable for the same reason as {@link CollectSettingsOptions.runForm}. */
-	askInstall?: () => Promise<InstallAnswer>;
 }>;
 
 const onOffOptions = Object.freeze([
@@ -166,39 +158,12 @@ export default function SetupForm({
 				);
 			}
 
-			case 'pm': {
-				return (
-					<Select
-						key={field}
-						label="package manager"
-						options={[
-							{value: 'npm', label: 'npm'},
-							{value: 'pnpm', label: 'pnpm'},
-							{value: 'bun', label: 'bun'},
-						]}
-						value={values.pm}
-						isActive={active}
-						note={
-							options.packageDetection?.needsConfirmation
-								? 'confirm'
-								: undefined
-						}
-						onChange={value => {
-							update('pm', value);
-						}}
-						onSubmit={() => {
-							advance(field);
-						}}
-					/>
-				);
-			}
-
 			case 'tmux': {
 				return booleanField(
 					field,
 					'tmux session',
 					values.tmux,
-					options.tools?.tmux.path ? undefined : 'not installed',
+					options.tools.tmux.path ? undefined : 'not installed',
 				);
 			}
 
@@ -207,12 +172,10 @@ export default function SetupForm({
 					<MultiSelect<AgentId>
 						key={field}
 						label="agents"
-						options={agentIds.map(id => ({
+						// Only installed agents are offered; an absent one cannot be picked.
+						options={installedAgents(options.tools).map(id => ({
 							value: id,
 							label: id,
-							note: options.tools?.agents[id].path
-								? undefined
-								: 'not installed',
 						}))}
 						value={values.agents}
 						maximum={maximumAgents}
@@ -231,20 +194,6 @@ export default function SetupForm({
 				return booleanField(field, 'copy-ignored', values.copyIgnored);
 			}
 
-			case 'server': {
-				return booleanField(field, 'dev server', values.server);
-			}
-
-			case 'caddy': {
-				const missing = options.tools?.caddy.path === undefined;
-				return booleanField(
-					field,
-					missing ? 'include anyway' : 'Caddy route',
-					values.caddy,
-					missing ? '(teammates may have it)' : undefined,
-				);
-			}
-
 			case 'mcAlias': {
 				return booleanField(field, 'mc alias', values.mcAlias);
 			}
@@ -252,7 +201,7 @@ export default function SetupForm({
 	}
 
 	function booleanField(
-		field: 'tmux' | 'copyIgnored' | 'server' | 'caddy' | 'mcAlias',
+		field: 'tmux' | 'copyIgnored' | 'mcAlias',
 		label: string,
 		value: boolean,
 		note?: string,
@@ -356,7 +305,7 @@ export async function runSetupForm(
 	return outcome ?? {kind: 'aborted'};
 }
 
-/** Chooses the headless path or mounts the form, including the Caddy branch. */
+/** Chooses the headless path or mounts the form. */
 export async function collectSettings({
 	folder,
 	resolveOptions,
@@ -364,14 +313,9 @@ export async function collectSettings({
 	yes = false,
 	interactive = supportsInteractiveInput(),
 	randomPrefix,
-	installCaddy = streamCaddyInstall,
-	report = line => {
-		process.stderr.write(`${line}\n`);
-	},
 	runForm = runSetupForm,
-	askInstall = askToInstallCaddy,
 }: CollectSettingsOptions): Promise<CollectSettingsResult> {
-	let options: ResolveOptions = {...resolveOptions, acceptDefaults: yes};
+	const options: ResolveOptions = {...resolveOptions, acceptDefaults: yes};
 	let resolution: ReturnType<typeof resolve>;
 	try {
 		resolution = resolve(options);
@@ -388,45 +332,6 @@ export async function collectSettings({
 			kind: 'outcome',
 			outcome: badUsage(missingInputMessage(resolution, invocation)),
 		};
-	}
-
-	const caddy = resolution.questions.find(
-		(question): question is Extract<typeof question, {field: 'caddy'}> =>
-			question.field === 'caddy',
-	);
-	if (caddy?.availability.kind === 'brew-installable') {
-		const answer = await askInstall();
-		if (answer === 'abort') {
-			return {kind: 'outcome', outcome: userAborted()};
-		}
-
-		if (answer === 'yes') {
-			let installed = false;
-			try {
-				installed = await installCaddy(
-					caddy.availability.executable,
-					caddy.availability.arguments,
-				);
-			} catch {
-				// A missing/broken Brew process is the same as a non-zero install.
-			}
-
-			if (installed) {
-				options = withCaddyInstalled(options);
-				resolution = resolve(options);
-			} else {
-				report('brew install caddy failed; continuing without it.');
-				report(caddyInstallUrl());
-			}
-		} else {
-			report(caddyInstallUrl());
-		}
-	} else if (caddy?.availability.kind === 'missing') {
-		report(caddy.availability.installUrl);
-	}
-
-	if (resolution.kind === 'complete') {
-		return {kind: 'settings', settings: resolution.settings};
 	}
 
 	const form = await runForm({folder, options, randomPrefix});
@@ -466,84 +371,6 @@ function missingInputMessage(
 	return `${cause} Re-run with --yes, or specify the missing flags:\n  ${rerun.display}`;
 }
 
-export type InstallAnswer = 'yes' | 'no' | 'abort';
-
-function CaddyInstallPrompt({
-	onAnswer,
-}: Readonly<{onAnswer: (answer: InstallAnswer) => void}>): React.ReactElement {
-	const {exit} = useApp();
-	const answered = useRef(false);
-	useInput((input, key) => {
-		let answer: InstallAnswer | undefined;
-		if (key.ctrl && input === 'c') {
-			answer = 'abort';
-		} else if (key.return || input.toLowerCase() === 'y') {
-			answer = 'yes';
-		} else if (input.toLowerCase() === 'n') {
-			answer = 'no';
-		}
-
-		if (!answer || answered.current) {
-			return;
-		}
-
-		answered.current = true;
-		onAnswer(answer);
-		exit();
-	});
-
-	return (
-		<Text>
-			? caddy not found. Install with &apos;brew install caddy&apos;? (Y/n)
-		</Text>
-	);
-}
-
-async function askToInstallCaddy(): Promise<InstallAnswer> {
-	let answer: InstallAnswer = 'abort';
-	const app = render(
-		<CaddyInstallPrompt
-			onAnswer={value => {
-				answer = value;
-			}}
-		/>,
-		{exitOnCtrlC: false},
-	);
-	await app.waitUntilExit();
-	app.cleanup();
-	return answer;
-}
-
-async function streamCaddyInstall(
-	executable: string,
-	arguments_: readonly string[],
-): Promise<boolean> {
-	return new Promise(resolve => {
-		// Inherited stdio: the user watches Brew's own progress output.
-		const child = spawn(executable, [...arguments_], {stdio: 'inherit'});
-		child.once('error', () => {
-			resolve(false);
-		});
-		child.once('close', code => {
-			resolve(code === 0);
-		});
-	});
-}
-
-function withCaddyInstalled(options: ResolveOptions): ResolveOptions {
-	if (!options.tools) {
-		return options;
-	}
-
-	return {
-		...options,
-		tools: {
-			...options.tools,
-			caddy: Object.freeze({name: 'caddy', path: 'caddy'}),
-		},
-	};
-}
-
 function visibleSetupFields(
 	values: SetupValues,
 	options: ResolveOptions,
@@ -553,9 +380,10 @@ function visibleSetupFields(
 			return false;
 		}
 
+		// Agents need a tmux session and at least one installed agent to pick.
 		return !(
-			(field === 'agents' && !values.tmux) ||
-			(field === 'caddy' && !values.server)
+			field === 'agents' &&
+			(!values.tmux || installedAgents(options.tools).length === 0)
 		);
 	});
 }
@@ -584,18 +412,11 @@ function provided(field: SetupField, options: ResolveOptions): boolean {
 function valuesFromSettings(settings: SetupValuesResult): SetupValues {
 	return {
 		prefix: settings.prefix,
-		pm: settings.pm,
 		tmux: settings.tmux,
 		agents: settings.agents,
 		copyIgnored: settings.copyIgnored,
-		server: settings.server,
-		caddy: settings.caddy,
 		mcAlias: settings.mcAlias,
 	};
-}
-
-function caddyInstallUrl(): string {
-	return 'https://caddyserver.com/docs/install';
 }
 
 function errorMessage(error: unknown): string {

@@ -43,7 +43,8 @@ export function reportOutcome(outcome: Outcome): void {
 	);
 }
 
-function shouldUseColor(): boolean {
+/** Whether stderr will render ANSI colour; shared by everything that styles output. */
+export function shouldUseColor(): boolean {
 	// Step lines go to stderr, so that is the stream whose TTY state matters.
 	// NO_COLOR only counts when it is set to a non-empty value.
 	return !process.env['NO_COLOR'] && Boolean(process.stderr.isTTY);

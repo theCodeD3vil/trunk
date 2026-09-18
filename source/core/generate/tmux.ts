@@ -1,19 +1,15 @@
-/** Creates and tears down the deterministic tmux workspace for one worktree. */
+/**
+ * The shell bodies for the tmux workspace of one worktree: creating it when the
+ * worktree starts, and taking it down in two steps when the worktree is removed.
+ */
 import {agentCommands, maximumAgents} from '../agents.js';
 import {type Settings} from '../settings.js';
-import {multilineCommand, shellQuote} from './toml.js';
+import {shellQuote} from './toml.js';
 
 const branchTemplate = '{{ branch | sanitize }}';
 const worktreeTemplate = '{{ worktree_path }}';
 
-export function generateTmuxPreStart(settings: Settings): string | undefined {
-	if (!settings.tmux) {
-		return undefined;
-	}
-
-	return `[[pre-start]]\ntmux = ${multilineCommand(tmuxStartBody(settings))}`;
-}
-
+/** Editor window, optional Agents window, and a two-pane Terminal window. */
 export function tmuxStartBody(settings: Settings): string {
 	const defaultAgents = settings.agents.join(' ');
 	const commandMappings = Object.entries(agentCommands)
@@ -23,6 +19,8 @@ export function tmuxStartBody(settings: Settings): string {
 				`  [ "$a" = ${shellQuote(id)} ] && cmd=${shellQuote(command)}`,
 		)
 		.join('\n');
+	// The window exists only when agents were chosen explicitly; an empty list
+	// generates no agent code at all.
 	const agentWindow =
 		settings.agents.length === 0
 			? ''
@@ -48,13 +46,6 @@ B=${branchTemplate}
 W=${worktreeTemplate}
 S="\${P}_$B"
 
-# Remove agent credentials before a new tmux server can inherit them.
-for name in $(env | cut -d= -f1); do
-  case $name in
-    CLAUDE*|ANTHROPIC*|OPENCODE*|CODEX*|COPILOT*) unset "$name" ;;
-  esac
-done
-
 if tmux has-session -t "=$S" 2>/dev/null; then
   session_path=$(tmux display-message -p -t "=$S" '#{session_path}')
   if [ "$session_path" = "$W" ]; then
@@ -79,32 +70,61 @@ tmux select-window -t "$TERM_W"
 printf 'tmux session %s ready; attach with: tmux attach -t =%s\\n' "$S" "$S"`;
 }
 
-export function tmuxRemoveBody(settings: Settings): string | undefined {
-	if (!settings.tmux) {
-		return undefined;
-	}
-
+/**
+ * `pre-remove`: asks every process running under the session's panes to exit,
+ * waits briefly, then forces what is left. It runs before the worktree is
+ * deleted, so it blocks and must never fail: a non-zero exit would cancel the
+ * removal.
+ */
+export function tmuxStopBody(settings: Settings): string {
 	return `command -v tmux >/dev/null 2>&1 || exit 0
 P=${shellQuote(settings.prefix)}
 B=${branchTemplate}
 S="\${P}_$B"
 tmux has-session -t "=$S" 2>/dev/null || exit 0
+
+# Collect what runs under each pane. The panes' own shells are left for
+# post-remove, because an interactive shell ignores SIGTERM.
 PIDS=
 collect_tree() {
-  parent=$1
-  for child in $(pgrep -P "$parent" 2>/dev/null); do
+  for child in $(pgrep -P "$1" 2>/dev/null); do
+    PIDS="$PIDS $child"
     collect_tree "$child"
   done
-  PIDS="$PIDS $parent"
 }
 for pane in $(tmux list-panes -s -t "=$S" -F '#{pane_id}'); do
+  # The pane running this removal must survive it.
   [ "$pane" = "\${TMUX_PANE-}" ] && continue
   pane_pid=$(tmux display-message -p -t "$pane" '#{pane_pid}')
   [ -n "$pane_pid" ] && collect_tree "$pane_pid"
 done
-if [ -n "$PIDS" ]; then
-  kill -TERM $PIDS 2>/dev/null || true
-fi
-# Keep this delayed command on one line: tmux drops run-shell commands containing newlines.
-tmux run-shell -b -d 3 "if [ -n '$PIDS' ]; then kill -KILL $PIDS 2>/dev/null || true; fi; tmux kill-session -t '=$S' 2>/dev/null || true"`;
+[ -n "$PIDS" ] || exit 0
+
+kill -TERM $PIDS 2>/dev/null || true
+n=0
+while [ "$n" -lt 3 ]; do
+  LEFT=
+  for pid in $PIDS; do
+    kill -0 "$pid" 2>/dev/null && LEFT="$LEFT $pid"
+  done
+  PIDS=$LEFT
+  [ -n "$PIDS" ] || exit 0
+  n=$((n + 1))
+  sleep 1
+done
+kill -KILL $PIDS 2>/dev/null || true
+exit 0`;
+}
+
+/**
+ * `post-remove`: ends the session itself. Worktrunk runs this in the primary
+ * worktree once the removed one is gone, so it relies only on the preserved
+ * template variables, never on the removed path.
+ */
+export function tmuxKillBody(settings: Settings): string {
+	return `command -v tmux >/dev/null 2>&1 || exit 0
+P=${shellQuote(settings.prefix)}
+B=${branchTemplate}
+S="\${P}_$B"
+tmux kill-session -t "=$S" 2>/dev/null || true`;
 }

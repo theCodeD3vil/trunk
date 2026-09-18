@@ -131,10 +131,10 @@ async function pipeline(
 
 	return configureProject(context, {
 		remote,
+		repoName: remote.repo,
 		projectDirectory,
 		gitDirectory,
 		defaultWorktree,
-		defaultBranch,
 	});
 }
 
@@ -176,7 +176,12 @@ async function createFirstWorktree(
 		warnAboutWorktreePath(context, remote, expected);
 	}
 
-	const actual = await locateWorktree(gitDirectory, expected, context.git);
+	const actual = await locateWorktree(
+		gitDirectory,
+		expected,
+		context.git,
+		branch,
+	);
 	if (actual !== expected) {
 		warnAboutWorktreePath(context, remote, actual);
 	}

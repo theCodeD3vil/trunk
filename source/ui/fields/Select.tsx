@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/filename-case -- Phase 3 specifies Select.tsx. */
+/* eslint-disable unicorn/filename-case -- React components use PascalCase file names. */
 /** A compact single-choice field controlled with either pair of arrow keys. */
 import React from 'react';
 import {Box, Text, useInput} from 'ink';

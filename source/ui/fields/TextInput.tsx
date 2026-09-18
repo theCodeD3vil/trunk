@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/filename-case -- Phase 3 specifies TextInput.tsx. */
+/* eslint-disable unicorn/filename-case -- React components use PascalCase file names. */
 /** Prefix entry with random/custom shortcuts and live validation. */
 import React, {useState} from 'react';
 import {Box, Text, useInput} from 'ink';

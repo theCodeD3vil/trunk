@@ -17,8 +17,8 @@ import {reportOutcome, step} from './core/log.js';
 import {guardPlatform} from './core/platform.js';
 import {badUsage, succeed, type Outcome} from './core/result.js';
 import {runClone} from './commands/clone.js';
+import {runDocumentation} from './commands/docs.js';
 import {runInit} from './commands/init.js';
-import {runNew} from './commands/new.js';
 
 const cli = parseArguments();
 
@@ -33,7 +33,7 @@ async function dispatch(): Promise<Outcome> {
 	// Only the real commands need tools, so printing usage stays instant and
 	// works on a machine that has neither git nor wt installed.
 	let tools: ToolProbe | undefined;
-	if (command === 'clone' || command === 'init' || command === 'new') {
+	if (command === 'clone' || command === 'init') {
 		tools = await probe();
 		const missingTools = checkRequiredTools(tools);
 		if (missingTools) {
@@ -61,10 +61,8 @@ async function dispatch(): Promise<Outcome> {
 			});
 		}
 
-		case 'new': {
-			return runNew(rest, cli.flags, tools!, {
-				invocation: {executable: 'trunk', arguments: process.argv.slice(2)},
-			});
+		case 'docs': {
+			return runDocumentation(rest);
 		}
 
 		case undefined: {
