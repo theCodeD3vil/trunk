@@ -127,13 +127,20 @@ bun run test
 Releases are published by hand, never by CI, so the npm credentials stay on one machine:
 
 ```sh
+git checkout main && git pull
 bun run release            # or: bun run release minor
 ```
 
 That runs [`np`](https://github.com/sindresorhus/np), which verifies the branch and working
 tree, reinstalls from `bun.lock`, runs the tests, bumps the version, commits, tags, pushes,
-publishes, and opens a GitHub release draft. Use `bun run release --dry-run` to see the steps
-without performing them.
+publishes, and opens a GitHub release draft. `bun run release -- --dry-run` shows every step
+without performing any of them.
+
+Releases happen on `main` because that is the published history. `np` tags the commit it
+creates, and a tag only means something if that commit is reachable from `main` — squashing
+or rebasing a release made on a side branch leaves the tag pointing at history that never
+shipped. After releasing, merge `main` back into the working branch to pick up the version
+bump.
 
 ## License
 

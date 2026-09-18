@@ -70,7 +70,7 @@
 	},
 	"prettier": "@vdemedes/prettier-config",
 	"np": {
-		"branch": "development",
+		"branch": "main",
 		"releaseDraft": true
 	}
 }

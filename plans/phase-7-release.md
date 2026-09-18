@@ -55,7 +55,12 @@ package.json                   version, repository, keywords, files
    `packageManager` in `package.json` tells np to use bun: it installs with
    `bun install --frozen-lockfile` and publishes through npm, which bun cannot do itself.
    `prepack` builds, so the tarball is always compiled from the committed source.
-   The `np.branch` setting names the release branch; change it when the release branch does.
+
+   `np.branch` is `main`, because np tags the commit it creates and a tag is only meaningful
+   if that commit is reachable from the published history. Releasing from a side branch and
+   then squashing or rebasing the merge leaves the tag on a commit that never shipped, which
+   breaks `git describe` and shows as "not on main" on the release page. Merge first, release
+   from `main`, then merge `main` back into the working branch.
 7. **Changelog.** `changelog.md`, hand-written, one section per version. The first entry
    records that trunk generates for worktrunk v0.77.0 templates.
 8. **Version stamp.** The generated header carries trunk's version, so the build must inject
