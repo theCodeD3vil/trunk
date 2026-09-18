@@ -1,5 +1,2 @@
 node_modules
 dist
-
-# Generated from package.json by scripts/prepare-build.mjs before every build.
-source/version.ts
