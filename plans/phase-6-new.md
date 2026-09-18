@@ -86,6 +86,14 @@ test/new.test.ts             local-only path, fully offline
       (print the `gh repo delete` command instead).
 - [x] An existing non-empty folder exits `2` before anything is created.
 
+The `--remote` path is covered by tests driving a stubbed `gh`, and was also run once
+against a real account on 2026-09-18: `gh repo create` made a private repository with the
+wiki disabled, the remote was written as `git@github.com-work:<owner>/<name>.git` through
+the ssh alias a sibling project uses, the push over that alias succeeded, and
+`wt config show` reported the matching identifier with no warnings. The keep/rollback path
+after a failed create is covered by the stubbed test only, since exercising it live would
+leave a second repository behind.
+
 ## Risks & notes
 
 - Deleting a remote repository is out of scope for rollback: too destructive, and `gh repo
