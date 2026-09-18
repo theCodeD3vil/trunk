@@ -62,7 +62,7 @@ async function dispatch(): Promise<Outcome> {
 		}
 
 		case 'docs': {
-			return runDocumentation();
+			return runDocumentation(rest);
 		}
 
 		case undefined: {

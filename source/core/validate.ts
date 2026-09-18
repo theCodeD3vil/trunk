@@ -179,7 +179,8 @@ function unquote(value: string): string {
 	return value;
 }
 
-function hasDiagnostic(output: string): boolean {
+/** Whether wt reported a problem with the config, as opposed to unrelated notes. */
+export function hasDiagnostic(output: string): boolean {
 	return output
 		.split(/\r?\n/)
 		.some(
