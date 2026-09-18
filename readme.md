@@ -122,6 +122,19 @@ bun run test
 
 `bun run build` creates a clean `dist/` and stamps the package version into the compiled CLI. The published package runs on Node.js; the test suite and CI exercise that runtime explicitly.
 
+## Releasing
+
+Releases are published by hand, never by CI, so the npm credentials stay on one machine:
+
+```sh
+bun run release            # or: bun run release minor
+```
+
+That runs [`np`](https://github.com/sindresorhus/np), which verifies the branch and working
+tree, reinstalls from `bun.lock`, runs the tests, bumps the version, commits, tags, pushes,
+publishes, and opens a GitHub release draft. Use `bun run release --dry-run` to see the steps
+without performing them.
+
 ## License
 
 MIT

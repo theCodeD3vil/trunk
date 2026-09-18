@@ -18,6 +18,7 @@
 		"cli"
 	],
 	"license": "MIT",
+	"packageManager": "bun@1.4.0",
 	"bin": {
 		"trunk": "dist/cli.js"
 	},
@@ -29,7 +30,8 @@
 		"build": "node scripts/prepare-build.mjs && tsc",
 		"dev": "node scripts/prepare-build.mjs && tsc --watch",
 		"test": "prettier --check . && xo && bun test",
-		"prepack": "bun run build"
+		"prepack": "bun run build",
+		"release": "np"
 	},
 	"files": [
 		"dist"
@@ -54,6 +56,7 @@
 		"eslint-plugin-react": "^7.32.2",
 		"eslint-plugin-react-hooks": "^4.6.0",
 		"ink-testing-library": "^4.0.0",
+		"np": "^12.1.1",
 		"prettier": "^2.8.7",
 		"typescript": "^5.0.3",
 		"xo": "^0.60.0"
@@ -65,5 +68,9 @@
 			"react/prop-types": "off"
 		}
 	},
-	"prettier": "@vdemedes/prettier-config"
+	"prettier": "@vdemedes/prettier-config",
+	"np": {
+		"branch": "development",
+		"releaseDraft": true
+	}
 }

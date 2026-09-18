@@ -11,7 +11,6 @@ person running trunk, and the teammate who only ever sees the generated `wt.toml
 readme.md                      rewritten (the starter text goes)
 docs/generated-config.md       annotated tour of a generated wt.toml
 .github/workflows/ci.yml       test matrix
-.github/workflows/release.yml  publish on a tag (bun publish)
 package.json                   version, repository, keywords, files
 ```
 
@@ -47,11 +46,16 @@ package.json                   version, repository, keywords, files
    `git config --global user.email/user.name` so commits work in tests.
 5. **End-to-end in CI.** The phase 4 test uses a `file://` remote, so no network or SSH is
    needed. Skip the gh-dependent parts unless `GH_TOKEN` is present; those stay manual.
-6. **Release** (`release.yml`): on a `v*` tag, run the test job, `bun run build`, then
-   `bun publish --access public` with `NPM_CONFIG_TOKEN` (bun reads npm credentials from
-   `.npmrc`/`NPM_CONFIG_TOKEN`). Draft a GitHub release with the changelog entry. If npm
-   provenance is wanted, that is the one place to fall back to `npm publish --provenance`,
-   since bun does not generate provenance statements.
+6. **Release is manual, with `np`.** CI tests; it never publishes. `bun run release` runs
+   `np`, which checks the branch and working tree, reinstalls from `bun.lock`, runs the test
+   script, bumps the version, commits, tags, pushes and publishes, then opens a GitHub
+   release draft. npm credentials stay on the machine doing the release, so no token is
+   stored in the repository.
+
+   `packageManager` in `package.json` tells np to use bun: it installs with
+   `bun install --frozen-lockfile` and publishes through npm, which bun cannot do itself.
+   `prepack` builds, so the tarball is always compiled from the committed source.
+   The `np.branch` setting names the release branch; change it when the release branch does.
 7. **Changelog.** `changelog.md`, hand-written, one section per version. The first entry
    records that trunk generates for worktrunk v0.77.0 templates.
 8. **Version stamp.** The generated header carries trunk's version, so the build must inject
@@ -68,7 +72,7 @@ package.json                   version, repository, keywords, files
 
 ## Acceptance criteria
 
-- [ ] `bun pm pack` contains `dist/` and nothing else of consequence, and
+- [ ] `bun run release --dry-run` completes, and `bun pm pack` contains `dist/` and nothing else of consequence, and
       `npx @thecoded3vil/trunk` prints usage from a clean machine (users install with npm).
 - [x] CI is green on both platforms, including shellcheck over generated hook bodies and the
       end-to-end clone test.
