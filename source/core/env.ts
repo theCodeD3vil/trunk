@@ -1,3 +1,8 @@
+/**
+ * Which tools this machine has. Nothing here is assumed to exist: every tool is
+ * looked up on PATH at run time, git and wt are the only hard requirements, and
+ * the rest merely shape the defaults trunk offers.
+ */
 import {constants, type Stats} from 'node:fs';
 import {access, stat} from 'node:fs/promises';
 import {delimiter, resolve} from 'node:path';
@@ -5,6 +10,10 @@ import process from 'node:process';
 import {runCommand, type CommandRunner} from './process.js';
 import {unsupportedEnvironment, type Outcome} from './result.js';
 
+/**
+ * Agent id as the user writes it, mapped to the command that starts it. Most
+ * match; antigravity ships as `agy`. Keep this the only place that knows.
+ */
 export const agentCommands = Object.freeze({
 	claude: 'claude',
 	codex: 'codex',
@@ -52,8 +61,10 @@ type ProbeContext = Readonly<{
 	run: CommandRunner;
 }>;
 
+/** The wt release trunk's templates were written against. Older only warns. */
 export const minimumWtVersion = Object.freeze({major: 0, minor: 77, patch: 0});
 
+/** Each tool spells its version query differently; brew's is too slow to ask. */
 const versionArguments = Object.freeze({
 	git: ['--version'],
 	wt: ['--version'],
@@ -62,6 +73,10 @@ const versionArguments = Object.freeze({
 	gh: ['--version'],
 } satisfies Readonly<Record<string, readonly string[]>>);
 
+/**
+ * Looks up every tool trunk cares about in one pass. The options exist so tests
+ * can supply their own PATH, filesystem and command runner.
+ */
 export async function probe(options: ProbeOptions = {}): Promise<ToolProbe> {
 	const pathValue = options.path ?? process.env['PATH'] ?? '';
 	const accessExecutable = options.access ?? access;
@@ -99,6 +114,11 @@ export async function probe(options: ProbeOptions = {}): Promise<ToolProbe> {
 	return Object.freeze({...tools, agents});
 }
 
+/**
+ * `which`, done in-process. Walking PATH ourselves rather than shelling out
+ * means the answer does not depend on the user's shell, its aliases or its
+ * startup files, and it behaves the same when no shell exists at all.
+ */
 export async function resolveExecutable(
 	command: string,
 	pathValue: string = process.env['PATH'] ?? '',
@@ -112,10 +132,12 @@ export async function resolveExecutable(
 		}
 
 		const directory = directories[index] ?? '';
+		// An empty PATH entry means the working directory, as in a POSIX shell.
 		const candidate = resolve(directory || '.', command);
 		try {
 			await accessExecutable(candidate, constants.X_OK);
 			const status = await statPath(candidate);
+			// Directories are executable too, so the file check is what matters.
 			if (status.isFile()) {
 				return candidate;
 			}
@@ -129,6 +151,10 @@ export async function resolveExecutable(
 	return visit(0);
 }
 
+/**
+ * Git and wt are the two tools trunk cannot work around. Everything else is
+ * optional and only turns a step off or softens a default.
+ */
 export function checkRequiredTools(tools: ToolProbe): Outcome | undefined {
 	const missing = [tools.git, tools.wt]
 		.filter(tool => tool.path === undefined)
@@ -146,6 +172,7 @@ export function checkRequiredTools(tools: ToolProbe): Outcome | undefined {
 	);
 }
 
+/** Reads a version out of a line like `wt v0.77.0`. */
 export function parseWtVersion(
 	version: string | undefined,
 ): SemanticVersion | undefined {
@@ -161,6 +188,10 @@ export function parseWtVersion(
 	});
 }
 
+/**
+ * Warns when wt is older than the templates expect. Patch releases are ignored,
+ * and a version that cannot be parsed is left alone rather than guessed at.
+ */
 export function wtVersionWarning(
 	version: string | undefined,
 ): string | undefined {
@@ -203,6 +234,8 @@ async function probeTool(
 
 	try {
 		const result = await context.run(path, arguments_);
+		// Some tools print their version on stderr, and a version is never
+		// required, so a tool that fails this call still counts as present.
 		const version = firstLine(result.stdout) ?? firstLine(result.stderr);
 		return Object.freeze({name, path, version});
 	} catch {

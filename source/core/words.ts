@@ -1,3 +1,12 @@
+/**
+ * A word list for suggesting a prefix when a repository name gives a poor one.
+ * The words are short, concrete and unambiguous to type.
+ */
+
+/**
+ * Words that would be confusing as a session prefix because they already name a
+ * command or a branch. Kept out of the list below, and asserted in tests.
+ */
 export const reservedWords = Object.freeze([
 	'bash',
 	'brew',
@@ -35,6 +44,7 @@ export const reservedWords = Object.freeze([
 	'zsh',
 ]);
 
+/** Three to seven lowercase letters each: no digits, hyphens or ambiguity. */
 export const words = Object.freeze([
 	'acorn',
 	'anchor',
@@ -174,6 +184,10 @@ export const words = Object.freeze([
 	'zebra',
 ]);
 
+/**
+ * Picks a word, skipping any already in use. The random source is a parameter so
+ * tests can seed it and get the same word every run.
+ */
 export function randomWord(
 	exclude: ReadonlySet<string> = new Set(),
 	random: () => number = Math.random,

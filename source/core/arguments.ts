@@ -1,6 +1,12 @@
+/**
+ * The command line surface: the help text and every flag trunk accepts. It is
+ * kept apart from `cli.tsx` so tests can parse an argument list without running
+ * a command, and so the help text stays the single description of the CLI.
+ */
 import process from 'node:process';
 import meow, {type TypedFlags} from 'meow';
 
+/** Printed for `trunk` with no command and for `--help`. */
 export const helpText = `
 	Usage
 	  $ trunk clone <url> [dir]   set up a bare-layout project from a remote
@@ -20,6 +26,10 @@ export const helpText = `
 	  --direct              commit on the current branch instead of chore/trunk-setup
 `;
 
+/**
+ * Every flag is declared here even when a later phase is what reads it, so that
+ * an unknown flag is always an error rather than silently ignored.
+ */
 export const flagDefinitions = {
 	yes: {
 		type: 'boolean',
@@ -42,6 +52,7 @@ export const flagDefinitions = {
 	tmux: {
 		type: 'boolean',
 	},
+	// Named for the wt step it controls, but spelled `--copy` on the command line.
 	copyIgnored: {
 		type: 'boolean',
 		alias: 'copy',
@@ -62,6 +73,9 @@ export function parseArguments(
 	return meow(helpText, {
 		importMeta: import.meta,
 		argv,
+		// Booleans stay tri-state: a flag that was never passed reads as
+		// `undefined`, which is how the setup form tells "leave it to me" apart
+		// from an explicit `--no-server`.
 		booleanDefault: undefined,
 		allowUnknownFlags: false,
 		flags: flagDefinitions,

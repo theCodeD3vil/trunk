@@ -1,7 +1,15 @@
+/**
+ * Plain-text progress reporting. Human-readable step lines go to stderr and
+ * machine-readable results to stdout, so a caller can pipe trunk's output
+ * somewhere useful while the person still sees what happened. It deliberately
+ * avoids Ink: `--yes` runs never mount a UI.
+ */
 import process from 'node:process';
 import {exitCodes, type Outcome} from './result.js';
 
 type StepKind = 'success' | 'error' | 'info' | 'warning';
+
+/** ANSI colour numbers, applied only when the terminal will render them. */
 
 const stepStyles: Record<StepKind, {symbol: string; color: number}> = {
 	success: {symbol: '✓', color: 32},
@@ -18,10 +26,12 @@ export function step(kind: StepKind, message: string): void {
 	process.stderr.write(`${decoratedSymbol} ${message}\n`);
 }
 
+/** One JSON line on stdout, for callers that parse trunk's output. */
 export function result(value: unknown): void {
 	process.stdout.write(`${JSON.stringify(value)}\n`);
 }
 
+/** Prints a command's closing line. A message-less Outcome stays silent. */
 export function reportOutcome(outcome: Outcome): void {
 	if (!outcome.message) {
 		return;

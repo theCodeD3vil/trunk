@@ -1,3 +1,8 @@
+/**
+ * Thin wrappers over the git commands trunk needs to read. Every call passes an
+ * explicit `--git-dir` instead of changing directory, so a command can never be
+ * answered by whatever repository the process happens to sit in.
+ */
 import {isAbsolute, resolve} from 'node:path';
 import {runCommand, type CommandResult, type CommandRunner} from './process.js';
 
@@ -27,6 +32,11 @@ export async function runGit(
 	return (options.run ?? runCommand)(options.gitPath ?? 'git', arguments_);
 }
 
+/**
+ * The repository's shared git directory. For a linked worktree this is the main
+ * one rather than the worktree's own, which is what identifies the project.
+ * Returns undefined when the path is not a repository at all.
+ */
 export async function gitCommonDirectory(
 	gitDirectory: string,
 	options: GitOptions = {},
@@ -63,6 +73,11 @@ export async function isBareRepository(
 	return value === 'true' ? true : value === 'false' ? false : undefined;
 }
 
+/**
+ * The default branch of a repository that is already on disk. HEAD answers it
+ * normally; the git config key wt maintains covers a repository whose HEAD is
+ * detached. Never assume `main` — plenty of projects use something else.
+ */
 export async function existingDefaultBranch(
 	gitDirectory: string,
 	options: GitOptions = {},
@@ -84,6 +99,7 @@ export async function existingDefaultBranch(
 		: undefined;
 }
 
+/** Pulls the branch out of `ls-remote --symref` output: `ref: refs/heads/x HEAD`. */
 export function parseRemoteDefaultBranch(output: string): string | undefined {
 	for (const line of output.split(/\r?\n/)) {
 		const match = /^ref:\s+refs\/heads\/(.+?)\s+HEAD$/.exec(line.trim());
@@ -95,6 +111,11 @@ export function parseRemoteDefaultBranch(output: string): string | undefined {
 	return undefined;
 }
 
+/**
+ * Asks the remote which branch its HEAD points at. This is the one call that
+ * needs network and credentials, so its raw git error is passed through
+ * untouched: for an auth failure that message is the actionable part.
+ */
 export async function remoteDefaultBranch(
 	url: string,
 	options: GitOptions = {},
@@ -112,6 +133,10 @@ export async function remoteDefaultBranch(
 	return branch;
 }
 
+/**
+ * Wraps {@link remoteDefaultBranch} with a per-run cache so one trunk run hits
+ * the network once per URL. Failures are evicted so a retry can succeed.
+ */
 export function createRemoteDefaultBranchResolver(
 	options: GitOptions = {},
 ): (url: string) => Promise<string> {

@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * Entry point. It parses the command line, checks the machine can run trunk,
+ * hands the work to one command module, and turns the returned Outcome into an
+ * exit code. All the real logic lives in `core/` and `commands/`; nothing here
+ * knows how a project is set up.
+ */
 import process from 'node:process';
 import {parseArguments} from './core/arguments.js';
 import {
@@ -23,6 +29,9 @@ async function dispatch(): Promise<Outcome> {
 	}
 
 	const [command, ...rest] = cli.input;
+
+	// Only the real commands need tools, so printing usage stays instant and
+	// works on a machine that has neither git nor wt installed.
 	let tools: ToolProbe | undefined;
 	if (command === 'clone' || command === 'init' || command === 'new') {
 		tools = await probe();
@@ -31,6 +40,8 @@ async function dispatch(): Promise<Outcome> {
 			return missingTools;
 		}
 
+		// An older wt still works; its templates may just render differently, so
+		// this warns and carries on rather than refusing to run.
 		const versionWarning = wtVersionWarning(tools.wt.version);
 		if (versionWarning) {
 			step('warning', versionWarning);

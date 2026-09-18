@@ -41,18 +41,15 @@ describe('remote parsing', () => {
 
 	test('parses an SSH alias and preserves its identifier', () => {
 		expect(
-			parseRemote(
-				'git@github.com-work:New-Vision-Creatives/djulah-admin.git',
-				aliases,
-			),
+			parseRemote('git@github.com-work:Example-Org/example-app.git', aliases),
 		).toEqual({
 			kind: 'hosted',
-			url: 'git@github.com-work:New-Vision-Creatives/djulah-admin.git',
+			url: 'git@github.com-work:Example-Org/example-app.git',
 			host: 'github.com-work',
 			realHost: 'github.com',
-			owner: 'New-Vision-Creatives',
-			repo: 'djulah-admin',
-			identifier: 'github.com-work/New-Vision-Creatives/djulah-admin',
+			owner: 'Example-Org',
+			repo: 'example-app',
+			identifier: 'github.com-work/Example-Org/example-app',
 		});
 	});
 

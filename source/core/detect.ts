@@ -1,3 +1,8 @@
+/**
+ * Works out how a project installs and runs: which package manager its lockfile
+ * implies, which scripts it defines, and whether the app sits in a subdirectory
+ * rather than at the repository root.
+ */
 import {access, readdir, readFile} from 'node:fs/promises';
 import {join, relative, sep} from 'node:path';
 
@@ -10,16 +15,27 @@ export type LockfileMatch = Readonly<{
 }>;
 
 export type PackageDetection = Readonly<{
+	/** What trunk will use. Falls back to npm when nothing says otherwise. */
 	packageManager: PackageManager;
+	/** Every lockfile found, nearest directory first. */
 	matches: readonly LockfileMatch[];
+	/** Several package managers claim the same directory. */
 	ambiguous: boolean;
+	/** The guess is worth showing the user before it is written down. */
 	needsConfirmation: boolean;
+	/** Script names from package.json, used for the notes in the generated file. */
 	scripts: readonly string[];
+	/** Set when package.json is not at the repository root, e.g. `backend`. */
 	appDir?: string;
 	packageJson?: string;
 	warnings: readonly string[];
 }>;
 
+/**
+ * Order matters: when a directory holds several lockfiles the first match wins,
+ * so this doubles as the tie-break priority. Yarn is listed to be recognised and
+ * reported, not to be used.
+ */
 const lockfiles: ReadonlyArray<
 	Readonly<{file: string; packageManager: LockfilePackageManager}>
 > = [
@@ -30,6 +46,11 @@ const lockfiles: ReadonlyArray<
 	{file: 'yarn.lock', packageManager: 'yarn'},
 ];
 
+/**
+ * Inspects a worktree and reports how to install and run it. Nothing here ever
+ * fails: an unclear project produces a usable default plus warnings, and the
+ * setup form asks the user to confirm.
+ */
 export async function detectPackageManager(
 	worktreeRoot: string,
 ): Promise<PackageDetection> {
@@ -139,6 +160,11 @@ async function findLockfiles(
 	return found.filter((match): match is LockfileMatch => match !== undefined);
 }
 
+/**
+ * Finds where the app lives: the root when it has a package.json, otherwise the
+ * directories one level down that do. Several matches are returned so the caller
+ * can say so; the list is sorted to keep the choice stable between runs.
+ */
 async function findPackageDirectories(root: string): Promise<string[]> {
 	if (await pathExists(join(root, 'package.json'))) {
 		return [root];
@@ -157,6 +183,8 @@ async function findPackageDirectories(root: string): Promise<string[]> {
 
 	const directories = entries
 		.filter(
+			// Dependencies and tool directories carry package.json files of their
+			// own and are never the project's app.
 			entry =>
 				entry.isDirectory() &&
 				!entry.name.startsWith('.') &&

@@ -3,15 +3,17 @@ import {initials, validatePrefix} from '../source/core/prefix.js';
 import {randomWord, reservedWords, words} from '../source/core/words.js';
 
 describe('initials', () => {
+	// Each row covers a naming style seen in the wild: plain, capitalised,
+	// doubled and trailing separators, all caps, and three words.
 	test.each([
-		['djulah-admin', 'djulah-a'],
-		['Djulah-backend', 'djulah-b'],
-		['djulah-website', 'djulah-w'],
-		['hcs-frontend', 'hcs-f'],
-		['Now-tech--website', 'now-tw'],
-		['NowTech-backend-', 'nowtech-b'],
-		['NVC-WEBSITE', 'nvc-w'],
-		['aze-farm-backend', 'aze-fb'],
+		['acme-admin', 'acme-a'],
+		['Acme-backend', 'acme-b'],
+		['acme-website', 'acme-w'],
+		['abc-frontend', 'abc-f'],
+		['Web-shop--portal', 'web-sp'],
+		['WebShop-backend-', 'webshop-b'],
+		['XYZ-WEBSITE', 'xyz-w'],
+		['open-data-backend', 'open-db'],
 		['trunk', 'trunk'],
 		['--', ''],
 	])('%s becomes %s', (name, expected) => {
@@ -57,9 +59,9 @@ describe('word list', () => {
 	});
 
 	test('uses an injected random source and honors exclusions', () => {
-		expect(randomWord(new Set(), () => 0)).toBe(words[0]);
-		expect(randomWord(new Set([words[0]!]), () => 0)).toBe(words[1]);
-		expect(randomWord(new Set(), () => 0.999_999)).toBe(words.at(-1));
+		expect(randomWord(new Set(), () => 0)).toBe(words[0]!);
+		expect(randomWord(new Set([words[0]!]), () => 0)).toBe(words[1]!);
+		expect(randomWord(new Set(), () => 0.999_999)).toBe(words.at(-1)!);
 	});
 
 	test('is stable with a seeded random source', () => {
