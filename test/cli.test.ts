@@ -1,0 +1,94 @@
+import {sep} from 'node:path';
+import {afterAll, afterEach, describe, expect, test} from 'bun:test';
+import {parseArguments} from '../source/core/arguments.js';
+import {guardPlatform} from '../source/core/platform.js';
+import {exitCodes} from '../source/core/result.js';
+import {buildCli, runCli, type CliRun} from './helpers/run.js';
+
+describe('CLI', () => {
+	const build = buildCli();
+	const runs: CliRun[] = [];
+
+	afterAll(async () => {
+		const cliBuild = await build;
+		await cliBuild.cleanup();
+	});
+
+	afterEach(async () => {
+		await Promise.all(runs.splice(0).map(async run => run.cleanup()));
+	});
+
+	test('shows usage without a command', async () => {
+		const run = await runBuiltCli();
+		runs.push(run);
+
+		expect(run.exitCode).toBe(exitCodes.success);
+		expect(run.stdout).toContain('Usage');
+		expect(run.stdout).toContain('$ trunk clone <url> [dir]');
+		expect(run.stderr).toBe('');
+	});
+
+	test('shows usage for --help', async () => {
+		const run = await runBuiltCli(['--help']);
+		runs.push(run);
+
+		expect(run.exitCode).toBe(exitCodes.success);
+		expect(run.stdout).toContain('$ trunk new <name>');
+		expect(run.stderr).toBe('');
+	});
+
+	test('rejects an unknown command', async () => {
+		const run = await runBuiltCli(['bogus']);
+		runs.push(run);
+
+		expect(run.exitCode).toBe(exitCodes.badUsage);
+		expect(run.stdout).toBe('');
+		expect(run.stderr).toContain('unknown command: bogus');
+		expect(run.stderr).not.toContain('\u001B[');
+	});
+
+	test('runs command stubs without a stack trace', async () => {
+		const run = await runBuiltCli([
+			'clone',
+			'https://example.com/repository.git',
+		]);
+		runs.push(run);
+
+		expect(run.exitCode).toBe(exitCodes.badUsage);
+		expect(run.stderr).toContain('not implemented');
+		expect(run.stderr).not.toContain('    at ');
+	});
+
+	test('keeps boolean flags tri-state', () => {
+		expect(parseArguments(['clone', 'url']).flags.server).toBeUndefined();
+		expect(parseArguments(['clone', 'url', '--no-server']).flags.server).toBe(
+			false,
+		);
+		expect(parseArguments(['clone', 'url', '--copy']).flags.copyIgnored).toBe(
+			true,
+		);
+	});
+
+	test('rejects native Windows', () => {
+		expect(guardPlatform('win32')).toEqual({
+			code: exitCodes.unsupportedEnvironment,
+			message: 'trunk supports macOS and Linux (including WSL).',
+		});
+		expect(guardPlatform('linux')).toBeUndefined();
+	});
+
+	test('isolates Worktrunk configuration in the temporary directory', async () => {
+		const run = await runBuiltCli(['bogus']);
+		runs.push(run);
+
+		expect(run.environment['WORKTRUNK_CONFIG_PATH']).toBe(run.configPath);
+		expect(run.configPath.startsWith(`${run.temporaryDirectory}${sep}`)).toBe(
+			true,
+		);
+	});
+
+	async function runBuiltCli(arguments_: readonly string[] = []) {
+		const {cliPath} = await build;
+		return runCli(cliPath, arguments_);
+	}
+});

@@ -1,1 +1,5 @@
 dist
+.agents
+.claude
+plans
+skills-lock.json
