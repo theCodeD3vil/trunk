@@ -291,6 +291,35 @@ describe('setup resolution', () => {
 		expect(calls).toEqual([['/tools/brew', ['install', 'caddy']]]);
 	});
 
+	test('falls back to flags when the terminal cannot read keys', async () => {
+		const result = await collectSettings({
+			folder: '/tmp/acme-admin',
+			resolveOptions: {fixed, tools: tools()},
+			invocation: {
+				executable: 'trunk',
+				arguments: ['init', '/tmp/acme-admin'],
+			},
+			interactive: true,
+			report() {
+				// The Caddy install hint is not under test here.
+			},
+			// Ink cannot put a pipe into raw mode; the form reports that rather
+			// than letting React surface a component stack.
+			async runForm() {
+				return {kind: 'unavailable', reason: 'stdin is not a terminal'};
+			},
+		});
+
+		expect(result.kind).toBe('outcome');
+		if (result.kind === 'outcome') {
+			expect(result.outcome.code).toBe(exitCodes.badUsage);
+			expect(result.outcome.message).toContain('stdin is not a terminal');
+			expect(result.outcome.message).toContain(
+				'trunk init /tmp/acme-admin --prefix=acme-a',
+			);
+		}
+	});
+
 	test('--yes never invokes the Caddy installer', async () => {
 		let installCalls = 0;
 		const result = await collectSettings({

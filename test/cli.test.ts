@@ -57,6 +57,18 @@ describe('CLI', () => {
 		expect(run.stderr).toBe('');
 	});
 
+	test('asks for flags instead of a form when stdin is a pipe', async () => {
+		// The built CLI runs with stdin ignored, which is exactly the shape that
+		// used to reach Ink and print a React component stack.
+		const run = await runBuiltCli(['new', 'demo']);
+		runs.push(run);
+
+		expect(run.exitCode).toBe(exitCodes.badUsage);
+		expect(run.stderr).toContain('--yes');
+		expect(run.stderr).not.toContain('Raw mode is not supported');
+		expect(run.stderr).not.toContain('component:');
+	});
+
 	test('rejects an unknown command', async () => {
 		const run = await runBuiltCli(['bogus']);
 		runs.push(run);

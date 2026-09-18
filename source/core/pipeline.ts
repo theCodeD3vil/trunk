@@ -43,6 +43,7 @@ import {
 	type UndoCommand,
 } from './journal.js';
 import {step as reportStep} from './log.js';
+import {supportsInteractiveInput} from './platform.js';
 import type {ParsedRemote} from './repo.js';
 import {setupFlagsFromCli, type SetupValues} from './resolve.js';
 import {
@@ -774,7 +775,7 @@ export function createContext(
 		report,
 		interactive:
 			dependencies.interactive ??
-			(Boolean(process.stdin.isTTY) && !(flags.yes ?? false)),
+			(supportsInteractiveInput() && !(flags.yes ?? false)),
 		prompts: dependencies.prompts,
 		collect: dependencies.collect ?? collectSettings,
 		now: dependencies.now ?? (() => new Date()),

@@ -9,10 +9,12 @@ import {
 	buildRerunCommand,
 	resolve,
 	setupFieldOrder,
+	type NeedsInputResolution,
 	type ResolveOptions,
 	type SetupField,
 	type SetupValues,
 } from '../core/resolve.js';
+import {supportsInteractiveInput} from '../core/platform.js';
 import {validatePrefix} from '../core/prefix.js';
 import {badUsage, userAborted, type Outcome} from '../core/result.js';
 import {randomWord} from '../core/words.js';
@@ -36,7 +38,9 @@ type SetupValuesResult = Extract<
 
 export type SetupFormOutcome =
 	| Readonly<{kind: 'settings'; settings: SetupValuesResult}>
-	| Readonly<{kind: 'aborted'}>;
+	| Readonly<{kind: 'aborted'}>
+	/** The terminal could not run the form, so the caller falls back to flags. */
+	| Readonly<{kind: 'unavailable'; reason: string}>;
 
 export type CollectSettingsResult =
 	| Readonly<{kind: 'settings'; settings: SetupValuesResult}>
@@ -321,20 +325,34 @@ export async function runSetupForm(
 	properties: Omit<SetupFormProperties, 'onSubmit' | 'onAbort'>,
 ): Promise<SetupFormOutcome> {
 	let outcome: SetupFormOutcome | undefined;
-	const app = render(
-		<SetupForm
-			{...properties}
-			onSubmit={settings => {
-				outcome = {kind: 'settings', settings};
-			}}
-			onAbort={() => {
-				outcome = {kind: 'aborted'};
-			}}
-		/>,
-		{exitOnCtrlC: false},
-	);
-	await app.waitUntilExit();
-	app.cleanup();
+	if (!supportsInteractiveInput()) {
+		return {
+			kind: 'unavailable',
+			reason: 'stdin is not an interactive terminal',
+		};
+	}
+
+	try {
+		const app = render(
+			<SetupForm
+				{...properties}
+				onSubmit={settings => {
+					outcome = {kind: 'settings', settings};
+				}}
+				onAbort={() => {
+					outcome = {kind: 'aborted'};
+				}}
+			/>,
+			{exitOnCtrlC: false},
+		);
+		await app.waitUntilExit();
+		app.cleanup();
+	} catch (error: unknown) {
+		// Ink throws from inside React when raw mode turns out to be unusable,
+		// which would otherwise reach the user as a component stack.
+		return {kind: 'unavailable', reason: errorMessage(error)};
+	}
+
 	return outcome ?? {kind: 'aborted'};
 }
 
@@ -344,7 +362,7 @@ export async function collectSettings({
 	resolveOptions,
 	invocation,
 	yes = false,
-	interactive = Boolean(process.stdin.isTTY),
+	interactive = supportsInteractiveInput(),
 	randomPrefix,
 	installCaddy = streamCaddyInstall,
 	report = line => {
@@ -366,16 +384,9 @@ export async function collectSettings({
 	}
 
 	if (!interactive) {
-		const rerun = buildRerunCommand(
-			invocation.executable,
-			invocation.arguments,
-			resolution,
-		);
 		return {
 			kind: 'outcome',
-			outcome: badUsage(
-				`Interactive setup requires a TTY. Re-run with --yes, or specify the missing flags:\n  ${rerun.display}`,
-			),
+			outcome: badUsage(missingInputMessage(resolution, invocation)),
 		};
 	}
 
@@ -419,9 +430,40 @@ export async function collectSettings({
 	}
 
 	const form = await runForm({folder, options, randomPrefix});
-	return form.kind === 'settings'
-		? form
-		: {kind: 'outcome', outcome: userAborted()};
+	if (form.kind === 'settings') {
+		return form;
+	}
+
+	if (form.kind === 'unavailable') {
+		return {
+			kind: 'outcome',
+			outcome: badUsage(
+				missingInputMessage(resolution, invocation, form.reason),
+			),
+		};
+	}
+
+	return {kind: 'outcome', outcome: userAborted()};
+}
+
+/**
+ * What to say when the questions cannot be asked: the exact command that
+ * answers them, rather than a complaint about the terminal.
+ */
+function missingInputMessage(
+	resolution: NeedsInputResolution,
+	invocation: CollectSettingsOptions['invocation'],
+	reason?: string,
+): string {
+	const rerun = buildRerunCommand(
+		invocation.executable,
+		invocation.arguments,
+		resolution,
+	);
+	const cause = reason
+		? `Interactive setup needs a terminal that can read keys (${reason}).`
+		: 'Interactive setup requires a TTY.';
+	return `${cause} Re-run with --yes, or specify the missing flags:\n  ${rerun.display}`;
 }
 
 export type InstallAnswer = 'yes' | 'no' | 'abort';
