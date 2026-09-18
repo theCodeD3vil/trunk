@@ -1,48 +1,65 @@
 {
-	"name": "trunk",
-	"version": "0.0.0",
+	"name": "@thecoded3vil/trunk",
+	"version": "0.1.0",
+	"description": "Generate shared Worktrunk automation for a Git repository.",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/theCodeD3vil/trunk.git"
+	},
+	"homepage": "https://github.com/theCodeD3vil/trunk#readme",
+	"bugs": {
+		"url": "https://github.com/theCodeD3vil/trunk/issues"
+	},
+	"keywords": [
+		"worktrunk",
+		"git-worktree",
+		"tmux",
+		"caddy",
+		"cli"
+	],
 	"license": "MIT",
-	"bin": "dist/cli.js",
+	"packageManager": "bun@1.4.0",
+	"bin": {
+		"trunk": "dist/cli.js"
+	},
 	"type": "module",
 	"engines": {
-		"node": ">=16"
+		"node": ">=20"
 	},
 	"scripts": {
-		"build": "tsc",
-		"dev": "tsc --watch",
-		"test": "prettier --check . && xo && ava"
+		"build": "node scripts/prepare-build.mjs && tsc",
+		"dev": "node scripts/prepare-build.mjs && tsc --watch",
+		"test": "prettier --check . && xo && bun test",
+		"prepack": "bun run build",
+		"release": "np"
 	},
 	"files": [
 		"dist"
 	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"dependencies": {
+		"@iarna/toml": "^2.2.5",
 		"ink": "^4.1.0",
 		"meow": "^11.0.0",
 		"react": "^18.2.0"
 	},
 	"devDependencies": {
 		"@sindresorhus/tsconfig": "^3.0.1",
+		"@types/bun": "^1.4.2",
+		"@types/iarna__toml": "^2.0.5",
+		"@types/node": "^20.0.0",
 		"@types/react": "^18.0.32",
 		"@vdemedes/prettier-config": "^2.0.1",
-		"ava": "^5.2.0",
-		"chalk": "^5.2.0",
 		"eslint-config-xo-react": "^0.27.0",
 		"eslint-plugin-react": "^7.32.2",
 		"eslint-plugin-react-hooks": "^4.6.0",
-		"ink-testing-library": "^3.0.0",
+		"ink-testing-library": "^4.0.0",
+		"np": "^12.1.1",
 		"prettier": "^2.8.7",
-		"ts-node": "^10.9.1",
 		"typescript": "^5.0.3",
-		"xo": "^0.53.1"
-	},
-	"ava": {
-		"extensions": {
-			"ts": "module",
-			"tsx": "module"
-		},
-		"nodeArguments": [
-			"--loader=ts-node/esm"
-		]
+		"xo": "^0.60.0"
 	},
 	"xo": {
 		"extends": "xo-react",
@@ -51,5 +68,9 @@
 			"react/prop-types": "off"
 		}
 	},
-	"prettier": "@vdemedes/prettier-config"
+	"prettier": "@vdemedes/prettier-config",
+	"np": {
+		"branch": "main",
+		"releaseDraft": true
+	}
 }

@@ -1,7 +1,11 @@
 {
 	"extends": "@sindresorhus/tsconfig",
 	"compilerOptions": {
-		"outDir": "dist"
+		"outDir": "dist",
+		// The base config targets Node 14; this package requires Node 20, so the
+		// newer standard library (Object.hasOwn, Array.at) is available.
+		"target": "ES2022",
+		"lib": ["DOM", "DOM.Iterable", "ES2022"]
 	},
 	"include": ["source"]
 }
