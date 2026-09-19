@@ -139,7 +139,7 @@ printf 'tmux session %s ready; attach with: tmux attach -t =%s\n' "$S" "$S"
 '''
 ```
 
-The session is named `<prefix>_<branch>`, for example `storefront_main`. The prefix is chosen during setup (`--prefix`), defaults to the initials of the repository name, and should be unique across your repositories. 
+The session is named `<prefix>_<branch>`, for example `storefront_main`. The prefix is chosen during setup (`--prefix`), defaults to the initials of the repository name, and should be unique across your repositories.
 
 The session is also tagged with the worktree's path, in a tmux option called `@twt`. Every hook finds the session by that tag first, so you can rename it whenever you like (`prefix + $` in tmux) and starting, stopping and removing the worktree still reach it. If a session for the worktree already exists, it is reused instead of rebuilt. A session that predates the tag is found by its generated name and tagged the first time the start hook sees it. A session tagged for a different worktree that still exists is left alone; an untagged one under this name that points elsewhere is replaced.
 
