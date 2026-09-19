@@ -22,8 +22,14 @@ import {
 	createPullRequest,
 	publishCommands,
 } from './gh.js';
-import {addWorktree, commitPath} from './git.js';
+import {addWorktree, commitPath, withoutPrompts} from './git.js';
 import {resumeCommand, undoCommands} from './journal.js';
+import {
+	describePullRequest,
+	destinationLabel,
+	pullRequestProblem,
+	pushProblem,
+} from './publish.js';
 import type {ParsedRemote} from './repo.js';
 import {
 	installedAgents,
@@ -537,8 +543,13 @@ async function finish(
 	};
 	const answer = await session.finish(request);
 	if (answer === 'push' && remote !== undefined && branch !== undefined) {
-		session.result(
-			await publish(context, remote, input.worktree, branch, withPullRequest),
+		await publish(
+			context,
+			session,
+			remote,
+			input.worktree,
+			branch,
+			withPullRequest,
 		);
 	} else if (
 		answer === 'skip' &&
@@ -560,44 +571,143 @@ async function finish(
 	return session.aborted() ? userAborted() : succeed();
 }
 
+/**
+ * Pushes the setup branch and, when it can, opens a pull request, as two steps
+ * the screen shows while they run. Neither command may ask a question: both run
+ * with prompts off, so a bad key or token fails at once with a card the user can
+ * read, and both stop when the user presses Ctrl+C.
+ */
 async function publish(
 	context: SetupContext,
+	session: Session,
 	remote: ParsedRemote,
 	worktree: string,
 	branch: string,
 	withPullRequest: boolean,
-): Promise<readonly ResultLine[]> {
-	const pushed = await context.run(
-		context.git.gitPath ?? 'git',
-		['-C', worktree, 'push', '-u', 'origin', branch],
-		{env: context.env},
-	);
-	if (pushed.code !== 0) {
-		return [{ok: false, text: `push failed: ${outputOf(pushed)}`}];
-	}
-
-	const lines: ResultLine[] = [{ok: true, text: `Pushed ${branch}`}];
-	if (!withPullRequest) {
-		const url = compareUrl(remote, branch);
-		return url === undefined
-			? lines
-			: [...lines, {ok: true, text: `Open a pull request: ${url}`}];
-	}
-
-	const pullRequest = await createPullRequest(worktree, {
-		ghPath: context.tools.gh.path,
-		run: context.run,
-		env: context.env,
+): Promise<void> {
+	const signal = session.publishStart({
+		branch,
+		destination: destinationLabel(remote),
+		withPullRequest,
 	});
-	return [
-		...lines,
-		pullRequest.code === 0
-			? {ok: true, text: `Opened pull request ${outputOf(pullRequest)}`}
-			: {
-					ok: false,
-					text: `could not open the pull request: ${outputOf(pullRequest)}`,
-			  },
+	const environment = withoutPrompts(context.env ?? process.env);
+	const compare = compareUrl(remote, branch);
+	const [pushCommand = '', pullRequestCommand = ''] = publishCommands(
+		branch,
+		withPullRequest,
+	);
+	const command = (text: string): ResultLine => ({
+		ok: true,
+		plain: true,
+		text: '',
+		command: text,
+	});
+	const stopped = (again: string): ResultLine[] => [
+		{
+			ok: false,
+			tone: 'warning',
+			text: 'Stopped waiting. Check with git status -sb, or run it later:',
+		},
+		command(again),
 	];
+	const kept = (again: string): ResultLine[] => [
+		{ok: true, text: 'Kept it local.'},
+		{ok: true, plain: true, text: 'When you are ready: ', command: again},
+	];
+
+	let pushed = false;
+	for (;;) {
+		if (!pushed) {
+			session.publishUpdate('push', 'active');
+			// eslint-disable-next-line no-await-in-loop
+			const result = await context.run(
+				context.git.gitPath ?? 'git',
+				['-C', worktree, 'push', '-u', 'origin', branch],
+				{env: environment, signal},
+			);
+			if (result.aborted === true || signal.aborted) {
+				session.publishUpdate('push', 'cancelled');
+				session.publishEnd(stopped(pushCommand));
+				return;
+			}
+
+			if (result.code !== 0) {
+				session.publishUpdate('push', 'failed');
+				// eslint-disable-next-line no-await-in-loop
+				const answer = await session.publishProblem(
+					pushProblem(outputOf(result), remote, branch),
+				);
+				if (answer === 'retry') {
+					continue;
+				}
+
+				session.publishEnd(kept(pushCommand));
+				return;
+			}
+
+			pushed = true;
+			session.publishUpdate('push', 'done');
+		}
+
+		if (!withPullRequest) {
+			session.publishEnd(
+				compare === undefined
+					? []
+					: [
+							{
+								ok: true,
+								plain: true,
+								text: 'Open a pull request  ',
+								link: compare,
+							},
+					  ],
+			);
+			return;
+		}
+
+		session.publishUpdate('pr', 'active');
+		// eslint-disable-next-line no-await-in-loop
+		const pullRequest = await createPullRequest(worktree, {
+			ghPath: context.tools.gh.path,
+			run: context.run,
+			env: environment,
+			signal,
+		});
+		if (pullRequest.aborted === true || signal.aborted) {
+			session.publishUpdate('pr', 'cancelled');
+			session.publishEnd(stopped(pullRequestCommand));
+			return;
+		}
+
+		if (pullRequest.code !== 0) {
+			session.publishUpdate('pr', 'warned');
+			// eslint-disable-next-line no-await-in-loop
+			const answer = await session.publishProblem(
+				pullRequestProblem(outputOf(pullRequest), compare),
+			);
+			if (answer === 'retry') {
+				continue;
+			}
+
+			session.publishEnd(kept(pullRequestCommand));
+			return;
+		}
+
+		session.publishUpdate(
+			'pr',
+			'done',
+			describePullRequest(outputOf(pullRequest)),
+		);
+		session.publishEnd([
+			{
+				ok: true,
+				plain: true,
+				text: 'Open it with  ',
+				command: 'gh pr view --web',
+			},
+		]);
+		return;
+	}
 }
 
 /** Cancel, or a step that failed: show what exists and let the user keep or undo it. */

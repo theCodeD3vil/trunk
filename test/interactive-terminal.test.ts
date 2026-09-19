@@ -11,12 +11,14 @@ import {
 	readFile,
 	rm,
 	stat,
+	symlink,
 	writeFile,
 } from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import process from 'node:process';
 import {afterAll, describe, expect, test} from 'bun:test';
+import {agentCommands, type AgentId} from '../source/core/agents.js';
 import {resolveExecutable} from '../source/core/env.js';
 import {runCommand} from '../source/core/process.js';
 import {buildCli} from './helpers/run.js';
@@ -545,6 +547,431 @@ describe('interactive screens appear live even when the environment looks like C
 		expect(done).not.toContain('created by this run');
 		expect(await exists(join(project, 'chore-trunk-setup'))).toBe(false);
 	}, 120_000);
+
+	test('the agents list shows every agent, picks with Space, refuses a fifth, and explains a missing one', async () => {
+		const tmux = await requireTmux();
+		const {cliPath} = await build;
+		const root = await scratch(roots);
+		const project = await bareProject(root);
+		// Five of the six are on this machine, so the sixth must be shown dim.
+		const binary = await toolbox(root, {
+			agents: ['claude', 'codex', 'opencode', 'copilot', 'antigravity'],
+		});
+
+		await start(
+			tmux,
+			'agents',
+			root,
+			[
+				'COLORTERM=truecolor',
+				`PATH=${quote(binary)}`,
+				`WORKTRUNK_CONFIG_PATH=${quote(join(root, 'worktrunk.toml'))}`,
+				`node ${quote(cliPath)} init ${quote(project)}`,
+			],
+			104,
+			36,
+		);
+		await waitForScreen(tmux, 'agents', 'Configure worktree automation');
+		await send(tmux, 'agents', 'Enter');
+		await send(tmux, 'agents', 'Enter');
+		const open = await waitForScreen(tmux, 'agents', 'Pick up to 4.');
+
+		// All six are on screen at once, one per row, and none is cut off.
+		for (const name of [
+			'claude',
+			'codex',
+			'opencode',
+			'copilot',
+			'antigravity',
+			'pi',
+		]) {
+			expect(open, name).toMatch(new RegExp(`[◼◻–] +${name}\\b`));
+		}
+
+		expect(open).toMatch(/– +pi +not installed/);
+		expect(open).toContain('0 of 4 selected');
+		expect(open).toMatch(/↑↓ +move +Space +toggle +⏎ +next/);
+
+		// The row under the cursor is tinted, in the palette's own colour.
+		const styled = await screenOf(tmux, 'agents', true);
+		expect(styled).toContain('48;2;27;37;33');
+
+		// Space picks it, and the box fills.
+		await send(tmux, 'agents', 'Space');
+		const picked = await waitForScreen(tmux, 'agents', '1 of 4 selected');
+		expect(picked).toMatch(/◼ +claude/);
+		expect(picked).toMatch(/├─ Agents {2}claude/);
+
+		// Pick three more, then a fifth is refused with the reason.
+		for (const _ of [1, 2, 3]) {
+			// eslint-disable-next-line no-await-in-loop
+			await send(tmux, 'agents', 'Down');
+			// eslint-disable-next-line no-await-in-loop
+			await send(tmux, 'agents', 'Space');
+			// eslint-disable-next-line no-await-in-loop
+			await delay(80);
+		}
+
+		await waitForScreen(tmux, 'agents', '4 of 4 selected');
+		await send(tmux, 'agents', 'Down');
+		await send(tmux, 'agents', 'Space');
+		const refused = await waitForScreen(
+			tmux,
+			'agents',
+			'4 is the most. Turn one off first.',
+		);
+		expect(refused).toMatch(/◻ +antigravity +limit reached/);
+
+		// Clicking the agent that is not installed says so, and picks nothing.
+		const missing = locate(refused, 'pi ');
+		await sendLiteral(tmux, 'agents', click(missing.column, missing.row));
+		const explained = await waitForScreen(
+			tmux,
+			'agents',
+			'pi is not installed on this machine.',
+		);
+		expect(explained).toContain('4 of 4 selected'.slice(0, 1));
+
+		await send(tmux, 'agents', 'C-c');
+		await waitForExit(tmux, 'agents');
+	}, 90_000);
+
+	test('the agents list becomes a window on a short terminal, and Down follows it', async () => {
+		const tmux = await requireTmux();
+		const {cliPath} = await build;
+		const root = await scratch(roots);
+		const project = await bareProject(root);
+		const binary = await toolbox(root, {
+			agents: ['claude', 'codex', 'opencode', 'copilot', 'antigravity', 'pi'],
+		});
+
+		await start(
+			tmux,
+			'window',
+			root,
+			[
+				`PATH=${quote(binary)}`,
+				`WORKTRUNK_CONFIG_PATH=${quote(join(root, 'worktrunk.toml'))}`,
+				`node ${quote(cliPath)} init ${quote(project)}`,
+			],
+			80,
+			24,
+		);
+		await waitForScreen(tmux, 'window', 'Configure worktree automation');
+		await send(tmux, 'window', 'Enter');
+		await send(tmux, 'window', 'Enter');
+		const top = await waitForScreen(tmux, 'window', 'Pick up to 4.');
+
+		expect(top).toMatch(/claude/);
+		expect(top).toMatch(/▾ \d more/);
+		const height = await paneHeight(tmux, 'window');
+		expect(keyBarRow(top, 'move')).toBe(height - 1);
+
+		for (const _ of [1, 2, 3, 4, 5]) {
+			// eslint-disable-next-line no-await-in-loop
+			await send(tmux, 'window', 'Down');
+			// eslint-disable-next-line no-await-in-loop
+			await delay(80);
+		}
+
+		const bottom = await waitForScreen(tmux, 'window', '▴');
+		expect(bottom).toMatch(/▸ +[◼◻] +pi/);
+		expect(keyBarRow(bottom, 'move')).toBe(height - 1);
+
+		await send(tmux, 'window', 'C-c');
+		await waitForExit(tmux, 'window');
+	}, 90_000);
+
+	/** Everything a push test needs: a GitHub-looking origin that is really a folder, and stand-in tools. */
+	async function publishing(
+		roots_: string[],
+		options: {push?: string; gh?: string},
+	) {
+		const root = await scratch(roots_);
+		const project = await bareProject(root);
+		const source = join(root, 'source');
+		// The project's origin says GitHub; git is told where that really is.
+		await runCommand('git', [
+			'-C',
+			join(project, '.git'),
+			'remote',
+			'set-url',
+			'origin',
+			'git@github.com:acme/storefront.git',
+		]);
+		const binary = await toolbox(root, {
+			agents: [],
+			push: options.push,
+			// A pull request needs gh, so unless a test says otherwise there is one.
+			gh: options.gh ?? 'echo "https://github.com/acme/storefront/pull/1"',
+		});
+		const assignments = [
+			`PATH=${quote(binary)}`,
+			'GIT_CONFIG_COUNT=1',
+			`GIT_CONFIG_KEY_0=${quote(`url.file://${source}.insteadOf`)}`,
+			'GIT_CONFIG_VALUE_0=git@github.com:acme/storefront.git',
+			`WORKTRUNK_CONFIG_PATH=${quote(join(root, 'worktrunk.toml'))}`,
+		];
+		return {root, project, source, assignments};
+	}
+
+	const toReview = async (tmux: string, session: string) => {
+		await waitForScreen(tmux, session, 'Configure worktree automation');
+		for (let attempt = 0; attempt < 12; attempt += 1) {
+			// eslint-disable-next-line no-await-in-loop
+			const screen = await screenOf(tmux, session);
+			if (screen.includes('Ready to set up')) {
+				return;
+			}
+
+			// eslint-disable-next-line no-await-in-loop
+			await send(tmux, session, 'Enter');
+			// eslint-disable-next-line no-await-in-loop
+			await delay(150);
+		}
+	};
+
+	/** From the review to the push question, then answer Push. */
+	const pushIt = async (tmux: string, session: string) => {
+		await toReview(tmux, session);
+		await send(tmux, session, 'Enter');
+		await waitForScreen(tmux, session, 'Not now');
+		await send(tmux, session, 'Left');
+		await delay(150);
+		await send(tmux, session, 'Enter');
+	};
+
+	test('pushing shows two steps that turn, then both ticked and the way to see the pull request', async () => {
+		const tmux = await requireTmux();
+		const {cliPath} = await build;
+		const {root, project, source, assignments} = await publishing(roots, {
+			// Slow enough to be caught mid-way.
+			push: 'exec_real_after_sleep 3',
+			gh: 'echo "https://github.com/acme/storefront/pull/12"',
+		});
+
+		await start(tmux, 'push', root, [
+			'COLORTERM=truecolor',
+			...assignments,
+			`node ${quote(cliPath)} init ${quote(
+				project,
+			)}; echo TRUNK-HAS-EXITED; sleep 30`,
+		]);
+		await pushIt(tmux, 'push');
+
+		// The question is gone, replaced by two steps: the first turning, the second waiting.
+		const running = await waitForScreen(
+			tmux,
+			'push',
+			'Publishing chore/trunk-setup',
+		);
+		expect(running).toMatch(
+			/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Push to origin +chore\/trunk-setup → github\.com:acme\/storefront/,
+		);
+		expect(running).toMatch(/○ Open pull request +gh pr create --fill/);
+		expect(running).not.toContain('open a pull request?');
+		expect(running).toMatch(/Ctrl\+C +cancel/);
+
+		const done = await waitForScreen(
+			tmux,
+			'push',
+			'Published chore/trunk-setup',
+		);
+		await waitForScreen(tmux, 'push', 'TRUNK-HAS-EXITED');
+		expect(done).toMatch(/✓ Push to origin/);
+		expect(done).toMatch(
+			/✓ Open pull request +#12 +github\.com\/acme\/storefront\/pull\/12/,
+		);
+		expect(done).toContain('Open it with  gh pr view --web');
+
+		// It really pushed: the branch is on the origin the folder stands for.
+		const branches = await runCommand('git', [
+			'-C',
+			source,
+			'branch',
+			'--list',
+			'chore/trunk-setup',
+		]);
+		expect(branches.stdout).toContain('chore/trunk-setup');
+	}, 120_000);
+
+	test('a slow push says it is still waiting after ten seconds', async () => {
+		const tmux = await requireTmux();
+		const {cliPath} = await build;
+		const {root, project, assignments} = await publishing(roots, {
+			push: 'exec_real_after_sleep 13',
+			gh: 'echo "https://github.com/acme/storefront/pull/2"',
+		});
+
+		await start(tmux, 'slow', root, [
+			...assignments,
+			`node ${quote(cliPath)} init ${quote(
+				project,
+			)}; echo TRUNK-HAS-EXITED; sleep 30`,
+		]);
+		await pushIt(tmux, 'slow');
+
+		const waiting = await waitForScreen(
+			tmux,
+			'slow',
+			'Still waiting for github.com',
+		);
+		expect(waiting).toMatch(
+			/Still waiting for github\.com \(1\ds\)\. Ctrl\+C stops waiting\./,
+		);
+		await waitForScreen(tmux, 'slow', 'Published chore/trunk-setup', 300);
+	}, 120_000);
+
+	test('Ctrl+C during a push stops it, says how to finish, and pushes nothing', async () => {
+		const tmux = await requireTmux();
+		const {cliPath} = await build;
+		const {root, project, source, assignments} = await publishing(roots, {
+			push: 'exec /bin/sleep 60',
+		});
+
+		await start(tmux, 'stop', root, [
+			...assignments,
+			`node ${quote(cliPath)} init ${quote(
+				project,
+			)}; echo TRUNK-HAS-EXITED; sleep 30`,
+		]);
+		await pushIt(tmux, 'stop');
+		await waitForScreen(tmux, 'stop', 'Publishing chore/trunk-setup');
+		await delay(500);
+		await send(tmux, 'stop', 'C-c');
+
+		const stopped = await waitForScreen(tmux, 'stop', 'Stopped waiting.');
+		await waitForScreen(tmux, 'stop', 'TRUNK-HAS-EXITED');
+		expect(stopped).toContain('Publishing chore/trunk-setup stopped');
+		expect(stopped).toMatch(/— Push to origin +cancelled/);
+		expect(stopped).toMatch(/— Open pull request +skipped/);
+		expect(stopped).toContain('git status -sb');
+		expect(stopped).toContain('git push -u origin chore/trunk-setup');
+		const branches = await runCommand('git', [
+			'-C',
+			source,
+			'branch',
+			'--list',
+			'chore/trunk-setup',
+		]);
+		expect(branches.stdout.trim()).toBe('');
+	}, 120_000);
+
+	test('a failed push is a card with the reason, and clicking Retry pushes again', async () => {
+		const tmux = await requireTmux();
+		const {cliPath} = await build;
+		const root0 = await scratch(roots);
+		const marker = join(root0, 'failed-once');
+		const {root, project, source, assignments} = await publishing(roots, {
+			push: `if [ ! -f "${marker}" ]; then /usr/bin/touch "${marker}"; echo "To github.com:acme/storefront.git" >&2; echo " ! [remote rejected] chore/trunk-setup -> chore/trunk-setup (permission denied)" >&2; echo "error: failed to push some refs to 'github.com:acme/storefront.git'" >&2; exit 1; fi`,
+			gh: 'echo "https://github.com/acme/storefront/pull/5"',
+		});
+
+		await start(tmux, 'retry', root, [
+			'COLORTERM=truecolor',
+			...assignments,
+			`node ${quote(cliPath)} init ${quote(
+				project,
+			)}; echo TRUNK-HAS-EXITED; sleep 30`,
+		]);
+		await pushIt(tmux, 'retry');
+
+		const card = await waitForScreen(
+			tmux,
+			'retry',
+			'Try again, or leave it local?',
+		);
+		expect(card).toContain('Publishing chore/trunk-setup stopped');
+		expect(card).toMatch(/✗ Push to origin +did not go through/);
+		expect(card).toContain('✗ Push failed');
+		expect(card).toContain('remote rejected');
+		expect(card).not.toContain('failed to push some refs');
+		expect(card).toContain(
+			'Fix   Check that you can write to acme/storefront, then try again.',
+		);
+		expect(card).toContain('Then  git push -u origin chore/trunk-setup');
+		expect(card).toMatch(/Retry +Not now +Nothing was changed on origin\./);
+		// No raw output leaked past the frame: every line stays inside its columns.
+		for (const line of card.split('\n')) {
+			expect([...line].length).toBeLessThanOrEqual(104);
+		}
+
+		const retry = locate(card, ' Retry ');
+		await sendLiteral(tmux, 'retry', click(retry.column + 2, retry.row));
+		const done = await waitForScreen(
+			tmux,
+			'retry',
+			'Published chore/trunk-setup',
+		);
+		expect(done).toMatch(/✓ Push to origin/);
+		const branches = await runCommand('git', [
+			'-C',
+			source,
+			'branch',
+			'--list',
+			'chore/trunk-setup',
+		]);
+		expect(branches.stdout).toContain('chore/trunk-setup');
+	}, 120_000);
+
+	test('leaving it local after a failed push ends with the command for later', async () => {
+		const tmux = await requireTmux();
+		const {cliPath} = await build;
+		const {root, project, source, assignments} = await publishing(roots, {
+			push: 'echo "fatal: unable to access the remote" >&2; exit 1',
+		});
+
+		await start(tmux, 'later', root, [
+			...assignments,
+			`node ${quote(cliPath)} init ${quote(
+				project,
+			)}; echo TRUNK-HAS-EXITED; sleep 30`,
+		]);
+		await pushIt(tmux, 'later');
+		await waitForScreen(tmux, 'later', 'Try again, or leave it local?');
+		await send(tmux, 'later', 'Right');
+		await delay(150);
+		await send(tmux, 'later', 'Enter');
+
+		const kept = await waitForScreen(tmux, 'later', 'Kept it local.');
+		await waitForScreen(tmux, 'later', 'TRUNK-HAS-EXITED');
+		expect(kept).toContain(
+			'When you are ready: git push -u origin chore/trunk-setup',
+		);
+		expect(kept).not.toContain('Try again');
+		const branches = await runCommand('git', [
+			'-C',
+			source,
+			'branch',
+			'--list',
+			'chore/trunk-setup',
+		]);
+		expect(branches.stdout.trim()).toBe('');
+	}, 120_000);
+
+	test('when only the pull request fails, the push stays ticked and the card offers the link', async () => {
+		const tmux = await requireTmux();
+		const {cliPath} = await build;
+		const {root, project, assignments} = await publishing(roots, {
+			gh: 'echo "To get started with GitHub CLI, please run:  gh auth login" >&2; exit 1',
+		});
+
+		await start(tmux, 'pr', root, [
+			...assignments,
+			`node ${quote(cliPath)} init ${quote(project)}`,
+		]);
+		await pushIt(tmux, 'pr');
+
+		const card = await waitForScreen(tmux, 'pr', 'Try opening it again?');
+		expect(card).toContain('Pushed chore/trunk-setup');
+		expect(card).toMatch(/✓ Push to origin/);
+		expect(card).toMatch(/▲ Open pull request +no pull request/);
+		expect(card).toContain('▲ Pushed, but no pull request');
+		expect(card).toContain('Then  gh auth login');
+		expect(card).toContain(
+			'https://github.com/acme/storefront/compare/chore%2Ftrunk-setup?expand=1',
+		);
+	}, 120_000);
 });
 
 async function requireTmux(): Promise<string> {
@@ -704,6 +1131,64 @@ async function paneHeight(tmux: string, session: string): Promise<number> {
 	return Number(result.stdout.trim());
 }
 
+/**
+ * A folder to use as the whole PATH: git and wt as they are, stand-ins for the
+ * agents named here, and optionally a git that misbehaves on `push` and a gh
+ * that answers as told. Nothing else on this machine can leak into the test.
+ */
+async function toolbox(
+	root: string,
+	options: {agents: readonly AgentId[]; push?: string; gh?: string},
+): Promise<string> {
+	const binary = join(root, 'toolbox');
+	await mkdir(binary);
+	const [node, git, wt] = await Promise.all([
+		resolveExecutable('node'),
+		resolveExecutable('git'),
+		resolveExecutable('wt'),
+	]);
+	const link = async (name: string, target: string | undefined) => {
+		if (target !== undefined) {
+			await symlink(target, join(binary, name));
+		}
+	};
+
+	await link('node', node);
+	await link('wt', wt);
+	if (options.push === undefined) {
+		await link('git', git);
+	} else {
+		// `exec_real_after_sleep N` waits, then pushes for real.
+		const body = options.push.replace(
+			/^exec_real_after_sleep (\d+)$/,
+			'/bin/sleep $1',
+		);
+		await writeFile(
+			join(binary, 'git'),
+			`#!/bin/sh\ncase " $* " in\n  *" push "*)\n    ${body}\n    ;;\nesac\nexec "${git}" "$@"\n`,
+		);
+		await chmod(join(binary, 'git'), 0o755);
+	}
+
+	if (options.gh !== undefined) {
+		await writeFile(
+			join(binary, 'gh'),
+			`#!/bin/sh\ncase "$1 $2" in\n  "pr create") ${options.gh};;\nesac\n`,
+		);
+		await chmod(join(binary, 'gh'), 0o755);
+	}
+
+	for (const agent of options.agents) {
+		// An agent is found by its command, which is not always its name.
+		// eslint-disable-next-line no-await-in-loop
+		await writeFile(join(binary, agentCommands[agent]), '#!/bin/sh\nexit 0\n');
+		// eslint-disable-next-line no-await-in-loop
+		await chmod(join(binary, agentCommands[agent]), 0o755);
+	}
+
+	return binary;
+}
+
 /** Where on screen (1-based) some text is, for aiming a click at it. */
 function locate(screen: string, needle: string): {column: number; row: number} {
 	const lines = screen.split('\n');
@@ -726,9 +1211,10 @@ async function waitForScreen(
 	tmux: string,
 	session: string,
 	text: string,
+	attempts = 100,
 ): Promise<string> {
 	let latest = '';
-	for (let attempt = 0; attempt < 100; attempt += 1) {
+	for (let attempt = 0; attempt < attempts; attempt += 1) {
 		// Polling: each check has to follow the previous delay.
 		// eslint-disable-next-line no-await-in-loop
 		latest = await screenOf(tmux, session);

@@ -9,11 +9,15 @@ export type CommandResult = Readonly<{
 	code: number | undefined;
 	stdout: string;
 	stderr: string;
+	/** True when the command was stopped through its `signal` rather than finishing. */
+	aborted?: boolean;
 }>;
 
 export type CommandOptions = Readonly<{
 	cwd?: string;
 	env?: NodeJS.ProcessEnv;
+	/** Stops the command when aborted; the result then has `aborted` set. */
+	signal?: AbortSignal;
 }>;
 
 /**
@@ -69,6 +73,7 @@ export const runCommand: CommandRunner = async (
 			cwd: options.cwd,
 			env: options.env,
 			stdio: ['ignore', 'pipe', 'pipe'],
+			signal: options.signal,
 		});
 		let stdout = '';
 		let stderr = '';
@@ -81,7 +86,16 @@ export const runCommand: CommandRunner = async (
 		child.stderr.on('data', (chunk: string) => {
 			stderr += chunk;
 		});
-		child.once('error', reject);
+		child.once('error', error => {
+			// Aborting is a normal way for a command to end, not a failure to start.
+			if (error.name === 'AbortError') {
+				resolve(
+					Object.freeze({code: undefined, stdout, stderr, aborted: true}),
+				);
+			} else {
+				reject(error);
+			}
+		});
 		child.once('close', code => {
 			resolve(Object.freeze({code: code ?? undefined, stdout, stderr}));
 		});

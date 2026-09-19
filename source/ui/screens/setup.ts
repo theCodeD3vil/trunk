@@ -4,7 +4,7 @@
  * two-pane view from 100 columns up and a single column with a one-line
  * preview below that.
  */
-import {maximumAgents, type AgentId} from '../../core/agents.js';
+import {agentIds, maximumAgents, type AgentId} from '../../core/agents.js';
 import {compose, expectedHooks} from '../../core/generate/index.js';
 import {validatePrefix} from '../../core/prefix.js';
 import type {SetupField, SetupValues} from '../../core/resolve.js';
@@ -21,8 +21,10 @@ export type SetupState = Readonly<{
 	/** Index into the focusable fields. */
 	field: number;
 	values: SetupValues;
-	/** Which agent chip the cursor is on. */
+	/** Which installed agent the cursor is on, as an index into `installedAgents`. */
 	cursor: number;
+	/** Why the last key did nothing, shown under the agents list until the next key. */
+	notice?: string;
 }>;
 
 const order: readonly SetupField[] = [
@@ -43,7 +45,7 @@ const labels: Readonly<Record<SetupField, string>> = {
 
 const help: Readonly<Record<Exclude<SetupField, 'prefix'>, string>> = {
 	tmux: 'An Editor window and a two-pane Terminal window for every worktree.',
-	agents: `Each starts in its own pane of an Agents window, up to ${maximumAgents}. Only agents installed on this machine are offered.`,
+	agents: `Pick up to ${maximumAgents}. Each starts in its own pane of an Agents window.`,
 	copyIgnored:
 		'Runs wt step copy-ignored first, so caches arrive before the session opens.',
 	mcAlias: 'wt mc merges with a commit message you write in $EDITOR.',
@@ -96,6 +98,69 @@ function withAgents(
 	return request.installedAgents.filter(agent => chosen.has(agent));
 }
 
+/**
+ * Keys inside the agents list. Up and down move the cursor through the
+ * installed agents and cross into the neighbouring field at either end, so the
+ * list never traps the keyboard. Space toggles; at the limit it says why it did
+ * not. Returns undefined for keys the list leaves to the form.
+ */
+function agentsKey(
+	request: ConfigureRequest,
+	state: SetupState,
+	key: string,
+	same: (next: Partial<SetupState>) => SetupStep,
+): SetupStep | undefined {
+	const installed = request.installedAgents;
+	const at = Math.min(state.cursor, Math.max(0, installed.length - 1));
+	const toggle = (index: number): SetupStep => {
+		const name = installed[index];
+		if (name === undefined) {
+			return same({});
+		}
+
+		if (
+			!state.values.agents.includes(name) &&
+			state.values.agents.length >= maximumAgents
+		) {
+			return same({
+				cursor: index,
+				notice: `${maximumAgents} is the most. Turn one off first.`,
+			});
+		}
+
+		return same({
+			cursor: index,
+			values: {
+				...state.values,
+				agents: withAgents(request, state.values, name),
+			},
+		});
+	};
+
+	if (key.startsWith('agent:')) {
+		// A click names the row by its place among every known agent.
+		const name = agentIds[Number(key.slice('agent:'.length))];
+		if (name === undefined) {
+			return same({});
+		}
+
+		const index = installed.indexOf(name);
+		return index === -1
+			? same({notice: `${name} is not installed on this machine.`})
+			: toggle(index);
+	}
+
+	if (key === 'up' && at > 0) {
+		return same({cursor: at - 1});
+	}
+
+	if (key === 'down' && at < installed.length - 1) {
+		return same({cursor: at + 1});
+	}
+
+	return key === 'space' ? toggle(at) : undefined;
+}
+
 export function setupKey(
 	request: ConfigureRequest,
 	state: SetupState,
@@ -105,7 +170,8 @@ export function setupKey(
 	const index = Math.min(state.field, Math.max(0, fields.length - 1));
 	const current = fields[index];
 	const same = (next: Partial<SetupState>): SetupStep => ({
-		state: {...state, field: index, ...next},
+		// A notice explains the key before it; the next key clears it.
+		state: {...state, field: index, notice: undefined, ...next},
 		done: false,
 		handled: true,
 	});
@@ -133,6 +199,13 @@ export function setupKey(
 		return same({field: Math.min(fields.length - 1, Math.max(0, target))});
 	}
 
+	if (current === 'agents') {
+		const step = agentsKey(request, state, key, same);
+		if (step !== undefined) {
+			return step;
+		}
+	}
+
 	if (key === 'up') {
 		return same({field: Math.max(0, index - 1)});
 	}
@@ -151,48 +224,9 @@ export function setupKey(
 			: same({field: index + 1});
 	}
 
-	if (current === 'agents') {
-		const count = request.installedAgents.length;
-		// A click on a chip moves the cursor there and toggles it.
-		if (key.startsWith('agent:')) {
-			const target = Number(key.slice('agent:'.length));
-			const agent = request.installedAgents[target];
-			return agent === undefined
-				? same({})
-				: same({
-						cursor: target,
-						values: {
-							...state.values,
-							agents: withAgents(request, state.values, agent),
-						},
-				  });
-		}
-
-		if (key === 'left') {
-			return same({cursor: (state.cursor + count - 1) % count});
-		}
-
-		if (key === 'right') {
-			return same({cursor: (state.cursor + 1) % count});
-		}
-
-		if (key === 'space') {
-			const agent = request.installedAgents[state.cursor];
-			return agent === undefined
-				? same({})
-				: same({
-						values: {
-							...state.values,
-							agents: withAgents(request, state.values, agent),
-						},
-				  });
-		}
-
-		return {state, done: false, handled: false};
-	}
-
 	if (
 		current !== 'prefix' &&
+		current !== 'agents' &&
 		['left', 'right', 'space', 'on', 'off'].includes(key)
 	) {
 		// `on` and `off` are clicks on the two options; the rest flip the value.
@@ -240,6 +274,125 @@ function valueParts(values: SetupValues, field: SetupField): Part[] {
 	return values[field] ? [['on', 'c-acc']] : [['off', 'c-dim']];
 }
 
+/** How much room the form has: rows of the agents list, and how many spacers it can afford. */
+type Layout = Readonly<{
+	agentRows: number;
+	/** 0 keeps every spacer, 1 drops the ones between collapsed fields, 2 drops the subtitle too. */
+	level: 0 | 1 | 2;
+}>;
+
+/** One agent: cursor, checkbox, name, and why it cannot be picked. */
+function agentRow(
+	kit: Kit,
+	request: ConfigureRequest,
+	state: SetupState,
+	name: AgentId,
+	width: number,
+	more: string,
+): Line {
+	const {g, line} = kit;
+	const installed = request.installedAgents.includes(name);
+	const on = state.values.agents.includes(name);
+	const cursor = installed && request.installedAgents[state.cursor] === name;
+	const full = state.values.agents.length >= maximumAgents && !on;
+	const key = `agent:${agentIds.indexOf(name)}`;
+	// The cursor row is tinted to the edge of its column, so focus and choice differ.
+	const tint = cursor ? ' tint' : '';
+	const box: Part = installed
+		? on
+			? [g.boxOn, `c-acc b${tint}`, key]
+			: [g.boxOff, `${cursor ? 'c-fg' : 'c-dim'}${tint}`, key]
+		: [g.boxNo, 'c-faint', key];
+	const status = installed ? (full ? 'limit reached' : '') : 'not installed';
+	const row = line(
+		[cursor ? `${g.tri} ` : '  ', `c-acc b${tint}`, key],
+		box,
+		[' ', tint, key],
+		[
+			name.padEnd(14),
+			`${installed ? (on || cursor ? 'b' : 'c-fg') : 'c-faint'}${tint}`,
+			key,
+		],
+		[status, `c-faint${tint}`, key],
+	);
+	const padded =
+		more === ''
+			? kit.padTo(row, width - 3)
+			: kit.justify(row, line([more, `c-faint${tint}`, key]), width - 3);
+	return cursor
+		? {
+				...padded,
+				segs: padded.segs.map(seg =>
+					seg.c.includes('tint')
+						? seg
+						: {...seg, c: `${seg.c} tint`.trim(), k: key},
+				),
+		  }
+		: padded;
+}
+
+/** The open agents field: a hint, a window onto the list, and a live count. */
+function agentsBlock(
+	kit: Kit,
+	request: ConfigureRequest,
+	state: SetupState,
+	width: number,
+	layout: Layout,
+): Line[] {
+	const {g, line} = kit;
+	const rail = (...parts: Part[]): Line =>
+		line([`${g.rail}  `, 'c-faint'], ...parts);
+	const chosen = state.values.agents.length;
+	const out: Line[] = kit
+		.wrapLines(help.agents, width - 3)
+		.map(l => line([`${g.rail}  `, 'c-faint'], ...l.segs));
+	if (layout.level === 0) {
+		out.push(rail());
+	}
+
+	// A short terminal gets a window that follows the cursor; what lies above
+	// and below it is counted on its first and last row.
+	const shown = Math.min(layout.agentRows, agentIds.length);
+	const at = Math.max(
+		0,
+		agentIds.indexOf(request.installedAgents[state.cursor] ?? agentIds[0]!),
+	);
+	const start = Math.max(
+		0,
+		Math.min(agentIds.length - shown, at - Math.floor(shown / 2)),
+	);
+	for (const [index, name] of agentIds.slice(start, start + shown).entries()) {
+		const more =
+			index === 0 && start > 0
+				? `${g.less} ${start} more`
+				: index === shown - 1 && start + shown < agentIds.length
+				? `${g.more} ${agentIds.length - start - shown} more`
+				: '';
+		const row = agentRow(kit, request, state, name, width, more);
+		out.push({...row, segs: [{t: `${g.rail}  `, c: 'c-faint'}, ...row.segs]});
+	}
+
+	if (state.notice !== undefined) {
+		out.push(rail([`${g.warn} `, 'c-warn'], [state.notice, 'c-warn']));
+	} else if (chosen >= maximumAgents) {
+		out.push(
+			rail(
+				[`${chosen} of ${maximumAgents} selected`, 'c-acc'],
+				[`  ${g.mid} turn one off to pick another`, 'c-dim'],
+			),
+		);
+	} else {
+		out.push(
+			rail([
+				`${chosen} of ${maximumAgents} selected`,
+				chosen > 0 ? 'c-acc' : 'c-dim',
+			]),
+		);
+	}
+
+	return out;
+}
+
 function fieldLines(
 	kit: Kit,
 	request: ConfigureRequest,
@@ -250,6 +403,7 @@ function fieldLines(
 	total: number,
 	width: number,
 	caret: boolean,
+	layout: Layout,
 ): Line[] {
 	const {g, line, justify, wrapLines} = kit;
 	const {values} = state;
@@ -303,33 +457,7 @@ function fieldLines(
 			}
 		}
 	} else if (field === 'agents') {
-		const chips: Part[] = [];
-		for (const [index, agent] of request.installedAgents.entries()) {
-			const on = values.agents.includes(agent);
-			const cursor = index === state.cursor;
-			chips.push(
-				[
-					` ${on ? g.chk : g.unchk} ${agent} `,
-					cursor ? (on ? 'pill' : 'pill-dim') : on ? 'chip-on' : 'c-dim',
-					`agent:${index}`,
-				],
-				' ',
-			);
-		}
-
-		out.push(rail(...chips));
-		if (request.missingAgents.length > 0) {
-			out.push(
-				...railed(
-					wrapLines(
-						`${request.missingAgents.join(', ')} not found on PATH.`,
-						width - 3,
-					),
-				),
-			);
-		}
-
-		out.push(...railed(wrapLines(help.agents, width - 3)));
+		out.push(...agentsBlock(kit, request, state, width, layout));
 	} else {
 		out.push(
 			rail(
@@ -345,7 +473,6 @@ function fieldLines(
 	return out;
 }
 
-/** The right-hand panel: exactly the hooks the current answers produce. */
 /** Makes every part of a line that has no key of its own send `key` when clicked. */
 function clickable(l: Line, key: string): Line {
 	return {
@@ -354,6 +481,7 @@ function clickable(l: Line, key: string): Line {
 	};
 }
 
+/** The right-hand panel: exactly the hooks the current answers produce. */
 export function previewLines(
 	kit: Kit,
 	request: ConfigureRequest,
@@ -385,12 +513,20 @@ export function previewLines(
 			line(['      ', ''], [`${g.tee}${g.h} `, 'c-faint'], 'Editor'),
 		);
 		if (values.agents.length > 0) {
-			out.push(
-				line(['      ', ''], [`${g.tee}${g.h} `, 'c-faint'], 'Agents ', [
-					values.agents.join(' '),
-					'c-acc',
-				]),
-			);
+			// Four long names would overflow the panel, so they wrap under the first.
+			const room = Math.max(12, width - 4 - 6 - 3 - 8);
+			for (const [index, names] of kit
+				.wrap(values.agents.join(', '), room)
+				.entries()) {
+				out.push(
+					line(
+						['      ', ''],
+						[index === 0 ? `${g.tee}${g.h} ` : `${g.rail}  `, 'c-faint'],
+						index === 0 ? 'Agents  ' : ' '.repeat(8),
+						[names, 'c-acc'],
+					),
+				);
+			}
 		}
 
 		out.push(
@@ -449,6 +585,27 @@ export function previewLines(
 	});
 }
 
+/**
+ * The first layout that fits `area` rows: the most agent rows first, and for
+ * each count the roomiest spacing. Undefined when nothing fits.
+ */
+function fitLayout(
+	area: number,
+	build: (layout: Layout) => Line[],
+	most: number,
+): Line[] | undefined {
+	for (let agentRows = most; agentRows >= 3; agentRows--) {
+		for (const level of [0, 1, 2] as const) {
+			const candidate = build({agentRows, level});
+			if (candidate.length <= area) {
+				return candidate;
+			}
+		}
+	}
+
+	return undefined;
+}
+
 export type SetupViewOptions = Readonly<{caret: boolean; rows: number}>;
 
 export function setupLines(
@@ -465,37 +622,67 @@ export function setupLines(
 		focusable[Math.min(state.field, Math.max(0, focusable.length - 1))];
 	const wide = cols >= 100;
 	const leftWidth = wide ? 52 : cols - 4;
-	const compact = options.rows < 30;
-	const left: Line[] = [
-		line(['Configure worktree automation', 'b']),
-		line(['Five choices. You can edit the file later.', 'c-dim']),
-		line(),
-	];
-	for (const [index, field] of visible.entries()) {
-		const position = focusable.indexOf(field);
-		const rows = fieldLines(
-			kit,
-			request,
-			state,
-			field,
-			field === active,
-			position,
-			focusable.length,
-			leftWidth,
-			options.caret,
-		);
-		// The header row of a field is a click target that opens it.
-		left.push(
-			...(position !== -1 && rows[0] !== undefined
-				? [clickable(rows[0], `setup:${position}`), ...rows.slice(1)]
-				: rows),
-		);
-		if (!compact) {
-			left.push(
-				line([index === visible.length - 1 ? g.end : g.rail, 'c-faint']),
+	const size = generatedSize(request, values);
+	const aliases = [
+		values.tmux || values.copyIgnored ? 'wt up' : undefined,
+		values.mcAlias ? 'wt mc' : undefined,
+	].filter((alias): alias is string => alias !== undefined);
+	const agentCount = values.agents.length;
+	const summary = values.tmux
+		? `${
+				validatePrefix(values.prefix).valid ? values.prefix : g.ell
+		  }_<branch> ${g.mid} ${size?.hooks ?? 0} hooks${
+				agentCount > 0
+					? ` ${g.mid} ${agentCount} agent${agentCount === 1 ? '' : 's'}`
+					: ''
+		  }${aliases.length > 0 ? ` ${g.mid} ${aliases.join(', ')}` : ''}`
+		: 'no tmux workspace';
+	// One row is left free, then the header with its rule and blank line, the
+	// key bar with its rule, and below 100 columns the one-line preview box.
+	const area = options.rows - 1 - 3 - 2 - (wide ? 0 : 4);
+	const build = (layout: Layout): Line[] => {
+		const left: Line[] =
+			layout.level < 2
+				? [
+						line(['Configure worktree automation', 'b']),
+						line(['Five choices. You can edit the file later.', 'c-dim']),
+						line(),
+				  ]
+				: [line(['Configure worktree automation', 'b'])];
+		for (const [index, field] of visible.entries()) {
+			const position = focusable.indexOf(field);
+			const rows = fieldLines(
+				kit,
+				request,
+				state,
+				field,
+				field === active,
+				position,
+				focusable.length,
+				leftWidth,
+				options.caret,
+				layout,
 			);
+			// The header row of a field is a click target that opens it.
+			left.push(
+				...(position !== -1 && rows[0] !== undefined
+					? [clickable(rows[0], `setup:${position}`), ...rows.slice(1)]
+					: rows),
+			);
+			const last = index === visible.length - 1;
+			if (layout.level === 0) {
+				left.push(line([last ? g.end : g.rail, 'c-faint']));
+			} else if (field === active && !last) {
+				left.push(line([g.rail, 'c-faint']));
+			}
 		}
-	}
+
+		return left;
+	};
+
+	// Keep as many agents on screen as fit, giving up spacers before list rows.
+	const fitted = fitLayout(area, build, Math.max(6, agentIds.length));
+	const left = fitted ?? build({agentRows: 3, level: 2});
 
 	const body: Line[] = [
 		...kit.header([request.command, 'configure'], request.project),
@@ -527,18 +714,6 @@ export function setupLines(
 			body.push(line('  ', ...clip(l, leftWidth).segs));
 		}
 
-		const size = generatedSize(request, values);
-		const aliases = [
-			values.tmux || values.copyIgnored ? 'wt up' : undefined,
-			values.mcAlias ? 'wt mc' : undefined,
-		].filter((alias): alias is string => alias !== undefined);
-		const summary = values.tmux
-			? `${
-					validatePrefix(values.prefix).valid ? values.prefix : g.ell
-			  }_<branch> ${g.mid} ${size?.hooks ?? 0} hooks${
-					aliases.length > 0 ? ` ${g.mid} ${aliases.join(', ')}` : ''
-			  }`
-			: 'no tmux workspace';
 		body.push(
 			line(),
 			...indent(
@@ -562,7 +737,7 @@ export function setupLines(
 			  ]
 			: active === 'agents'
 			? [
-					[g.leftright, 'move'],
+					[g.updown, 'move'],
 					['Space', 'toggle', 'space'],
 					[g.enter, 'next', 'enter'],
 			  ]

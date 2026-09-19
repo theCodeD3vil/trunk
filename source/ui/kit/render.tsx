@@ -114,6 +114,17 @@ function applyClass(
 			return;
 		}
 
+		// The row under a cursor: tinted, or bold when there is no colour to tint with.
+		case 'tint': {
+			if (mono) {
+				style.bold = true;
+			} else {
+				style.backgroundColor = palette.sel;
+			}
+
+			return;
+		}
+
 		case 'chip':
 		case 'chip-on': {
 			if (mono) {

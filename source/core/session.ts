@@ -79,8 +79,52 @@ export type FailureRequest = Readonly<{
 	rollback: boolean;
 }>;
 
-/** A line under the result card. `plain` lines are instructions, with no tick or cross. */
-export type ResultLine = Readonly<{ok: boolean; text: string; plain?: boolean}>;
+/**
+ * A line under the result card. `plain` lines are instructions, with no tick or
+ * cross. A `command` follows the text in bold, a `link` in blue, both whole and
+ * copyable, and a `warning` line carries an amber triangle instead of a tick.
+ */
+export type ResultLine = Readonly<{
+	ok: boolean;
+	text: string;
+	plain?: boolean;
+	tone?: 'warning';
+	command?: string;
+	link?: string;
+}>;
+
+/** Publishing the setup branch: a push, then optionally a pull request. */
+export type PublishRequest = Readonly<{
+	branch: string;
+	/** Where it is going, such as `github.com:acme/storefront`. */
+	destination: string;
+	withPullRequest: boolean;
+}>;
+
+export type PublishStep = 'push' | 'pr';
+
+/** `warned` is a step that failed without undoing what came before it. */
+export type PublishStatus =
+	| 'active'
+	| 'done'
+	| 'failed'
+	| 'warned'
+	| 'cancelled';
+
+/** What went wrong while publishing, in the shape of a card with one question. */
+export type PublishProblem = Readonly<{
+	tone: 'error' | 'warning';
+	title: string;
+	/** What the tool said, trimmed to a few lines. */
+	said: readonly string[];
+	fix: string;
+	/** A command to run once the cause is fixed. */
+	/** A command to run once the cause is fixed. */
+	after?: string;
+	link?: string;
+	question: string;
+	note?: string;
+}>;
 
 export type Session = Readonly<{
 	/** Asks the five questions and the review. `undefined` means cancelled. */
@@ -97,6 +141,19 @@ export type Session = Readonly<{
 	finish: (request: FinishRequest) => Promise<'push' | 'skip' | undefined>;
 	/** Adds outcome lines under the result card, such as a pushed branch. */
 	result: (lines: readonly ResultLine[]) => void;
+	/** Starts showing a publish; the signal is aborted when the user presses Ctrl+C. */
+	publishStart: (request: PublishRequest) => AbortSignal;
+	publishUpdate: (
+		step: PublishStep,
+		status: PublishStatus,
+		detail?: string,
+	) => void;
+	/** Shows a failure card and asks whether to retry. `undefined` means cancelled. */
+	publishProblem: (
+		problem: PublishProblem,
+	) => Promise<'retry' | 'later' | undefined>;
+	/** Ends the publish with the lines that say what to do next. */
+	publishEnd: (lines: readonly ResultLine[]) => void;
 	fail: (request: FailureRequest) => Promise<'keep' | 'rollback' | undefined>;
 	/** True once the user pressed Ctrl+C; the run should stop at its next step. */
 	aborted: () => boolean;
