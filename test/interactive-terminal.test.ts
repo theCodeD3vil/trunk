@@ -55,7 +55,7 @@ describe('interactive screens appear live even when the environment looks like C
 	});
 
 	for (const [name, variable] of ciEnvironments) {
-		test(`trunk docs shows its menu with ${name} (${variable})`, async () => {
+		test(`trunk-cli docs shows its menu with ${name} (${variable})`, async () => {
 			const tmux = await requireTmux();
 			const {cliPath} = await build;
 			const root = await scratch(roots);
@@ -366,7 +366,7 @@ describe('interactive screens appear live even when the environment looks like C
 		);
 		expect(welcome).not.toContain('tmux session prefix');
 		expect(welcome).toContain(
-			'❯ trunk clone git@github.com:acme/storefront.git',
+			'❯ trunk-cli clone git@github.com:acme/storefront.git',
 		);
 
 		await start(tmux, 'help', root, [
@@ -532,7 +532,7 @@ describe('interactive screens appear live even when the environment looks like C
 		expect(card).toContain('wt config show reported:');
 		expect(card).toContain('unknown field pre_start');
 		expect(card).toContain('Created by this run');
-		expect(card).toContain('Resume later with trunk init');
+		expect(card).toContain('Resume later with trunk-cli init');
 
 		// Click Roll back: the button answers at once.
 		const button = locate(card, ' Roll back ');
@@ -1028,7 +1028,7 @@ async function start(
 	expect(started.code, started.stderr).toBe(0);
 }
 
-/** A bare-layout project with a main worktree, ready for `trunk init`. */
+/** A bare-layout project with a main worktree, ready for `trunk-cli init`. */
 async function bareProject(root: string): Promise<string> {
 	const git = async (arguments_: readonly string[]) => {
 		const result = await runCommand('git', arguments_, {

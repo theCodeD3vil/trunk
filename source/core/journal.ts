@@ -178,7 +178,7 @@ export function resumeCommand(
 	projectDirectory: string,
 	workingDirectory: string,
 ): string {
-	return `trunk init ${displayPath(projectDirectory, workingDirectory)}`;
+	return `trunk-cli init ${displayPath(projectDirectory, workingDirectory)}`;
 }
 
 function describeEntry(entry: JournalEntry): string {

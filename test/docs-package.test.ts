@@ -1,5 +1,5 @@
 /**
- * `trunk docs` from a packed tarball, run in a real terminal. The point is what
+ * `trunk-cli docs` from a packed tarball, run in a real terminal. The point is what
  * the published artifact carries: the docs must be inside it, and the browser
  * must start from an unpacked copy with no checkout, no repository files and
  * no network reachable from its environment.
@@ -30,7 +30,7 @@ describe('packaged installation', () => {
 		);
 	});
 
-	test('the tarball carries the docs and trunk docs shows the two-topic menu offline', async () => {
+	test('the tarball carries the docs and trunk-cli docs shows the two-topic menu offline', async () => {
 		const [npm, tmux, tar] = await Promise.all([
 			resolveExecutable('npm'),
 			resolveExecutable('tmux'),
@@ -176,7 +176,7 @@ async function waitForSessionEnd(tmux: string): Promise<void> {
 		await delay(100);
 	}
 
-	throw new Error('trunk docs did not exit after q.');
+	throw new Error('trunk-cli docs did not exit after q.');
 }
 
 async function delay(milliseconds: number): Promise<void> {

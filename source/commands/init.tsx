@@ -1,10 +1,10 @@
 /**
- * `trunk init [dir]`: set up a project that is already on disk in the bare
+ * `trunk-cli init [dir]`: set up a project that is already on disk in the bare
  * layout — cloned by hand, already using worktrunk, created without any remote,
- * or left behind by an interrupted `trunk clone`.
+ * or left behind by an interrupted `trunk-cli clone`.
  *
  * Everything from the existing-config question onward is the same code
- * `trunk clone` runs. What is specific here is finding the project, refusing a
+ * `trunk-cli clone` runs. What is specific here is finding the project, refusing a
  * plain clone or an empty repository, and repairing whatever a hand-made setup
  * is missing.
  */
@@ -77,7 +77,7 @@ export async function runInit(
 
 		case 'empty': {
 			return badUsage(
-				`${target} holds no repository; use \`trunk clone <url> ${
+				`${target} holds no repository; use \`trunk-cli clone <url> ${
 					directory ?? '<dir>'
 				}\` instead`,
 			);
@@ -135,7 +135,7 @@ async function setUpExisting(
 				await terminal.refuse({
 					kind: 'empty-repository',
 					name: basename(projectDirectory),
-					rerun: `trunk init ${displayPath(projectDirectory)}`,
+					rerun: `trunk-cli init ${displayPath(projectDirectory)}`,
 				});
 				return {code: exitCodes.badUsage};
 			}
@@ -170,13 +170,13 @@ async function setUpExisting(
 			await terminal.refuse({
 				kind: 'empty-repository',
 				name: basename(projectDirectory),
-				rerun: `trunk init ${displayPath(projectDirectory)}`,
+				rerun: `trunk-cli init ${displayPath(projectDirectory)}`,
 			});
 			return {code: exitCodes.badUsage};
 		}
 
 		return badUsage(
-			`${projectDirectory} is an empty bare repository with no commits; make the first commit yourself, then run \`trunk init\` again`,
+			`${projectDirectory} is an empty bare repository with no commits; make the first commit yourself, then run \`trunk-cli init\` again`,
 		);
 	}
 
@@ -248,7 +248,7 @@ function initPlan(
 
 				if (await isEmptyRepository(gitDirectory, context.git)) {
 					throw new Error(
-						'this is an empty bare repository with no commits; make the first commit yourself, then run `trunk init` again',
+						'this is an empty bare repository with no commits; make the first commit yourself, then run `trunk-cli init` again',
 					);
 				}
 
@@ -309,7 +309,7 @@ async function refusePlainClone(
 	for (const line of [
 		`${clone} is a normal clone; trunk sets up bare-layout projects.`,
 		'',
-		`  trunk clone ${url} ${name}-wt`,
+		`  trunk-cli clone ${url} ${name}-wt`,
 		`  # copy any local-only files you still need into ${name}-wt/<default branch>/`,
 		`  # check nothing uncommitted or unpushed is left in ${name}, then:`,
 		`  rm -rf ${name} && mv ${name}-wt ${name}`,
@@ -396,7 +396,7 @@ async function repairDefaultBranch(
 
 /**
  * Reuses the worktree for the default branch when there is one, which is also
- * what makes `trunk init` the resume command after an interrupted clone.
+ * what makes `trunk-cli init` the resume command after an interrupted clone.
  */
 async function ensureWorktree(
 	context: SetupContext,

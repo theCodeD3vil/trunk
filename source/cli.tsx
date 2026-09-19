@@ -56,7 +56,7 @@ async function dispatch(): Promise<Outcome> {
 
 	const [command, ...rest] = cli.input;
 	if (command === undefined || cli.flags.help) {
-		// Plain `trunk` is the welcome; asking for help is asking for the reference.
+		// Plain `trunk-cli` is the welcome; asking for help is asking for the reference.
 		return showHelp(cli.flags.help ? 'full' : 'summary');
 	}
 
@@ -72,7 +72,7 @@ async function dispatch(): Promise<Outcome> {
 				await terminal.refuse({
 					kind: 'missing-tools',
 					missing,
-					command: `trunk ${process.argv.slice(2).join(' ')}`,
+					command: `trunk-cli ${process.argv.slice(2).join(' ')}`,
 				});
 				return {code: exitCodes.unsupportedEnvironment};
 			}
@@ -97,14 +97,14 @@ async function dispatch(): Promise<Outcome> {
 	switch (command) {
 		case 'clone': {
 			return runClone(rest, cli.flags, tools!, {
-				invocation: {executable: 'trunk', arguments: process.argv.slice(2)},
+				invocation: {executable: 'trunk-cli', arguments: process.argv.slice(2)},
 				terminalUi: openTerminalUi,
 			});
 		}
 
 		case 'init': {
 			return runInit(rest, cli.flags, tools!, {
-				invocation: {executable: 'trunk', arguments: process.argv.slice(2)},
+				invocation: {executable: 'trunk-cli', arguments: process.argv.slice(2)},
 				terminalUi: openTerminalUi,
 			});
 		}

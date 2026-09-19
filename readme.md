@@ -2,7 +2,7 @@
 
 `trunk` sets a Git repository up for parallel work with [Worktrunk](https://worktrunk.dev). It clones or adopts a project into Worktrunk's bare layout and commits one shared, language-agnostic `.config/wt.toml`: a tmux workspace for every worktree, optional copying of ignored files, and a couple of convenience aliases.
 
-`trunk` configures the worktree experience and then gets out of the way. It does not detect, choose, install, start, proxy, or otherwise model your project's stack, and it never writes global Worktrunk configuration. Stack-specific setup is manual, and `trunk docs` teaches it offline.
+`trunk` configures the worktree experience and then gets out of the way. It does not detect, choose, install, start, proxy, or otherwise model your project's stack, and it never writes global Worktrunk configuration. Stack-specific setup is manual, and `trunk-cli docs` teaches it offline.
 
 ## Install
 
@@ -16,7 +16,7 @@ or:
 bun add --global @cod3vil/trunk
 ```
 
-The installed command is `trunk`. That name is also used by the Rust/Wasm `trunk` tool and by Trunk.io, so check `command -v trunk` if one of those is already installed.
+The installed command is `trunk-cli`, not `trunk`, so it never shadows the Rust/Wasm `trunk` tool or the Trunk.io CLI, which both install a `trunk` binary. If you used an earlier release, `trunk` is gone; run `trunk-cli` instead.
 
 ## Prerequisites
 
@@ -43,18 +43,18 @@ storefront/
   feature-checkout/      another worktree created by wt
 ```
 
-Run project commands inside a worktree such as `storefront/main`, not in `storefront`. `trunk clone` creates this layout. `trunk init` adopts an existing bare-layout project and deliberately refuses to rewrite an ordinary clone in place; it prints the steps to migrate one instead.
+Run project commands inside a worktree such as `storefront/main`, not in `storefront`. `trunk-cli clone` creates this layout. `trunk-cli init` adopts an existing bare-layout project and deliberately refuses to rewrite an ordinary clone in place; it prints the steps to migrate one instead.
 
 ## Commands
 
-`trunk` has three commands.
+`trunk-cli` has three commands.
 
 ### Clone
 
 Clone a remote into the bare layout and commit the generated configuration on `chore/trunk-setup`:
 
 ```sh
-trunk clone git@github.com:acme/storefront.git ~/Projects/storefront
+trunk-cli clone git@github.com:acme/storefront.git ~/Projects/storefront
 ```
 
 The branch is pushed, and a pull request opened when `gh` is installed, only when you answer yes to the question on the result card. It starts on "Not now", and nothing is pushed under `--yes`.
@@ -64,22 +64,22 @@ The branch is pushed, and a pull request opened when `gh` is installed, only whe
 Set up an existing bare-layout project, whether it was cloned by hand, already uses Worktrunk, or never had a remote:
 
 ```sh
-trunk init ~/Projects/storefront
+trunk-cli init ~/Projects/storefront
 ```
 
-Without an origin, `trunk init` uses the project directory's name for the suggested prefix and prints the local merge command instead of a pull request. It refuses an empty bare repository, because `trunk` never creates Git history.
+Without an origin, `trunk-cli init` uses the project directory's name for the suggested prefix and prints the local merge command instead of a pull request. It refuses an empty bare repository, because `trunk` never creates Git history.
 
-If `.config/wt.toml` already exists, an interactive run shows a highlighted diff and replaces the file only after you confirm. A run with `--yes` keeps the existing file byte for byte. `trunk` never reads values out of an old file and never renames live tmux sessions.
+If `.config/wt.toml` already exists, an interactive run shows a highlighted diff and replaces the file only after you confirm. A run with `--yes` keeps the existing file byte for byte. `trunk-cli` never reads values out of an old file and never renames live tmux sessions.
 
 ### Docs
 
 Browse the offline documentation:
 
 ```sh
-trunk docs
+trunk-cli docs
 ```
 
-`trunk docs` opens an interactive terminal browser with two topics, Config Basics and Node. The topics and their pages are listed in a sidebar; the left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits. `trunk` on its own shows a short welcome; `trunk --help` lists every option with its meaning. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
+`trunk-cli docs` opens an interactive terminal browser with two topics, Config Basics and Node. The topics and their pages are listed in a sidebar; the left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits. `trunk` on its own shows a short welcome; `trunk-cli --help` lists every option with its meaning. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
 
 ## The Terminal Screens
 
@@ -121,7 +121,7 @@ Trunk switches to ASCII by itself on `TERM=linux`, `TERM=dumb`, and a locale tha
 | `--mc` / `--no-mc`     | Enable or disable the `wt mc` merge alias                                                          | on                         |
 | `--direct`             | Commit on the current branch instead of `chore/trunk-setup`                                        | off                        |
 
-`--no-tmux` together with `--agents` is a usage error, and `--agents` only accepts agents that are installed on the machine. Run `trunk --help` for the same surface in the terminal.
+`--no-tmux` together with `--agents` is a usage error, and `--agents` only accepts agents that are installed on the machine. Run `trunk-cli --help` for the same surface in the terminal.
 
 ## What It Generates
 
@@ -138,12 +138,12 @@ Worktrunk treats project hooks as trusted code. Run `wt config approvals add` af
 
 ## Project-Specific Setup
 
-Installing dependencies, starting a dev server, or routing a local URL is left to you, because only you know the project. `trunk docs` has copyable fragments for the common cases:
+Installing dependencies, starting a dev server, or routing a local URL is left to you, because only you know the project. `trunk-cli docs` has copyable fragments for the common cases:
 
 - **Config Basics** explains the file: hook lifecycle, pipelines and ordering, templates, approvals, aliases, and how to add your own hooks.
 - **Node** has additive recipes for npm, pnpm, and Bun: dependency install, monorepo subfolders, a tethered dev server, and an optional Caddy route.
 
-The fragments are added to the generated file; they do not replace it, and `trunk` does not detect your package manager for you.
+The fragments are added to the generated file; they do not replace it, and `trunk-cli` does not detect your package manager for you.
 
 ## What It Does Not Do
 
@@ -157,7 +157,7 @@ The fragments are added to the generated file; they do not replace it, and `trun
 
 Version 0.1.x detected a package manager and generated install, dev-server, and Caddy hooks, and shipped `trunk new`. Those features are gone: `trunk new`, `--pm`, `--server`, `--caddy`, `--remote`, `--owner`, and `--public` are removed, and the old generated configuration is not carried over.
 
-Nothing changes on disk until you run `trunk` again. An existing `.config/wt.toml` keeps working with Worktrunk exactly as before. To move to the generic file, run `trunk init` in the project, review the diff, and confirm; the install and server steps you want to keep can then be re-added from `trunk docs`.
+Nothing changes on disk until you run `trunk-cli` again. An existing `.config/wt.toml` keeps working with Worktrunk exactly as before. To move to the generic file, run `trunk-cli init` in the project, review the diff, and confirm; the install and server steps you want to keep can then be re-added from `trunk-cli docs`.
 
 ## Development
 

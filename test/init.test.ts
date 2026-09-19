@@ -1,5 +1,5 @@
 /**
- * `trunk init` against real repositories on disk: a project trunk already set
+ * `trunk-cli init` against real repositories on disk: a project trunk already set
  * up, one assembled by hand, one that never had an origin, an empty repository
  * and a plain clone it must refuse.
  */
@@ -37,7 +37,7 @@ type Fixture = Readonly<{
 	tools: ToolProbe;
 }>;
 
-describe('trunk init', () => {
+describe('trunk-cli init', () => {
 	test('sets up a bare-layout project made by hand', async () => {
 		const fixture = await createBareProject();
 		try {
@@ -359,7 +359,7 @@ describe('trunk init', () => {
 
 			const reported = lines.join('\n');
 			expect(reported).toContain('is a normal clone');
-			expect(reported).toContain(`trunk clone ${fixture.remote}`);
+			expect(reported).toContain(`trunk-cli clone ${fixture.remote}`);
 			expect(reported).toContain('uncommitted changes');
 			expect(reported).toContain('rm -rf');
 			// The recipe is generic: no project-file or stack assumptions.
@@ -395,7 +395,7 @@ describe('trunk init', () => {
 			);
 
 			expect(outcome.code).toBe(exitCodes.badUsage);
-			expect(outcome.message).toContain('trunk clone');
+			expect(outcome.message).toContain('trunk-cli clone');
 		} finally {
 			await rm(root, {recursive: true, force: true});
 		}
@@ -453,7 +453,7 @@ function dependencies(fixture: Fixture) {
 		cwd: fixture.workingDirectory,
 		env: fixture.environment,
 		interactive: false,
-		invocation: {executable: 'trunk', arguments: ['init']},
+		invocation: {executable: 'trunk-cli', arguments: ['init']},
 		now: () => new Date('2026-09-18T00:00:00.000Z'),
 		async attach(
 			command: string,

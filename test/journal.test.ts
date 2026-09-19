@@ -62,7 +62,7 @@ describe('run journal', () => {
 	});
 
 	test('names the command that picks the run back up', () => {
-		expect(resumeCommand(project, '/work')).toBe('trunk init ./acme-admin');
+		expect(resumeCommand(project, '/work')).toBe('trunk-cli init ./acme-admin');
 	});
 });
 

@@ -4,7 +4,7 @@
  * that receives them, writing, validating, committing, publishing, and the
  * approvals offer afterwards.
  *
- * `trunk clone` reaches this after cloning; `trunk init` reaches it after
+ * `trunk-cli clone` reaches this after cloning; `trunk-cli init` reaches it after
  * finding an existing project. Both hand it the same shape, so the two commands
  * cannot drift apart in how they set a repository up.
  */
@@ -787,7 +787,7 @@ export function createContext(
 		terminalUi: dependencies.terminalUi,
 		now: dependencies.now ?? (() => new Date()),
 		invocation: dependencies.invocation ?? {
-			executable: 'trunk',
+			executable: 'trunk-cli',
 			arguments: process.argv.slice(2),
 		},
 		color: dependencies.color ?? shouldUseColor(),
