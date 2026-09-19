@@ -4,6 +4,7 @@
  * answered by whatever repository the process happens to sit in.
  */
 import {isAbsolute, resolve} from 'node:path';
+import process from 'node:process';
 import {
 	runAttached,
 	runCommand,
@@ -337,6 +338,54 @@ export async function remoteDefaultBranch(
 	}
 
 	return branch;
+}
+
+/**
+ * Asks the remote for its default branch without ever getting in the way: no
+ * credential or host-key prompt (the terminal belongs to the UI), a short
+ * time limit, and no error, only `undefined`, for a remote that will not say.
+ * It only fills in a label on the review screen; the clone itself still decides.
+ */
+export async function probeDefaultBranch(
+	url: string,
+	options: GitOptions & {
+		env?: NodeJS.ProcessEnv;
+		timeoutMs?: number;
+	} = {},
+): Promise<string | undefined> {
+	const base = options.env ?? process.env;
+	const env: NodeJS.ProcessEnv = {...base};
+	env['GIT_TERMINAL_PROMPT'] = '0';
+	// Someone who set their own ssh command meant it; otherwise never prompt.
+	if (base['GIT_SSH_COMMAND'] === undefined && base['GIT_SSH'] === undefined) {
+		env['GIT_SSH_COMMAND'] = 'ssh -o BatchMode=yes';
+	}
+
+	const asked = (async () => {
+		try {
+			const result = await (options.run ?? runCommand)(
+				options.gitPath ?? 'git',
+				['ls-remote', '--symref', url, 'HEAD'],
+				{env},
+			);
+			return result.code === 0
+				? parseRemoteDefaultBranch(result.stdout)
+				: undefined;
+		} catch {
+			return undefined;
+		}
+	})();
+	let timer: NodeJS.Timeout | undefined;
+	const timeout = new Promise<undefined>(resolve => {
+		timer = setTimeout(() => {
+			resolve(undefined);
+		}, options.timeoutMs ?? 6000);
+	});
+	try {
+		return await Promise.race([asked, timeout]);
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 /**

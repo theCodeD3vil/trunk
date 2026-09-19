@@ -159,6 +159,9 @@ describe('the interactive setup flow', () => {
 		expect(record.finish?.next[0]?.command).toStartWith('cd ');
 		expect(record.finish?.next[0]?.command).toContain('chore-trunk-setup');
 		expect(record.finish?.push?.branch).toBe('chore/trunk-setup');
+		// The remote was asked while the questions were answered, so the review
+		// could name the branch before anything was cloned.
+		expect(record.configured?.probedDefaultBranch?.()).toBe('main');
 		expect(
 			await git([
 				'--git-dir',
@@ -237,6 +240,18 @@ describe('the interactive setup flow', () => {
 		expect(await exists(join(fixture.workingDirectory, 'acme-admin'))).toBe(
 			false,
 		);
+		// The outcome is drawn under the steps as data, and nothing is printed
+		// afterwards: no cross on a rollback that worked, no path dump.
+		const said = record.results.map(
+			line => `${line.ok ? 'ok' : 'bad'} ${line.text}`,
+		);
+		expect(said).toContain(
+			'ok Removed the chore/trunk-setup worktree and branch.',
+		);
+		expect(said).toContain('ok Removed the default worktree.');
+		expect(said).toContain('ok Removed the project folder trunk created.');
+		expect(said.some(line => line.startsWith('bad'))).toBe(false);
+		expect(outcome.message).toBeUndefined();
 	}, 60_000);
 
 	test('keeping a failed run leaves the project in place', async () => {
@@ -246,8 +261,13 @@ describe('the interactive setup flow', () => {
 
 		const outcome = await run(fixture, terminal, failing);
 
-		expect(outcome.code).not.toBe(exitCodes.success);
+		expect(outcome.code).toBe(exitCodes.operationFailed);
 		expect(record.failure).toBeDefined();
+		// The failure card is replaced by the steps, so how to resume is repeated.
+		const said = record.results.map(line => line.text);
+		expect(said).toHaveLength(2);
+		expect(said[0]).toBe('Kept everything this run created.');
+		expect(said[1]).toMatch(/^Resume later with trunk init /);
 		expect(await exists(join(fixture.workingDirectory, 'acme-admin'))).toBe(
 			true,
 		);

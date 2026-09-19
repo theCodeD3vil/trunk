@@ -88,7 +88,8 @@ wt hook post-start --foreground # run a background hook in the terminal`,
 		},
 		{
 			id: 'pipelines',
-			title: 'Ordering, pipelines and concurrency',
+			title: 'Ordering and pipelines',
+			keywords: ['concurrency', 'concurrent', 'parallel'],
 			blocks: [
 				text(
 					'A hook takes one of three shapes, decided by its TOML form. A string is a single command. A table of named commands runs them concurrently. A pipeline is a sequence of double-bracket blocks such as [[pre-start]] that run one after another; keys inside one block run concurrently, and a failing block stops the rest.',

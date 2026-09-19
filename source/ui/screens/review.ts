@@ -24,8 +24,17 @@ export function reviewKey(state: ReviewState, key: string): ReviewStep {
 		return {state: {sel: (state.sel + 1) % actions.length}};
 	}
 
-	if (key === 'b' || key === 'esc') {
+	if (key === 'b' || key === 'esc' || key === 'back') {
 		return {state, action: 'back'};
+	}
+
+	// Clicking an action runs it at once.
+	if (key === 'go') {
+		return {state: {sel: 0}, action: 'create'};
+	}
+
+	if (key === 'cancel') {
+		return {state: {sel: 2}, action: 'cancel'};
 	}
 
 	if (key === 'enter') {
@@ -43,7 +52,8 @@ export function reviewLines(
 	rows: number,
 ): Line[] {
 	const {g, line, box, indent, cols} = kit;
-	const contentWidth = cols - margin * 2;
+	// Cards stop at 76 columns, so a label and its value never sit far apart.
+	const cardWidth = Math.min(cols - margin * 2, 76);
 	const {agents} = settings;
 	const start = [
 		settings.copyIgnored ? 'copy ignored files' : undefined,
@@ -77,7 +87,11 @@ export function reviewLines(
 		['Start', start.length > 0 ? start.join(`  ${g.right}  `) : 'nothing'],
 		['Aliases', aliases.length > 0 ? aliases.join(`  ${g.mid}  `) : 'none'],
 	];
-	const branch = request.defaultBranch ?? 'default branch';
+	// A clone learns the branch while the questions are being answered.
+	const branch =
+		request.probedDefaultBranch?.() ??
+		request.defaultBranch ??
+		'default branch';
 	const setupDirectory = 'chore-trunk-setup';
 	const tree: ReadonlyArray<readonly [string, string, string]> = [
 		[`${request.rootName}/`, '', 'b'],
@@ -113,10 +127,10 @@ export function reviewLines(
 				details.map(([name, value]) =>
 					line(
 						[name.padEnd(10), 'c-dim'],
-						[kit.fit(value, contentWidth - 14), ''],
+						[kit.fit(value, cardWidth - 14), ''],
 					),
 				),
-				contentWidth,
+				cardWidth,
 				{title: 'Your choices', titleStyle: 'c-acc b', tag: 'edit: b'},
 			),
 			margin,
@@ -140,6 +154,8 @@ export function reviewLines(
 					'Cancel',
 				],
 				state.sel,
+				true,
+				['go', 'back', 'cancel'],
 			),
 		),
 	];
@@ -147,8 +163,8 @@ export function reviewLines(
 		body,
 		kit.keybar([
 			[g.leftright, 'choose'],
-			[g.enter, 'confirm'],
-			['b', 'edit choices'],
+			[g.enter, 'confirm', 'enter'],
+			['b', 'edit choices', 'b'],
 		]),
 		{
 			maxRows: rows,

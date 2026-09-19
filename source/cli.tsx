@@ -56,7 +56,8 @@ async function dispatch(): Promise<Outcome> {
 
 	const [command, ...rest] = cli.input;
 	if (command === undefined || cli.flags.help) {
-		return showHelp();
+		// Plain `trunk` is the welcome; asking for help is asking for the reference.
+		return showHelp(cli.flags.help ? 'full' : 'summary');
 	}
 
 	// Only the real commands need tools, so printing usage stays instant and
@@ -119,10 +120,10 @@ async function dispatch(): Promise<Outcome> {
 }
 
 /** The styled screen in a terminal, plain text everywhere else. */
-async function showHelp(): Promise<Outcome> {
+async function showHelp(detail: 'summary' | 'full'): Promise<Outcome> {
 	if (openTerminalUi) {
 		const terminal = await openTerminalUi();
-		await terminal.welcome(trunkVersion());
+		await terminal.welcome(trunkVersion(), detail);
 	} else {
 		// Printed here rather than through `cli.showHelp`, which exits inside
 		// meow; `process.exit` stays a single call site at the bottom of this file.

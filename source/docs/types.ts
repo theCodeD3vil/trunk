@@ -41,7 +41,10 @@ export type Block = TextBlock | ListBlock | CodeBlock;
 
 export type Section = Readonly<{
 	id: string;
+	/** Short enough for the browser's sidebar; longer names go in `keywords`. */
 	title: string;
+	/** Words search treats like the title's, for what the short title leaves out. */
+	keywords?: readonly string[];
 	blocks: readonly Block[];
 }>;
 

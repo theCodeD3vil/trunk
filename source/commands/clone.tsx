@@ -15,6 +15,7 @@ import {
 	cloneBare,
 	cloneBareQuietly,
 	configureOriginFetch,
+	probeDefaultBranch,
 	remoteDefaultBranch,
 	setHeadBranch,
 } from '../core/git.js';
@@ -80,7 +81,7 @@ export async function runClone(
 			return await runInteractiveSetup(
 				context,
 				await context.terminalUi(),
-				clonePlan(remote, projectDirectory, emptiness),
+				clonePlan(remote, projectDirectory, emptiness, context),
 			);
 		}
 
@@ -99,6 +100,7 @@ function clonePlan(
 	remote: ParsedRemote,
 	projectDirectory: string,
 	emptiness: 'missing' | 'empty',
+	context: SetupContext,
 ): FlowPlan {
 	const gitDirectory = join(projectDirectory, '.git');
 	const root = basename(projectDirectory);
@@ -110,6 +112,12 @@ function clonePlan(
 			remote.kind === 'hosted' ? `${remote.owner}/${remote.repo}` : remote.repo,
 		projectDirectory,
 		gitDirectory,
+		async probeDefaultBranch() {
+			return probeDefaultBranch(remote.url, {
+				gitPath: context.git.gitPath,
+				env: context.env,
+			});
+		},
 		prepareSteps: [
 			{id: 'clone', label: 'Clone repository', detail: remote.url},
 			{

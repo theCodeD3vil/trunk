@@ -10,10 +10,11 @@ import process from 'node:process';
 import React, {
 	useEffect,
 	useReducer,
+	useRef,
 	useState,
 	useSyncExternalStore,
 } from 'react';
-import {render, useInput, useStdout} from 'ink';
+import {render, useStdout} from 'ink';
 import type {
 	ConfigureRequest,
 	FailureRequest,
@@ -25,10 +26,11 @@ import type {
 	StepStatus,
 } from '../core/session.js';
 import type {Settings} from '../core/settings.js';
-import {abortKey, keyName} from './keys.js';
+import {abortKey} from './keys.js';
 import {createKit, type Line} from './kit/lines.js';
 import {Lines} from './kit/render.js';
 import {resolveTheme, type Theme} from './kit/theme.js';
+import {useKeys} from './use-keys.js';
 import {
 	failureKey,
 	failureLines,
@@ -39,6 +41,7 @@ import {
 	initialOverwrite,
 	overwriteKey,
 	overwriteLines,
+	scrollLimit,
 	type OverwriteModel,
 	type OverwriteState,
 } from './screens/overwrite.js';
@@ -119,13 +122,6 @@ function SessionApp({store, theme, onKey}: AppProperties): React.ReactElement {
 	const [caret, setCaret] = useState(true);
 	const columns = Math.min(stdout.columns || 80, maximumColumns);
 	const rows = stdout.rows || 40;
-
-	useInput((input, key) => {
-		const name = keyName(input, key);
-		if (name !== undefined) {
-			onKey(name);
-		}
-	});
 
 	const spinning =
 		screen.kind === 'run' &&
@@ -208,6 +204,11 @@ function SessionApp({store, theme, onKey}: AppProperties): React.ReactElement {
 			break;
 		}
 	}
+
+	// Clicks are resolved against exactly what this render drew.
+	const drawn = useRef<readonly Line[]>(lines);
+	drawn.current = lines;
+	useKeys(onKey, () => drawn.current);
 
 	return <Lines lines={lines} theme={theme} width={columns} caret={caret} />;
 }
@@ -367,7 +368,11 @@ export async function openSession(): Promise<Session> {
 			const answer = await ask<'keep' | 'replace'>(
 				() => ({kind: 'overwrite', request, model, state}),
 				(name, resolve) => {
-					const step = overwriteKey(state, name);
+					const step = overwriteKey(
+						state,
+						name,
+						scrollLimit(model, state, process.stdout.rows || 40),
+					);
 					state = step.state;
 					if (step.answer === undefined) {
 						store.set({kind: 'overwrite', request, model, state});
@@ -419,6 +424,10 @@ export async function openSession(): Promise<Session> {
 					finish: {...run.finish, outcome: [...run.finish.outcome, ...lines]},
 				};
 				showRun();
+			} else if (run !== undefined) {
+				// A run that stopped: say what was kept or rolled back.
+				run = {...run, outcome: [...(run.outcome ?? []), ...lines]};
+				showRun();
 			}
 		},
 
@@ -436,6 +445,8 @@ export async function openSession(): Promise<Session> {
 					}
 				},
 			);
+			// Back to the steps, which now show the cross where it stopped.
+			showRun();
 			return answer;
 		},
 

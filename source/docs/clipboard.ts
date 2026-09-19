@@ -38,7 +38,7 @@ export const noClipboardMessage = `No clipboard command found (tried ${clipboard
 	.map(candidate => candidate.command)
 	.join(
 		', ',
-	)}). Select the snippet on screen with your mouse and copy it with your terminal's shortcut (Cmd+C on macOS, usually Ctrl+Shift+C on Linux). Widen the window if long lines wrap.`;
+	)}). Select the snippet on screen, holding Shift (Option in Terminal.app and iTerm2) because trunk is reporting the mouse, and copy it with your terminal's shortcut (Cmd+C on macOS, usually Ctrl+Shift+C on Linux). Widen the window if long lines wrap.`;
 
 export type CopyOptions = Readonly<{
 	/** Overrides PATH lookup, for tests. */

@@ -22,6 +22,7 @@ export type Glyphs = Readonly<{
 	arrow: string;
 	bullet: string;
 	caret: string;
+	prompt: string;
 	dots: string;
 	barOn: string;
 	barOff: string;
@@ -64,6 +65,7 @@ export const unicodeGlyphs: Glyphs = Object.freeze({
 	arrow: '›',
 	bullet: '•',
 	caret: '▌',
+	prompt: '❯',
 	dots: '⋯',
 	barOn: '▰',
 	barOff: '▱',
@@ -106,6 +108,7 @@ export const asciiGlyphs: Glyphs = Object.freeze({
 	arrow: '>',
 	bullet: '-',
 	caret: '_',
+	prompt: '>',
 	dots: '..',
 	barOn: '#',
 	barOff: '.',
