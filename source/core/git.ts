@@ -149,6 +149,18 @@ export async function cloneBare(
 }
 
 /**
+ * Clones without borrowing the terminal, for the interactive UI, which owns the
+ * screen. A failure carries git's own message so the UI can show it.
+ */
+export async function cloneBareQuietly(
+	url: string,
+	gitDirectory: string,
+	options: GitOptions = {},
+): Promise<CommandResult> {
+	return runGit(['clone', '--bare', url, gitDirectory], options);
+}
+
+/**
  * A bare clone has no fetch refspec, so `origin/*` never appears and anything
  * comparing against the remote silently sees nothing. Set it, then fetch once
  * to populate the refs.

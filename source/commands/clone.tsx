@@ -13,10 +13,16 @@ import type {ToolProbe} from '../core/env.js';
 import {
 	addWorktree,
 	cloneBare,
+	cloneBareQuietly,
 	configureOriginFetch,
 	remoteDefaultBranch,
 	setHeadBranch,
 } from '../core/git.js';
+import {
+	displayPath,
+	runInteractiveSetup,
+	type FlowPlan,
+} from '../core/interactive-flow.js';
 import {
 	configureProject,
 	createContext,
@@ -70,10 +76,118 @@ export async function runClone(
 	}
 
 	try {
+		if (context.interactive && context.terminalUi) {
+			return await runInteractiveSetup(
+				context,
+				await context.terminalUi(),
+				clonePlan(remote, projectDirectory, emptiness),
+			);
+		}
+
 		return await pipeline(context, remote, projectDirectory, emptiness);
 	} catch (error: unknown) {
 		return interrupted(context, projectDirectory, errorMessage(error));
 	}
+}
+
+/**
+ * The interactive version of the same work, as named steps the UI can show.
+ * It uses plain git throughout: a step that borrowed the terminal, such as
+ * git's progress or a wt question, would tear the screen apart.
+ */
+function clonePlan(
+	remote: ParsedRemote,
+	projectDirectory: string,
+	emptiness: 'missing' | 'empty',
+): FlowPlan {
+	const gitDirectory = join(projectDirectory, '.git');
+	const root = basename(projectDirectory);
+	return {
+		command: 'clone',
+		remote,
+		repoName: remote.repo,
+		project:
+			remote.kind === 'hosted' ? `${remote.owner}/${remote.repo}` : remote.repo,
+		projectDirectory,
+		gitDirectory,
+		prepareSteps: [
+			{id: 'clone', label: 'Clone repository', detail: remote.url},
+			{
+				id: 'branch',
+				label: 'Detect default branch',
+				detail: 'asking the remote',
+			},
+			{
+				id: 'worktree',
+				label: 'Create worktree',
+				detail: `${root}/<default branch>`,
+			},
+		],
+		async prepare({context, step}) {
+			if (emptiness === 'missing') {
+				context.journal.record({kind: 'folder', path: projectDirectory});
+			}
+
+			context.journal.record({kind: 'bare-repo', path: gitDirectory});
+			await step('clone', async () => {
+				const cloned = await cloneBareQuietly(
+					remote.url,
+					gitDirectory,
+					context.git,
+				);
+				if (cloned.code !== 0) {
+					throw new Error(`git clone failed: ${outputOf(cloned)}`);
+				}
+
+				return {value: undefined, detail: remote.url};
+			});
+			// A bare clone has no fetch refspec, so origin/* would stay empty; the
+			// remote also decides the default branch, never an assumed `main`.
+			const branch = await step('branch', async () => {
+				const configured = await configureOriginFetch(
+					gitDirectory,
+					context.git,
+				);
+				if (configured.code !== 0) {
+					throw new Error(
+						`could not configure the origin refspec: ${outputOf(configured)}`,
+					);
+				}
+
+				const name = await remoteDefaultBranch(remote.url, context.git);
+				await setHeadBranch(gitDirectory, name, context.git);
+				return {value: name, detail: name};
+			});
+			const defaultWorktree = await step('worktree', async () => {
+				const expected = join(projectDirectory, branch.replaceAll('/', '-'));
+				context.journal.record({kind: 'worktree', path: expected, branch});
+				const added = await addWorktree(
+					gitDirectory,
+					expected,
+					branch,
+					context.git,
+				);
+				if (added.code !== 0) {
+					throw new Error(
+						`could not create the ${branch} worktree: ${outputOf(added)}`,
+					);
+				}
+
+				const actual = await locateWorktree(
+					gitDirectory,
+					expected,
+					context.git,
+					branch,
+				);
+				if (actual !== expected) {
+					context.journal.relocate(expected, actual);
+				}
+
+				return {value: actual, detail: displayPath(actual)};
+			});
+			return {defaultWorktree, defaultBranch: branch};
+		},
+	};
 }
 
 async function pipeline(

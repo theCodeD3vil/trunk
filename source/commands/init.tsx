@@ -42,9 +42,15 @@ import {
 } from '../core/repo.js';
 import {
 	badUsage,
+	exitCodes,
 	unsupportedEnvironment,
 	type Outcome,
 } from '../core/result.js';
+import {
+	displayPath,
+	runInteractiveSetup,
+	type FlowPlan,
+} from '../core/interactive-flow.js';
 import {switchAttached} from '../core/wt.js';
 
 export type {SetupDependencies as InitDependencies} from '../core/pipeline.js';
@@ -114,6 +120,34 @@ async function setUpExisting(
 	}
 
 	const repoName = remote?.repo ?? basename(projectDirectory);
+	const terminal = context.terminalUi ? await context.terminalUi() : undefined;
+	if (terminal && context.interactive) {
+		// Reads only: nothing is repaired or created until the review is confirmed.
+		const known = await existingDefaultBranch(gitDirectory, context.git);
+		if (!remote) {
+			if (known === undefined) {
+				return badUsage(
+					`${projectDirectory} has no default branch and no origin to ask; check out a branch first`,
+				);
+			}
+
+			if (await isEmptyRepository(gitDirectory, context.git)) {
+				await terminal.refuse({
+					kind: 'empty-repository',
+					name: basename(projectDirectory),
+					rerun: `trunk init ${displayPath(projectDirectory)}`,
+				});
+				return {code: exitCodes.badUsage};
+			}
+		}
+
+		return runInteractiveSetup(
+			context,
+			terminal,
+			initPlan(remote, repoName, projectDirectory, gitDirectory, known),
+		);
+	}
+
 	const defaultBranch = await repairDefaultBranch(
 		context,
 		gitDirectory,
@@ -132,17 +166,30 @@ async function setUpExisting(
 	// Trunk sets up projects and never invents history: with nothing to check
 	// out there is no worktree to configure, and a first commit is the user's.
 	if (await isEmptyRepository(gitDirectory, context.git)) {
+		if (terminal) {
+			await terminal.refuse({
+				kind: 'empty-repository',
+				name: basename(projectDirectory),
+				rerun: `trunk init ${displayPath(projectDirectory)}`,
+			});
+			return {code: exitCodes.badUsage};
+		}
+
 		return badUsage(
 			`${projectDirectory} is an empty bare repository with no commits; make the first commit yourself, then run \`trunk init\` again`,
 		);
 	}
 
-	const defaultWorktree = await ensureWorktree(context, {
-		remote,
-		projectDirectory,
-		gitDirectory,
-		branch: defaultBranch,
-	});
+	const defaultWorktree = await ensureWorktree(
+		context,
+		{
+			remote,
+			projectDirectory,
+			gitDirectory,
+			branch: defaultBranch,
+		},
+		{attached: context.interactive, warn: true},
+	);
 	if (!defaultWorktree) {
 		return interrupted(
 			context,
@@ -160,6 +207,71 @@ async function setUpExisting(
 	});
 }
 
+/** The interactive run of `init`: inspect and repair, then the shared steps. */
+function initPlan(
+	remote: ParsedRemote | undefined,
+	repoName: string,
+	projectDirectory: string,
+	gitDirectory: string,
+	knownBranch: string | undefined,
+): FlowPlan {
+	const root = basename(projectDirectory);
+	return {
+		command: 'init',
+		remote,
+		repoName,
+		project:
+			remote?.kind === 'hosted' ? `${remote.owner}/${remote.repo}` : repoName,
+		projectDirectory,
+		gitDirectory,
+		defaultBranch: knownBranch,
+		prepareSteps: [
+			{id: 'inspect', label: 'Inspect project', detail: 'bare layout'},
+			{
+				id: 'worktree',
+				label: 'Prepare worktree',
+				detail: knownBranch === undefined ? root : `${root}/${knownBranch}`,
+			},
+		],
+		async prepare({context, step}) {
+			const branch = await step('inspect', async () => {
+				const name = await repairDefaultBranch(context, gitDirectory, remote);
+				if (name === undefined) {
+					throw new Error(
+						'the project has no default branch and no origin to ask; check out a branch first',
+					);
+				}
+
+				if (remote) {
+					await repairFetchRefspec(context, gitDirectory);
+				}
+
+				if (await isEmptyRepository(gitDirectory, context.git)) {
+					throw new Error(
+						'this is an empty bare repository with no commits; make the first commit yourself, then run `trunk init` again',
+					);
+				}
+
+				return {value: name, detail: `bare layout \u00B7 ${name}`};
+			});
+			const defaultWorktree = await step('worktree', async () => {
+				const found = await ensureWorktree(
+					context,
+					{remote, projectDirectory, gitDirectory, branch},
+					// Plain git only: a wt prompt would tear the screen apart.
+					{attached: false, warn: false},
+				);
+				if (found === undefined) {
+					throw new Error(`could not create the ${branch} worktree`);
+				}
+
+				return {value: found, detail: displayPath(found)};
+			});
+			return {defaultWorktree, defaultBranch: branch};
+		},
+	};
+}
+
 /**
  * Trunk sets up bare-layout projects and never converts a checkout in place:
  * the checkout may hold uncommitted work, ignored files and a shell someone is
@@ -175,6 +287,12 @@ async function refusePlainClone(
 	const name = clone.split('/').at(-1) ?? 'project';
 
 	const dirty = await describeUnsavedWork(context, clone);
+	const terminal = context.terminalUi ? await context.terminalUi() : undefined;
+	if (terminal) {
+		await terminal.refuse({kind: 'normal-clone', name, url, unsaved: dirty});
+		return {code: exitCodes.unsupportedEnvironment};
+	}
+
 	if (dirty.length > 0) {
 		context.report(
 			'warning',
@@ -282,6 +400,12 @@ async function ensureWorktree(
 		gitDirectory: string;
 		branch: string;
 	}>,
+	options: Readonly<{
+		/** Let wt place the worktree with the terminal attached, so it can ask. */
+		attached: boolean;
+		/** Say when the worktree landed somewhere unexpected. */
+		warn: boolean;
+	}>,
 ): Promise<string | undefined> {
 	const {remote, projectDirectory, gitDirectory, branch} = location;
 	const expected = join(projectDirectory, branch.replaceAll('/', '-'));
@@ -297,7 +421,7 @@ async function ensureWorktree(
 	}
 
 	context.journal.record({kind: 'worktree', path: expected, branch});
-	if (context.interactive) {
+	if (options.attached) {
 		await switchAttached(projectDirectory, branch, {
 			wtPath: context.wtPath,
 			attach: context.attach,
@@ -314,7 +438,9 @@ async function ensureWorktree(
 			return undefined;
 		}
 
-		warnAboutWorktreePath(context, remote, expected);
+		if (options.warn) {
+			warnAboutWorktreePath(context, remote, expected);
+		}
 	}
 
 	const actual = await locateWorktree(
@@ -325,7 +451,9 @@ async function ensureWorktree(
 	);
 	if (actual !== expected) {
 		context.journal.relocate(expected, actual);
-		warnAboutWorktreePath(context, remote, actual);
+		if (options.warn) {
+			warnAboutWorktreePath(context, remote, actual);
+		}
 	}
 
 	return actual;

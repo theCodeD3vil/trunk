@@ -90,9 +90,11 @@ if grep -Eq 'Raw mode|component:|^ +at ' "$WORK/docs.err"; then
 fi
 
 step "trunk docs shows the two-topic menu in a real terminal"
-# env -i starts from nothing, so no CI variable can switch Ink's renderer off.
-tmux -L "$SOCKET" new-session -d -x 80 -y 24 -s docs -c "$WORK" \
-  "env -i PATH='$PATH' HOME='$HOME' TERM=tmux-256color node '$WORK/consumer/node_modules/@cod3vil/trunk/dist/cli.js' docs"
+# env -i starts from nothing, then CI and VERCEL are set on purpose: many
+# developers export a CI marker in their shell profile, and Ink draws nothing
+# until exit when it sees one. The menu has to appear regardless.
+tmux -L "$SOCKET" new-session -d -x 110 -y 36 -s docs -c "$WORK" \
+  "env -i PATH='$PATH' HOME='$HOME' TERM=tmux-256color CI=true VERCEL=1 node '$WORK/consumer/node_modules/@cod3vil/trunk/dist/cli.js' docs"
 SCREEN=
 for _ in $(seq 1 50); do
   SCREEN=$(tmux -L "$SOCKET" capture-pane -p -t docs 2>/dev/null || true)

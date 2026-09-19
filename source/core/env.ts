@@ -148,6 +148,13 @@ export function checkRequiredTools(tools: ToolProbe): Outcome | undefined {
 	);
 }
 
+/** The names of the required tools this machine lacks, in a stable order. */
+export function missingTools(tools: ToolProbe): string[] {
+	return [tools.git, tools.wt]
+		.filter(tool => tool.path === undefined)
+		.map(tool => tool.name);
+}
+
 /** Reads a version out of a line like `wt v0.77.0`. */
 export function parseWtVersion(
 	version: string | undefined,

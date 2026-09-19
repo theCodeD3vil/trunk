@@ -57,7 +57,7 @@ Clone a remote into the bare layout and commit the generated configuration on `c
 trunk clone git@github.com:acme/storefront.git ~/Projects/storefront
 ```
 
-The branch is pushed and a pull request is opened only when you agree to it, and only if `gh` is installed. Nothing is pushed under `--yes`.
+The branch is pushed, and a pull request opened when `gh` is installed, only when you answer yes to the question on the result card. It starts on "Not now", and nothing is pushed under `--yes`.
 
 ### Init
 
@@ -79,7 +79,28 @@ Browse the offline documentation:
 trunk docs
 ```
 
-`trunk docs` opens an interactive terminal browser with two topics, Config Basics and Node. Press `/` to search, `c` to copy a snippet, and Esc to go back. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
+`trunk docs` opens an interactive terminal browser with two topics, Config Basics and Node. The topics and their pages are listed in a sidebar; the left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
+
+## The Terminal Screens
+
+In a terminal, `clone` and `init` are one continuous screen rather than a series of prompts:
+
+1. A short form for whatever you did not pass as a flag. A preview beside it shows exactly the hooks your answers will produce, and updates as you type.
+2. A review of what will be written and where. Nothing is created until you confirm it, and you can go back and edit.
+3. The named steps running, each with its own detail and time.
+4. A result card with the next commands to run, and the one question about pushing.
+
+If `.config/wt.toml` already exists, the run pauses on a numbered diff. Keeping your file is the default. If something fails, a card says what went wrong, what the run created, and how to resume, and offers to keep the result or roll it back. Ctrl+C at a question cancels; during a run it stops after the current step, and a second press quits at once.
+
+The screens use up to 104 columns. At 100 columns or more the form and the docs show two panes; below that they fold to one. They follow your terminal:
+
+| Variable                      | Effect                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------- |
+| `NO_COLOR`                    | Draw with bold, dim, and underline only, no colour                          |
+| `TRUNK_ASCII=1`               | Use plain ASCII instead of box-drawing characters, as a Linux console needs |
+| `TRUNK_THEME=light` or `dark` | Pick the palette; otherwise `COLORFGBG` decides, and dark is the default    |
+
+Trunk switches to ASCII by itself on `TERM=linux`, `TERM=dumb`, and a locale that is not UTF-8. Without a terminal, or with `--yes`, none of this is used and the output is plain lines.
 
 ## Options
 
@@ -108,7 +129,7 @@ The generated `.config/wt.toml` contains only worktree concerns:
 
 It contains no dependency install, dev server, port, proxy, or framework content, not even in comments. The file is normal project configuration, not generated code that must remain untouched: edit it freely. The [annotated generated configuration](https://github.com/theCodeD3vil/trunk/blob/main/docs/generated-config.md) walks through every block and is checked against the generator in the test suite.
 
-Worktrunk treats project hooks as trusted code. Run `wt config approvals add` after reviewing a new file, and run it again whenever `.config/wt.toml` changes. `trunk` offers to run it for you but never approves anything itself, and it never starts a hook. Run `wt up` when you are ready.
+Worktrunk treats project hooks as trusted code. Run `wt config approvals add` after reviewing a new file, and run it again whenever `.config/wt.toml` changes. `trunk` shows it as a next step but never approves anything itself, and it never starts a hook. Run `wt up` when you are ready.
 
 ## Project-Specific Setup
 

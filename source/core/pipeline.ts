@@ -18,7 +18,7 @@ import {
 } from 'node:fs/promises';
 import {join} from 'node:path';
 import process from 'node:process';
-import {collectSettings} from '../ui/SetupForm.js';
+import {collectSettings} from './collect.js';
 import type {CliFlags} from './arguments.js';
 import type {ToolProbe} from './env.js';
 import {diffLines, formatDiff} from './diff.js';
@@ -59,6 +59,7 @@ import {
 	type CommandRunner,
 } from './process.js';
 import {upCommand} from './generate/aliases.js';
+import type {TerminalUiFactory} from './session.js';
 import type {Settings} from './settings.js';
 import {validateGeneratedConfig} from './validate.js';
 import {trunkVersion} from './version.js';
@@ -112,6 +113,8 @@ export type SetupDependencies = Readonly<{
 	interactive?: boolean;
 	prompts?: SetupPrompts;
 	collect?: typeof collectSettings;
+	/** Present in a real terminal: `clone` and `init` then run through the UI. */
+	terminalUi?: TerminalUiFactory;
 	now?: () => Date;
 	invocation?: Readonly<{executable: string; arguments: readonly string[]}>;
 	/** Whether diffs are highlighted; defaults to what the terminal supports. */
@@ -128,6 +131,7 @@ export type SetupContext = Readonly<{
 	interactive: boolean;
 	prompts?: SetupPrompts;
 	collect: typeof collectSettings;
+	terminalUi?: TerminalUiFactory;
 	now: () => Date;
 	invocation: Readonly<{executable: string; arguments: readonly string[]}>;
 	color: boolean;
@@ -499,7 +503,8 @@ export async function confirmStep(
 		return true;
 	}
 
-	return context.prompts?.confirm(question) ?? true;
+	// With nobody to ask, an outward-facing step must not run on its own.
+	return context.prompts?.confirm(question) ?? false;
 }
 
 /**
@@ -534,8 +539,9 @@ async function publish(
 		remote,
 		context.tools.gh.path !== undefined,
 	);
+	// Publishing is always an explicit yes, never a default and never a side effect.
 	const wanted =
-		context.flags.yes ?? false
+		!context.interactive || (context.flags.yes ?? false)
 			? false
 			: await confirmStep(context, 'push and open a pull request?');
 	if (!wanted) {
@@ -672,7 +678,7 @@ export async function interrupted(
 	return operationFailed(reason);
 }
 
-async function rollback(
+export async function rollback(
 	context: SetupContext,
 	projectDirectory: string,
 	commands: readonly UndoCommand[],
@@ -722,7 +728,7 @@ function describeUndo(command: UndoCommand): string {
 	}`;
 }
 
-async function writeConfig(
+export async function writeConfig(
 	worktree: string,
 	settings: Settings,
 ): Promise<void> {
@@ -770,11 +776,15 @@ export function createContext(
 		attach: dependencies.attach ?? runAttached,
 		run: dependencies.run ?? runCommand,
 		report,
+		// Both ends must be a terminal: the UI reads keys from stdin and draws on stdout.
 		interactive:
 			dependencies.interactive ??
-			(supportsInteractiveInput() && !(flags.yes ?? false)),
+			(supportsInteractiveInput() &&
+				Boolean(process.stdout.isTTY) &&
+				!(flags.yes ?? false)),
 		prompts: dependencies.prompts,
 		collect: dependencies.collect ?? collectSettings,
+		terminalUi: dependencies.terminalUi,
 		now: dependencies.now ?? (() => new Date()),
 		invocation: dependencies.invocation ?? {
 			executable: 'trunk',
