@@ -12,6 +12,8 @@ export type GhOptions = Readonly<{
 	gitPath?: string;
 	run?: CommandRunner;
 	env?: NodeJS.ProcessEnv;
+	/** Stops the command, for a Ctrl+C while it waits on the network. */
+	signal?: AbortSignal;
 }>;
 
 /**
@@ -52,7 +54,7 @@ export async function createPullRequest(
 	return (options.run ?? runCommand)(
 		options.ghPath ?? 'gh',
 		['pr', 'create', '--fill'],
-		{cwd: worktreePath, env: options.env},
+		{cwd: worktreePath, env: options.env, signal: options.signal},
 	);
 }
 

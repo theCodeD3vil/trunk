@@ -16,7 +16,7 @@ import {
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import process from 'node:process';
-import {afterAll, beforeAll, describe, expect, test} from 'bun:test';
+import {afterAll, afterEach, beforeAll, describe, expect, test} from 'bun:test';
 import {runClone} from '../source/commands/clone.js';
 import type {CliFlags} from '../source/core/arguments.js';
 import {agentIds} from '../source/core/agents.js';
@@ -28,6 +28,10 @@ import type {
 	FailureRequest,
 	FinishRequest,
 	OverwriteRequest,
+	PublishProblem,
+	PublishRequest,
+	PublishStatus,
+	PublishStep,
 	ResultLine,
 	Session,
 	StepDefinition,
@@ -41,6 +45,10 @@ type Answers = Partial<{
 	overwrite: 'keep' | 'replace' | undefined;
 	finish: 'push' | 'skip' | undefined;
 	fail: 'keep' | 'rollback' | undefined;
+	/** Answers to the questions a failed push or pull request asks, in order. */
+	problems: ReadonlyArray<'retry' | 'later' | undefined>;
+	/** Aborts the publish this many milliseconds after it starts, as Ctrl+C would. */
+	cancelAfter: number;
 }>;
 
 /** Records everything the flow tells the UI and answers each question as told. */
@@ -54,7 +62,16 @@ function fakeSession(answers: Answers = {}) {
 		failure: undefined as FailureRequest | undefined,
 		results: [] as ResultLine[],
 		closed: false,
+		publish: {
+			request: undefined as PublishRequest | undefined,
+			updates: [] as Array<
+				readonly [PublishStep, PublishStatus, string | undefined]
+			>,
+			problems: [] as PublishProblem[],
+			ended: undefined as readonly ResultLine[] | undefined,
+		},
 	};
+	const queue = [...(answers.problems ?? [])];
 	const session: Session = {
 		async configure(request) {
 			record.configured = request;
@@ -82,6 +99,27 @@ function fakeSession(answers: Answers = {}) {
 		async fail(request) {
 			record.failure = request;
 			return 'fail' in answers ? answers.fail : 'keep';
+		},
+		publishStart(request) {
+			record.publish.request = request;
+			const controller = new AbortController();
+			if (answers.cancelAfter !== undefined) {
+				setTimeout(() => {
+					controller.abort();
+				}, answers.cancelAfter);
+			}
+
+			return controller.signal;
+		},
+		publishUpdate(step, status, detail) {
+			record.publish.updates.push([step, status, detail]);
+		},
+		async publishProblem(problem) {
+			record.publish.problems.push(problem);
+			return queue.shift();
+		},
+		publishEnd(lines) {
+			record.publish.ended = lines;
 		},
 		aborted: () => false,
 		async close() {
@@ -281,15 +319,32 @@ type Fixture = Readonly<{
 	environment: NodeJS.ProcessEnv;
 }>;
 
-async function run(fixture: Fixture, terminal: TerminalUi, wtPath?: string) {
-	const tools = await probeTools(wtPath);
+type RunOptions = Readonly<{
+	url?: string;
+	gitPath?: string;
+	ghPath?: string;
+	environment?: NodeJS.ProcessEnv;
+}>;
+
+async function run(
+	fixture: Fixture,
+	terminal: TerminalUi,
+	wtPath?: string,
+	options: RunOptions = {},
+) {
+	const probed = await probeTools(wtPath);
+	const tools: ToolProbe = {
+		...probed,
+		git: {...probed.git, path: options.gitPath ?? probed.git.path},
+		gh: {name: 'gh', path: options.ghPath},
+	};
 	return runClone(
-		[`file://${fixture.remote}`, 'acme-admin'],
+		[options.url ?? `file://${fixture.remote}`, 'acme-admin'],
 		Object.assign(Object.create(null) as CliFlags, {}),
 		tools,
 		{
 			cwd: fixture.workingDirectory,
-			env: fixture.environment,
+			env: {...fixture.environment, ...options.environment},
 			interactive: true,
 			terminalUi: async () => terminal,
 			invocation: {executable: 'trunk', arguments: ['clone']},
@@ -410,3 +465,293 @@ async function git(arguments_: readonly string[]): Promise<string> {
 
 	return result.stdout;
 }
+
+describe('publishing the setup branch', () => {
+	const roots: string[] = [];
+	const saved = new Map<string, string | undefined>();
+
+	afterEach(() => {
+		for (const [name, value] of saved) {
+			if (value === undefined) {
+				Reflect.deleteProperty(process.env, name);
+			} else {
+				process.env[name] = value;
+			}
+		}
+
+		saved.clear();
+	});
+
+	afterAll(async () => {
+		await Promise.all(
+			roots.map(async root => rm(root, {recursive: true, force: true})),
+		);
+	});
+
+	/** A script on disk that stands in for a tool, and a log of what it saw. */
+	async function stub(
+		root: string,
+		name: string,
+		body: string,
+	): Promise<string> {
+		const path = join(root, name);
+		await writeFile(path, `#!/bin/sh\n${body}\n`);
+		await chmod(path, 0o755);
+		return path;
+	}
+
+	/**
+	 * Makes `git@github.com:acme/admin.git` mean the fixture's bare repository,
+	 * so the flow sees a GitHub remote while git talks to a folder.
+	 */
+	function hosted(fixture: Fixture): RunOptions {
+		const pairs: Array<[string, string]> = [
+			['GIT_CONFIG_COUNT', '1'],
+			['GIT_CONFIG_KEY_0', `url.file://${fixture.remote}.insteadOf`],
+			['GIT_CONFIG_VALUE_0', 'git@github.com:acme/admin.git'],
+		];
+		// The clone runs in this process's environment; the push in the flow's.
+		for (const [name, value] of pairs) {
+			saved.set(name, process.env[name]);
+			process.env[name] = value;
+		}
+
+		return {
+			url: 'git@github.com:acme/admin.git',
+			environment: Object.fromEntries(pairs),
+		};
+	}
+
+	/** Wraps git so a push can be slow or fail, and records what environment it ran in. */
+	async function wrappedGit(
+		fixture: Fixture,
+		onPush: string,
+	): Promise<{path: string; log: string}> {
+		const real = await resolveExecutable('git');
+		const log = join(fixture.root, 'push.log');
+		const path = await stub(
+			fixture.root,
+			'git-wrapper',
+			`case " $* " in\n  *" push "*)\n    echo "prompt=$GIT_TERMINAL_PROMPT ssh=$GIT_SSH_COMMAND gh=$GH_PROMPT_DISABLED" >> "${log}"\n    ${onPush}\n    ;;\nesac\nexec "${real}" "$@"`,
+		);
+		return {path, log};
+	}
+
+	const branchesOn = async (fixture: Fixture) =>
+		git(['--git-dir', fixture.remote, 'branch', '--list', 'chore/trunk-setup']);
+
+	test('a push to a plain remote is one step, and the branch arrives', async () => {
+		const fixture = await createFixture(roots);
+		const {record, terminal} = fakeSession({finish: 'push'});
+
+		const outcome = await run(fixture, terminal);
+
+		expect(outcome.code).toBe(exitCodes.success);
+		expect(record.publish.request).toMatchObject({
+			branch: 'chore/trunk-setup',
+			withPullRequest: false,
+		});
+		expect(
+			record.publish.updates.map(([step, status]) => `${step}:${status}`),
+		).toEqual(['push:active', 'push:done']);
+		expect(record.publish.problems).toEqual([]);
+		expect(record.publish.ended).toEqual([]);
+		expect(await branchesOn(fixture)).toContain('chore/trunk-setup');
+	}, 60_000);
+
+	test('on GitHub it opens a pull request as a second step, and says how to see it', async () => {
+		const fixture = await createFixture(roots);
+		const options = hosted(fixture);
+		const gh = await stub(
+			fixture.root,
+			'gh',
+			'echo "https://github.com/acme/admin/pull/12"',
+		);
+		const {record, terminal} = fakeSession({finish: 'push'});
+
+		await run(fixture, terminal, undefined, {...options, ghPath: gh});
+
+		expect(record.publish.request).toMatchObject({
+			destination: 'github.com:acme/admin',
+			withPullRequest: true,
+		});
+		expect(record.publish.updates).toEqual([
+			['push', 'active', undefined],
+			['push', 'done', undefined],
+			['pr', 'active', undefined],
+			['pr', 'done', '#12  github.com/acme/admin/pull/12'],
+		]);
+		expect(record.publish.ended?.[0]).toMatchObject({
+			command: 'gh pr view --web',
+		});
+		expect(await branchesOn(fixture)).toContain('chore/trunk-setup');
+	}, 60_000);
+
+	test('a push that cannot ask for a password fails with the reason, and Retry pushes again', async () => {
+		const fixture = await createFixture(roots);
+		const options = hosted(fixture);
+		const marker = join(fixture.root, 'failed-once');
+		const wrapper = await wrappedGit(
+			fixture,
+			`if [ ! -f "${marker}" ]; then touch "${marker}"; echo "! [remote rejected] chore/trunk-setup -> chore/trunk-setup (permission denied)" >&2; echo "error: failed to push some refs to 'x'" >&2; exit 1; fi`,
+		);
+		const gh = await stub(
+			fixture.root,
+			'gh',
+			'echo "https://github.com/acme/admin/pull/3"',
+		);
+		const {record, terminal} = fakeSession({
+			finish: 'push',
+			problems: ['retry'],
+		});
+
+		await run(fixture, terminal, undefined, {
+			...options,
+			gitPath: wrapper.path,
+			ghPath: gh,
+		});
+
+		expect(
+			record.publish.updates.map(([step, status]) => `${step}:${status}`),
+		).toEqual([
+			'push:active',
+			'push:failed',
+			'push:active',
+			'push:done',
+			'pr:active',
+			'pr:done',
+		]);
+		const [problem] = record.publish.problems;
+		expect(problem).toMatchObject({tone: 'error', title: 'Push failed'});
+		expect(problem?.said.join(' ')).toContain('permission denied');
+		// The line that only repeats the failure is left out.
+		expect(problem?.said.join(' ')).not.toContain('failed to push some refs');
+		expect(problem?.fix).toBe(
+			'Check that you can write to acme/admin, then try again.',
+		);
+		expect(problem?.after).toBe('git push -u origin chore/trunk-setup');
+		expect(await branchesOn(fixture)).toContain('chore/trunk-setup');
+	}, 60_000);
+
+	test('git and gh are never allowed to ask a question on the terminal', async () => {
+		const fixture = await createFixture(roots);
+		const options = hosted(fixture);
+		const wrapper = await wrappedGit(fixture, ':');
+		const gh = await stub(
+			fixture.root,
+			'gh',
+			'echo "https://github.com/acme/admin/pull/1"',
+		);
+		const {terminal} = fakeSession({finish: 'push'});
+
+		await run(fixture, terminal, undefined, {
+			...options,
+			gitPath: wrapper.path,
+			ghPath: gh,
+		});
+
+		const seen = await readFile(wrapper.log, 'utf8');
+		expect(seen).toContain('prompt=0');
+		expect(seen).toContain('ssh=ssh -o BatchMode=yes');
+		expect(seen).toContain('gh=1');
+	}, 60_000);
+
+	test('leaving it local after a failed push ends with how to push later, and nothing is pushed', async () => {
+		const fixture = await createFixture(roots);
+		const wrapper = await wrappedGit(
+			fixture,
+			'echo "fatal: unable to access the remote" >&2; exit 1',
+		);
+		const {record, terminal} = fakeSession({
+			finish: 'push',
+			problems: ['later'],
+		});
+
+		const outcome = await run(fixture, terminal, undefined, {
+			gitPath: wrapper.path,
+		});
+
+		expect(outcome.code).toBe(exitCodes.success);
+		expect(record.publish.updates.map(([, status]) => status)).toEqual([
+			'active',
+			'failed',
+		]);
+		expect(record.publish.problems).toHaveLength(1);
+		expect(record.publish.ended?.map(line => line.text)).toEqual([
+			'Kept it local.',
+			'When you are ready: ',
+		]);
+		expect(record.publish.ended?.[1]?.command).toBe(
+			'git push -u origin chore/trunk-setup',
+		);
+		expect(await branchesOn(fixture)).toBe('');
+	}, 60_000);
+
+	test('a pull request that fails keeps the push, and Retry repeats only the pull request', async () => {
+		const fixture = await createFixture(roots);
+		const options = hosted(fixture);
+		const wrapper = await wrappedGit(fixture, ':');
+		const marker = join(fixture.root, 'gh-failed-once');
+		const gh = await stub(
+			fixture.root,
+			'gh',
+			`if [ ! -f "${marker}" ]; then touch "${marker}"; echo "To get started with GitHub CLI, please run:  gh auth login" >&2; exit 1; fi\necho "https://github.com/acme/admin/pull/9"`,
+		);
+		const {record, terminal} = fakeSession({
+			finish: 'push',
+			problems: ['retry'],
+		});
+
+		await run(fixture, terminal, undefined, {
+			...options,
+			gitPath: wrapper.path,
+			ghPath: gh,
+		});
+
+		expect(
+			record.publish.updates.map(([step, status]) => `${step}:${status}`),
+		).toEqual([
+			'push:active',
+			'push:done',
+			'pr:active',
+			'pr:warned',
+			'pr:active',
+			'pr:done',
+		]);
+		expect(record.publish.problems[0]).toMatchObject({
+			tone: 'warning',
+			title: 'Pushed, but no pull request',
+			after: 'gh auth login',
+		});
+		expect(record.publish.problems[0]?.link).toBe(
+			'https://github.com/acme/admin/compare/chore%2Ftrunk-setup?expand=1',
+		);
+		// One push only: the retry did not push again.
+		const pushes = await readFile(wrapper.log, 'utf8');
+		expect(pushes.trim().split('\n')).toHaveLength(1);
+	}, 60_000);
+
+	test('Ctrl+C stops the push and says how to finish by hand', async () => {
+		const fixture = await createFixture(roots);
+		const wrapper = await wrappedGit(fixture, 'exec /bin/sleep 30');
+		const {record, terminal} = fakeSession({finish: 'push', cancelAfter: 400});
+		const started = Date.now();
+
+		const outcome = await run(fixture, terminal, undefined, {
+			gitPath: wrapper.path,
+		});
+
+		expect(outcome.code).toBe(exitCodes.success);
+		// It did not wait for the 30 second sleep.
+		expect(Date.now() - started).toBeLessThan(20_000);
+		expect(record.publish.updates.map(([, status]) => status)).toEqual([
+			'active',
+			'cancelled',
+		]);
+		expect(record.publish.ended?.[0]).toMatchObject({tone: 'warning'});
+		expect(record.publish.ended?.[1]?.command).toBe(
+			'git push -u origin chore/trunk-setup',
+		);
+		expect(await branchesOn(fixture)).toBe('');
+	}, 60_000);
+});
