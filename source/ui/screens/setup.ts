@@ -9,7 +9,13 @@ import {compose, expectedHooks} from '../../core/generate/index.js';
 import {validatePrefix} from '../../core/prefix.js';
 import type {SetupField, SetupValues} from '../../core/resolve.js';
 import type {ConfigureRequest} from '../../core/session.js';
-import {margin, type Kit, type Line, type Part} from '../kit/lines.js';
+import {
+	margin,
+	type Kit,
+	type KeyHint,
+	type Line,
+	type Part,
+} from '../kit/lines.js';
 
 export type SetupState = Readonly<{
 	/** Index into the focusable fields. */
@@ -121,6 +127,12 @@ export function setupKey(
 		}
 	}
 
+	// A click on a field's row opens it.
+	if (key.startsWith('setup:')) {
+		const target = Number(key.slice('setup:'.length));
+		return same({field: Math.min(fields.length - 1, Math.max(0, target))});
+	}
+
 	if (key === 'up') {
 		return same({field: Math.max(0, index - 1)});
 	}
@@ -141,6 +153,21 @@ export function setupKey(
 
 	if (current === 'agents') {
 		const count = request.installedAgents.length;
+		// A click on a chip moves the cursor there and toggles it.
+		if (key.startsWith('agent:')) {
+			const target = Number(key.slice('agent:'.length));
+			const agent = request.installedAgents[target];
+			return agent === undefined
+				? same({})
+				: same({
+						cursor: target,
+						values: {
+							...state.values,
+							agents: withAgents(request, state.values, agent),
+						},
+				  });
+		}
+
 		if (key === 'left') {
 			return same({cursor: (state.cursor + count - 1) % count});
 		}
@@ -164,8 +191,13 @@ export function setupKey(
 		return {state, done: false, handled: false};
 	}
 
-	if (current !== 'prefix' && ['left', 'right', 'space'].includes(key)) {
-		const flipped = !state.values[current];
+	if (
+		current !== 'prefix' &&
+		['left', 'right', 'space', 'on', 'off'].includes(key)
+	) {
+		// `on` and `off` are clicks on the two options; the rest flip the value.
+		const flipped =
+			key === 'on' || key === 'off' ? key === 'on' : !state.values[current];
 		const values: SetupValues = {...state.values, [current]: flipped};
 		// Agents live in the tmux session, so turning it off turns them off.
 		return same({
@@ -279,6 +311,7 @@ function fieldLines(
 				[
 					` ${on ? g.chk : g.unchk} ${agent} `,
 					cursor ? (on ? 'pill' : 'pill-dim') : on ? 'chip-on' : 'c-dim',
+					`agent:${index}`,
 				],
 				' ',
 			);
@@ -299,7 +332,12 @@ function fieldLines(
 		out.push(...railed(wrapLines(help.agents, width - 3)));
 	} else {
 		out.push(
-			rail(...kit.choice(['on', 'off'], values[field] ? 0 : 1)),
+			rail(
+				...kit.choice(['on', 'off'], values[field] ? 0 : 1, true, [
+					'on',
+					'off',
+				]),
+			),
 			...railed(wrapLines(help[field], width - 3)),
 		);
 	}
@@ -308,6 +346,14 @@ function fieldLines(
 }
 
 /** The right-hand panel: exactly the hooks the current answers produce. */
+/** Makes every part of a line that has no key of its own send `key` when clicked. */
+function clickable(l: Line, key: string): Line {
+	return {
+		...l,
+		segs: l.segs.map(seg => (seg.k === undefined ? {...seg, k: key} : seg)),
+	};
+}
+
 export function previewLines(
 	kit: Kit,
 	request: ConfigureRequest,
@@ -427,18 +473,22 @@ export function setupLines(
 	];
 	for (const [index, field] of visible.entries()) {
 		const position = focusable.indexOf(field);
+		const rows = fieldLines(
+			kit,
+			request,
+			state,
+			field,
+			field === active,
+			position,
+			focusable.length,
+			leftWidth,
+			options.caret,
+		);
+		// The header row of a field is a click target that opens it.
 		left.push(
-			...fieldLines(
-				kit,
-				request,
-				state,
-				field,
-				field === active,
-				position,
-				focusable.length,
-				leftWidth,
-				options.caret,
-			),
+			...(position !== -1 && rows[0] !== undefined
+				? [clickable(rows[0], `setup:${position}`), ...rows.slice(1)]
+				: rows),
 		);
 		if (!compact) {
 			left.push(
@@ -478,10 +528,16 @@ export function setupLines(
 		}
 
 		const size = generatedSize(request, values);
+		const aliases = [
+			values.tmux || values.copyIgnored ? 'wt up' : undefined,
+			values.mcAlias ? 'wt mc' : undefined,
+		].filter((alias): alias is string => alias !== undefined);
 		const summary = values.tmux
 			? `${
 					validatePrefix(values.prefix).valid ? values.prefix : g.ell
-			  }_<branch> ${g.mid} ${size?.hooks ?? 0} hooks`
+			  }_<branch> ${g.mid} ${size?.hooks ?? 0} hooks${
+					aliases.length > 0 ? ` ${g.mid} ${aliases.join(', ')}` : ''
+			  }`
 			: 'no tmux workspace';
 		body.push(
 			line(),
@@ -497,30 +553,25 @@ export function setupLines(
 	}
 
 	const last = focusable.at(-1);
-	const hints =
+	const hints: KeyHint[] =
 		active === 'prefix'
 			? [
 					['type', 'edit'],
-					[g.updown, 'field'],
-					[g.enter, 'next'],
+					[g.updown, 'field', 'down'],
+					[g.enter, 'next', 'enter'],
 			  ]
 			: active === 'agents'
 			? [
 					[g.leftright, 'move'],
-					['Space', 'toggle'],
-					[g.enter, 'next'],
+					['Space', 'toggle', 'space'],
+					[g.enter, 'next', 'enter'],
 			  ]
 			: [
 					[g.leftright, 'change'],
-					['Space', 'toggle'],
-					[g.enter, active === last ? 'review' : 'next'],
+					['Space', 'toggle', 'space'],
+					[g.enter, active === last ? 'review' : 'next', 'enter'],
 			  ];
-	return kit.frame(
-		body,
-		kit.keybar([
-			...hints.map(([label, text]) => [label ?? '', text ?? ''] as const),
-			['Ctrl+C', 'cancel'],
-		]),
-		{minRows: compact ? 0 : 20, maxRows: options.rows},
-	);
+	return kit.frame(body, kit.keybar(hints), {
+		maxRows: options.rows,
+	});
 }

@@ -289,7 +289,13 @@ async function refusePlainClone(
 	const dirty = await describeUnsavedWork(context, clone);
 	const terminal = context.terminalUi ? await context.terminalUi() : undefined;
 	if (terminal) {
-		await terminal.refuse({kind: 'normal-clone', name, url, unsaved: dirty});
+		await terminal.refuse({
+			kind: 'normal-clone',
+			name,
+			url,
+			unsaved: dirty,
+			branch: await existingDefaultBranch(gitDirectory, context.git),
+		});
 		return {code: exitCodes.unsupportedEnvironment};
 	}
 

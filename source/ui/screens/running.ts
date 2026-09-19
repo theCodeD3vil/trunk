@@ -10,7 +10,7 @@ import type {
 	StepDefinition,
 	StepStatus,
 } from '../../core/session.js';
-import {margin, type Kit, type Line} from '../kit/lines.js';
+import {margin, type KeyHint, type Kit, type Line} from '../kit/lines.js';
 
 export type StepView = Readonly<{
 	id: string;
@@ -34,6 +34,8 @@ export type RunState = Readonly<{
 	project: string;
 	steps: readonly StepView[];
 	finish?: FinishView;
+	/** What happened after a failed run was kept or rolled back, shown under the steps. */
+	outcome?: readonly ResultLine[];
 	/** Ctrl+C was pressed: the run stops after the step in progress. */
 	cancelling?: boolean;
 	/** The session has ended, so the frame is left in the scrollback without its key bar. */
@@ -92,10 +94,11 @@ export function runKey(state: RunState, key: string): RunStep {
 		return {state: {...state, finish: {...finish, sel: 1 - finish.sel}}};
 	}
 
-	if (key === 'enter') {
+	if (key === 'enter' || key === 'push' || key === 'skip') {
+		const answer = key === 'enter' ? (finish.sel === 0 ? 'push' : 'skip') : key;
 		return {
 			state: {...state, finish: {...finish, answered: true}},
-			answer: finish.sel === 0 ? 'push' : 'skip',
+			answer,
 		};
 	}
 
@@ -105,12 +108,15 @@ export function runKey(state: RunState, key: string): RunStep {
 const seconds = (milliseconds: number): string =>
 	`${(Math.max(0, milliseconds) / 1000).toFixed(1)}s`;
 
-export function runningLines(
+type Composed = Readonly<{body: Line[]; tail: Line[]}>;
+
+/** The screen as a body and the tail that must stay visible: the question, or its answer. */
+function compose(
 	kit: Kit,
 	state: RunState,
 	now: number,
-	rows: number,
-): Line[] {
+	compact: boolean,
+): Composed {
 	const {g, line, cols, box, indent} = kit;
 	const contentWidth = cols - margin * 2;
 	const finishedSteps = state.steps.filter(
@@ -138,21 +144,42 @@ export function runningLines(
 			state.project,
 		),
 		line(),
-		line(
-			'  ',
-			[g.barOn.repeat(filled), 'c-acc'],
-			[g.barOff.repeat(bar - filled), 'c-faint'],
-			[`  ${label}`, 'c-dim'],
-		),
-		line(),
 	];
+	if (compact) {
+		// A short terminal has no room for six step rows above the question.
+		const spent = state.steps.reduce(
+			(total, step) =>
+				total +
+				(step.startedAt === undefined || step.endedAt === undefined
+					? 0
+					: step.endedAt - step.startedAt),
+			0,
+		);
+		body.push(
+			line('  ', [`${g.tick} `, 'c-ok'], `${finishedSteps} steps done`, [
+				`  ${seconds(spent)}`,
+				'c-dim',
+			]),
+		);
+	} else {
+		body.push(
+			line(
+				'  ',
+				[g.barOn.repeat(filled), 'c-acc'],
+				[g.barOff.repeat(bar - filled), 'c-faint'],
+				[`  ${label}`, 'c-dim'],
+			),
+			line(),
+		);
+	}
+
 	const nameWidth = 32;
 	const timeWidth = 6;
 	const detailWidth = Math.max(
 		10,
 		contentWidth - 2 - nameWidth - timeWidth - 1,
 	);
-	for (const step of state.steps) {
+	for (const step of compact ? [] : state.steps) {
 		let icon = g.pend;
 		let iconStyle = 'c-faint';
 		let nameStyle = 'c-faint';
@@ -219,28 +246,56 @@ export function runningLines(
 
 	body.push(line());
 	const {finish} = state;
+	const tail: Line[] = [];
+	const outcomeLine = (outcome: ResultLine): Line =>
+		outcome.plain
+			? line('  ', '  ', [outcome.text, 'c-dim'])
+			: line(
+					'  ',
+					[`${outcome.ok ? g.tick : g.cross} `, outcome.ok ? 'c-ok' : 'c-err'],
+					outcome.text,
+			  );
 	if (finish !== undefined) {
 		const {request} = finish;
-		const numberWidth =
-			Math.max(...request.next.map(item => item.command.length), 10) + 2;
-		const cardInner = contentWidth - 4;
+		// Cards stop at 76 columns, so a command and its note never sit far apart.
+		const cardWidth = Math.min(contentWidth, 76);
+		const cardInner = cardWidth - 4;
+		const commands = request.next.map(item =>
+			// A long path keeps its tail, which is what tells projects apart.
+			item.command.startsWith('cd ')
+				? `cd ${kit.fit(item.command.slice(3), cardInner - 8)}`
+				: item.command,
+		);
+		// The notes line up after the longest command that has one. A command with
+		// no note, such as a long `cd`, does not push them out of the card.
+		// The proposal's column is 30 wide; a longer command moves it out.
+		const numberWidth = Math.max(
+			30,
+			Math.max(
+				...commands
+					.filter((_, index) => request.next[index]?.note !== undefined)
+					.map(text => text.length),
+			) + 2,
+		);
 		const card = [
 			line(['Next', 'c-acc b']),
 			...request.next.map((item, index) => {
-				// A long path keeps its tail, which is what tells projects apart.
-				const command = item.command.startsWith('cd ')
-					? `cd ${kit.fit(item.command.slice(3), cardInner - 8)}`
-					: item.command;
+				const command = commands[index] ?? item.command;
+				const note =
+					item.note !== undefined &&
+					4 + numberWidth + item.note.length <= cardWidth - 4
+						? item.note
+						: undefined;
 				return line(
 					[` ${index + 1}  `, 'c-dim'],
-					[command.padEnd(item.note === undefined ? 0 : numberWidth), 'b'],
-					[item.note ?? '', 'c-dim'],
+					[command.padEnd(note === undefined ? 0 : numberWidth), 'b'],
+					[note ?? '', 'c-dim'],
 				);
 			}),
 		];
 		body.push(
 			...indent(
-				box(card, contentWidth, {
+				box(card, cardWidth, {
 					title: `${g.tick} ${request.title}`,
 					titleStyle: 'c-ok b',
 				}),
@@ -259,35 +314,34 @@ export function runningLines(
 			}
 		}
 
-		body.push(line());
+		tail.push(line());
 		if (request.push !== undefined && !finish.answered) {
-			body.push(
+			tail.push(
 				line('  ', [
 					`Push ${request.push.branch} and open a pull request?`,
 					'b',
 				]),
-				line('  ', ...kit.choice([request.push.label, 'Not now'], finish.sel)),
+				line(
+					'  ',
+					...kit.choice([request.push.label, 'Not now'], finish.sel, true, [
+						'push',
+						'skip',
+					]),
+				),
 			);
 		}
 
-		for (const outcome of finish.outcome) {
-			body.push(
-				outcome.plain
-					? line('  ', '  ', [outcome.text, 'c-dim'])
-					: line(
-							'  ',
-							[
-								`${outcome.ok ? g.tick : g.cross} `,
-								outcome.ok ? 'c-ok' : 'c-err',
-							],
-							outcome.text,
-					  ),
-			);
-		}
+		tail.push(...finish.outcome.map(item => outcomeLine(item)));
+	}
+
+	// After a failed run was kept or rolled back, say what was done.
+	if (state.outcome !== undefined && state.outcome.length > 0) {
+		// The steps above already end with a blank line.
+		tail.push(...state.outcome.map(item => outcomeLine(item)));
 	}
 
 	if (state.cancelling) {
-		body.push(
+		tail.push(
 			line(
 				'  ',
 				[`${g.warn} `, 'c-warn'],
@@ -296,18 +350,42 @@ export function runningLines(
 		);
 	}
 
+	return {body, tail};
+}
+
+export function runningLines(
+	kit: Kit,
+	state: RunState,
+	now: number,
+	rows: number,
+): Line[] {
+	const {g} = kit;
+	const {finish} = state;
+	// Two rows of chrome and the one the frame leaves free.
+	const room = rows - 3;
+	let composed = compose(kit, state, now, false);
+	if (
+		finish !== undefined &&
+		kit.rowsIn(composed.body) + kit.rowsIn(composed.tail) > room
+	) {
+		composed = compose(kit, state, now, true);
+	}
+
 	if (state.closed) {
-		return body;
+		return [...composed.body, ...composed.tail];
 	}
 
 	const asking = finish?.request.push !== undefined && !finish.answered;
-	const hints: ReadonlyArray<readonly [string, string]> = asking
+	const hints: KeyHint[] = asking
 		? [
 				[g.leftright, 'choose'],
-				[g.enter, 'confirm'],
+				[g.enter, 'confirm', 'enter'],
 		  ]
 		: finish === undefined
 		? [['Ctrl+C', 'cancel']]
 		: [['Ctrl+C', 'close']];
-	return kit.frame(body, kit.keybar(hints), {maxRows: rows});
+	return kit.frame(composed.body, kit.keybar(hints), {
+		maxRows: rows,
+		tail: composed.tail,
+	});
 }

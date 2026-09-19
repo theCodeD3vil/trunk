@@ -33,7 +33,7 @@ export type UndoCommand = Readonly<{
 
 const descriptions: Readonly<Record<JournalEntryKind, string>> = {
 	folder: 'project folder',
-	'bare-repo': 'bare repo',
+	'bare-repo': 'bare repository',
 	worktree: 'worktree',
 	'branch-worktree': 'worktree + branch',
 };
@@ -183,7 +183,7 @@ export function resumeCommand(
 
 function describeEntry(entry: JournalEntry): string {
 	const description = descriptions[entry.kind];
-	return entry.note ? `${description} (${entry.note})` : description;
+	return entry.note ? `${description}, ${entry.note}` : description;
 }
 
 function displayPath(path: string, workingDirectory: string): string {

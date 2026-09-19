@@ -63,8 +63,10 @@ function matchSection(
 	);
 	const codeLines = codeBlocks.flatMap(block => block.code.split('\n'));
 
+	const keywords = section.keywords ?? [];
 	const haystack = [
 		section.title,
+		...keywords,
 		...codeBlocks.map(block => block.label),
 		...proseLines,
 		...codeLines,
@@ -77,7 +79,11 @@ function matchSection(
 
 	let score = 0;
 	for (const token of tokens) {
-		if (section.title.toLowerCase().includes(token)) {
+		if (
+			[section.title, ...keywords].some(word =>
+				word.toLowerCase().includes(token),
+			)
+		) {
 			score += weights.title;
 		}
 

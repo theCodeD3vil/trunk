@@ -23,8 +23,19 @@ const options: ReadonlyArray<readonly [flag: string, text: string]> = [
 	['--direct', 'commit on this branch, not chore/trunk-setup'],
 ];
 
-export function welcomeLines(kit: Kit, version: string): Line[] {
-	const {g, line, cols, justify, box, indent} = kit;
+/**
+ * `summary` is what plain `trunk` shows: the options collapse to one dim line,
+ * because they are a reference and not the headline. `full` is `trunk --help`,
+ * where the reference is the point, so every option is listed with its meaning.
+ */
+export type WelcomeDetail = 'summary' | 'full';
+
+export function welcomeLines(
+	kit: Kit,
+	version: string,
+	detail: WelcomeDetail = 'summary',
+): Line[] {
+	const {g, line, cols, justify, box, indent, clip} = kit;
 	const contentWidth = cols - margin * 2;
 	const lines: Line[] = [
 		justify(
@@ -55,7 +66,7 @@ export function welcomeLines(kit: Kit, version: string): Line[] {
 			box(
 				[
 					line(
-						[`$ `, 'c-acc'],
+						[`${g.prompt} `, 'c-acc'],
 						['trunk clone git@github.com:acme/storefront.git', 'b'],
 					),
 				],
@@ -69,11 +80,24 @@ export function welcomeLines(kit: Kit, version: string): Line[] {
 		),
 		line(),
 		line('  ', ['Options for clone and init', 'c-acc b']),
-		...options.map(([flag, text]) =>
-			line('  ', '  ', [flag.padEnd(20), 'c-fg'], [text, 'c-dim']),
-		),
-		line(),
-		line('  ', ['Nothing is written until you review it.', 'c-dim']),
+		...(detail === 'full'
+			? options.map(([flag, text]) =>
+					line('  ', '  ', [flag.padEnd(20), 'c-fg'], [text, 'c-dim']),
+			  )
+			: [
+					clip(
+						line('  ', [
+							options.map(([flag]) => flag.split(' ')[0]!).join(` ${g.mid} `),
+							'c-dim',
+						]),
+						contentWidth + margin,
+					),
+			  ]),
+		...(detail === 'full' ? [line()] : []),
+		line('  ', [
+			'Nothing is written until you review it. Add --yes to skip every question.',
+			'c-dim',
+		]),
 	];
 	return lines;
 }

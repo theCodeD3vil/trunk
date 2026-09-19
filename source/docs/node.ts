@@ -44,7 +44,8 @@ wt config approvals add`,
 		},
 		{
 			id: 'install-dependencies',
-			title: 'Install dependencies (npm, pnpm, Bun)',
+			title: 'Install dependencies',
+			keywords: ['npm', 'pnpm', 'bun'],
 			blocks: [
 				text(
 					'Installing in pre-start means dependencies are ready before the tmux session opens. Pick the block for your package manager and place it above the tmux block.',
@@ -74,7 +75,8 @@ install = "bun install"`,
 		},
 		{
 			id: 'monorepo',
-			title: 'Monorepo: an app in a subfolder',
+			title: 'Monorepo subfolders',
+			keywords: ['app', 'workspace'],
 			blocks: [
 				text(
 					'When the Node app lives in a subfolder such as apps/web, point the package manager at it instead of changing directory. Replace apps/web with your path.',

@@ -6,13 +6,14 @@
  * presses and clipboard results into state.
  */
 import React, {useEffect, useRef, useState} from 'react';
-import {render, useApp, useInput, useStdout} from 'ink';
+import {render, useApp, useStdout} from 'ink';
 import {supportsInteractiveInput} from '../core/platform.js';
 import {copyToClipboard, type CopyFunction} from '../docs/clipboard.js';
-import {abortKey, keyName} from './keys.js';
-import {createKit} from './kit/lines.js';
+import {abortKey} from './keys.js';
+import {createKit, type Line} from './kit/lines.js';
 import {Lines} from './kit/render.js';
 import {resolveTheme, type Theme} from './kit/theme.js';
+import {useKeys} from './use-keys.js';
 import {
 	documentationKey,
 	documentationLines,
@@ -44,6 +45,14 @@ export default function DocumentationBrowser({
 	const {exit} = useApp();
 	const {stdout} = useStdout();
 	const [state, setState] = useState<DocumentationState>(initialDocumentation);
+	// Several keys can arrive in one read, and React applies their state updates
+	// later, so the newest state is kept here for the next key to start from.
+	const current = useRef(state);
+	const apply = (next: DocumentationState) => {
+		current.current = next;
+		setState(next);
+	};
+
 	const [caret, setCaret] = useState(true);
 	const closed = useRef(false);
 	const columns = Math.min(
@@ -75,44 +84,39 @@ export default function DocumentationBrowser({
 		};
 	}, [searching]);
 
-	useInput((input, key) => {
-		const name = keyName(input, key);
-		if (name === undefined) {
-			return;
-		}
+	const lines = documentationLines(kit, state, {caret, rows});
+	// Clicks are resolved against exactly what this render drew.
+	const drawn = useRef<readonly Line[]>(lines);
+	drawn.current = lines;
+	useKeys(
+		name => {
+			if (name === abortKey) {
+				close();
+				return;
+			}
 
-		if (name === abortKey) {
-			close();
-			return;
-		}
-
-		const step = documentationKey(state, name, {kit, rows});
-		setState(step.state);
-		if (step.effect?.kind === 'quit') {
-			close();
-		} else if (step.effect?.kind === 'copy') {
-			const {label, code} = step.effect.block;
-			void (async () => {
-				const result = await copy(code);
-				const notice = {
-					ok: result.ok,
-					text: result.ok
-						? `Copied "${label}" to the clipboard (${result.via}).`
-						: result.message,
-				};
-				setState(current => ({...current, notice}));
-			})();
-		}
-	});
-
-	return (
-		<Lines
-			lines={documentationLines(kit, state, {caret, rows})}
-			theme={theme}
-			width={columns}
-			caret={caret}
-		/>
+			const step = documentationKey(current.current, name, {kit, rows});
+			apply(step.state);
+			if (step.effect?.kind === 'quit') {
+				close();
+			} else if (step.effect?.kind === 'copy') {
+				const {label, code} = step.effect.block;
+				void (async () => {
+					const result = await copy(code);
+					const notice = {
+						ok: result.ok,
+						text: result.ok
+							? `Copied "${label}" to the clipboard (${result.via}).`
+							: result.message,
+					};
+					apply({...current.current, notice});
+				})();
+			}
+		},
+		() => drawn.current,
 	);
+
+	return <Lines lines={lines} theme={theme} width={columns} caret={caret} />;
 }
 
 /** Mounts the browser, with Ctrl+C routed through its normal close. */

@@ -79,7 +79,7 @@ Browse the offline documentation:
 trunk docs
 ```
 
-`trunk docs` opens an interactive terminal browser with two topics, Config Basics and Node. The topics and their pages are listed in a sidebar; the left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
+`trunk docs` opens an interactive terminal browser with two topics, Config Basics and Node. The topics and their pages are listed in a sidebar; the left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits. `trunk` on its own shows a short welcome; `trunk --help` lists every option with its meaning. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
 
 ## The Terminal Screens
 
@@ -92,11 +92,14 @@ In a terminal, `clone` and `init` are one continuous screen rather than a series
 
 If `.config/wt.toml` already exists, the run pauses on a numbered diff. Keeping your file is the default. If something fails, a card says what went wrong, what the run created, and how to resume, and offers to keep the result or roll it back. Ctrl+C at a question cancels; during a run it stops after the current step, and a second press quits at once.
 
-The screens use up to 104 columns. At 100 columns or more the form and the docs show two panes; below that they fold to one. They follow your terminal:
+Every screen ends with a key bar of the keys that work on it, and it stays on the last row of the terminal. Key caps, buttons, sidebar entries, form rows and search results also respond to a click, and the mouse wheel scrolls the docs and the diff. Text you paste, or a key you hold down, reaches the screen key by key. Hold Shift (Option in Terminal.app and iTerm2) to select text, or set `TRUNK_MOUSE=0` to leave the mouse to your terminal.
+
+The screens use up to 104 columns. At 100 columns or more the form and the docs show two panes; below that they fold to one. On a short terminal, such as 80 by 24, the result card folds its step list to one line so the question is never pushed off the screen. They follow your terminal:
 
 | Variable                      | Effect                                                                      |
 | ----------------------------- | --------------------------------------------------------------------------- |
 | `NO_COLOR`                    | Draw with bold, dim, and underline only, no colour                          |
+| `TRUNK_MOUSE=0`               | Do not ask the terminal to report the mouse; keys only                      |
 | `TRUNK_ASCII=1`               | Use plain ASCII instead of box-drawing characters, as a Linux console needs |
 | `TRUNK_THEME=light` or `dark` | Pick the palette; otherwise `COLORFGBG` decides, and dark is the default    |
 

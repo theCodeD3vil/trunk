@@ -227,7 +227,7 @@ export function Lines({
 						? [...line.segs]
 						: [...line.segs, {t: ' '.repeat(width - used), c: ''}];
 				return (
-					<Text key={index} wrap="truncate-end">
+					<Text key={index} wrap={line.soft === true ? 'wrap' : 'truncate-end'}>
 						{segments.length === 0
 							? ' '
 							: segments.map((segment, position) => (

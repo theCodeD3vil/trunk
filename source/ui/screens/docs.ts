@@ -8,7 +8,13 @@
 import {findTopic, topics} from '../../docs/index.js';
 import {search} from '../../docs/search.js';
 import type {CodeBlock} from '../../docs/types.js';
-import {margin, type Kit, type Line, type Part} from '../kit/lines.js';
+import {
+	margin,
+	type Kit,
+	type KeyHint,
+	type Line,
+	type Part,
+} from '../kit/lines.js';
 
 export type Notice = Readonly<{ok: boolean; text: string}>;
 
@@ -42,9 +48,12 @@ const flat = topics.flatMap((topic, topicIndex) =>
 
 const sidebarWidth = 28;
 
-/** Lines the reader may show: the frame minus the header, rule and key bar. */
+/**
+ * Lines the reader may show: the frame is one row shorter than the terminal,
+ * and the header, its blank line, the rule and the key bar take the rest.
+ */
 export function readerHeight(rows: number): number {
-	return Math.max(6, Math.min(24, rows - 6));
+	return Math.max(6, rows - 6);
 }
 
 /** Splits a long code line into pieces that fit the card, so nothing is cut off. */
@@ -173,8 +182,11 @@ export function documentationKey(
 			};
 		}
 
-		if (key === 'enter') {
-			const block = content.blocks[state.picker];
+		if (key === 'enter' || key.startsWith('picker:')) {
+			const chosen = key.startsWith('picker:')
+				? Number(key.slice('picker:'.length))
+				: state.picker;
+			const block = content.blocks[chosen];
 			return {
 				state: {...state, picker: undefined},
 				effect: block === undefined ? undefined : {kind: 'copy', block},
@@ -202,6 +214,18 @@ export function documentationKey(
 			},
 		};
 	};
+
+	if (key.startsWith('docs-s:')) {
+		const [, topicIndex, sectionIndex] = key.split(':').map(Number);
+		return {
+			state: {
+				...cleared,
+				topic: topicIndex ?? 0,
+				section: sectionIndex ?? 0,
+				scroll: 0,
+			},
+		};
+	}
 
 	switch (key) {
 		case 'up':
@@ -289,8 +313,13 @@ function searchKey(
 		});
 	}
 
-	if (key === 'enter') {
-		const chosen = results[current.sel];
+	if (key === 'enter' || key.startsWith('docs-r:')) {
+		const chosen =
+			results[
+				key.startsWith('docs-r:')
+					? Number(key.slice('docs-r:'.length))
+					: current.sel
+			];
 		if (chosen === undefined) {
 			return {state};
 		}
@@ -350,8 +379,6 @@ export function documentationLines(
 	);
 	const topic = topics[state.topic];
 	const section = topic?.sections[state.section];
-	const height = readerHeight(options.rows);
-
 	if (state.search !== undefined) {
 		const results = search(state.search.query);
 		const sel = Math.min(state.search.sel, Math.max(0, results.length - 1));
@@ -409,9 +436,10 @@ export function documentationLines(
 				),
 				cols,
 			);
+			const target = `docs-r:${start + offset}`;
 			body.push(
-				on ? kit.withBg(title, 'sel') : title,
-				on ? kit.withBg(snippet, 'sel') : snippet,
+				kit.withRow(on ? kit.withBg(title, 'sel') : title, target),
+				kit.withRow(on ? kit.withBg(snippet, 'sel') : snippet, target),
 			);
 		}
 
@@ -420,10 +448,10 @@ export function documentationLines(
 			kit.keybar([
 				['type', 'search'],
 				[g.updown, 'choose'],
-				[g.enter, 'open'],
-				['Esc', 'close'],
+				[g.enter, 'open', 'enter'],
+				['Esc', 'close', 'esc'],
 			]),
-			{minRows: 16, maxRows: options.rows},
+			{maxRows: options.rows},
 		);
 	}
 
@@ -447,21 +475,49 @@ export function documentationLines(
 				[block.label, index === state.picker ? 'b c-acc' : 'c-fg'],
 				[`   ${block.language}`, 'c-faint'],
 			);
-			body.push(index === state.picker ? kit.withBg(row, 'sel') : row);
+			body.push(
+				kit.withRow(
+					index === state.picker ? kit.withBg(row, 'sel') : row,
+					`picker:${index}`,
+				),
+			);
 		}
 
 		return kit.frame(
 			body,
 			kit.keybar([
 				[g.updown, 'choose'],
-				[g.enter, 'copy'],
-				['Esc', 'cancel'],
+				[g.enter, 'copy', 'enter'],
+				['Esc', 'cancel', 'esc'],
 			]),
-			{minRows: 10, maxRows: options.rows},
+			{maxRows: options.rows},
 		);
 	}
 
 	const wide = cols >= 100;
+	// A notice replaces the key bar for one keypress; a long one wraps to a few lines.
+	const noticeLines = state.notice
+		? kit
+				.wrap(state.notice.text, cols - 6)
+				.slice(0, 3)
+				.map((text, index) =>
+					line(
+						'  ',
+						[
+							index === 0
+								? state.notice?.ok
+									? `${g.tick} `
+									: `${g.warn} `
+								: '  ',
+							state.notice?.ok ? 'c-ok' : 'c-warn',
+						],
+						[text, state.notice?.ok ? 'c-fg' : 'c-warn'],
+					),
+				)
+		: undefined;
+	// A wrapped notice takes rows from the key bar's neighbours, so the reader gives them up.
+	const height =
+		readerHeight(options.rows) - Math.max(0, (noticeLines?.length ?? 1) - 1);
 	const readerCols = readerWidth(kit) + 3;
 	const {lines: readerLines, blocks} = readerContent(
 		kit,
@@ -480,10 +536,11 @@ export function documentationLines(
 		for (const [sectionIndex, entrySection] of entry.sections.entries()) {
 			const on = topicIndex === state.topic && sectionIndex === state.section;
 			const title = fitTitle(entrySection.title, sidebarWidth - 3, g.ell);
+			const target = `docs-s:${topicIndex}:${sectionIndex}`;
 			sidebar.push(
 				line(
-					[on ? `${g.tri} ` : '  ', 'c-acc'],
-					[on ? `${title} ` : title, on ? 'b chip' : 'c-dim'],
+					[on ? `${g.tri} ` : '  ', 'c-acc', target],
+					[on ? `${title} ` : title, on ? 'b chip' : 'c-dim', target],
 				),
 			);
 		}
@@ -532,36 +589,16 @@ export function documentationLines(
 		}
 	}
 
-	// A notice replaces the key bar for one keypress; a long one wraps to a few lines.
-	const noticeLines = state.notice
-		? kit
-				.wrap(state.notice.text, cols - 6)
-				.slice(0, 3)
-				.map((text, index) =>
-					line(
-						'  ',
-						[
-							index === 0
-								? state.notice?.ok
-									? `${g.tick} `
-									: `${g.warn} `
-								: '  ',
-							state.notice?.ok ? 'c-ok' : 'c-warn',
-						],
-						[text, state.notice?.ok ? 'c-fg' : 'c-warn'],
-					),
-				)
-		: undefined;
-	const hints: Array<readonly [string, string]> = [
+	const hints: KeyHint[] = [
 		[g.updown, 'scroll'],
 		[g.leftright, 'section'],
 		...(blocks.length > 0
 			? ([
-					['c', blocks.length > 1 ? `copy (${blocks.length})` : 'copy'],
+					['c', blocks.length > 1 ? `copy (${blocks.length})` : 'copy', 'c'],
 			  ] as const)
 			: []),
-		['/', 'search'],
-		['q', 'quit'],
+		['/', 'search', '/'],
+		['q', 'quit', 'q'],
 	];
 	return kit.frame(body, noticeLines ?? kit.keybar(hints), {
 		maxRows: options.rows,

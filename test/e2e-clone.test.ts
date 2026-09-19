@@ -237,7 +237,7 @@ describe('trunk clone end to end', () => {
 			const reported = lines.join('\n');
 			expect(reported).toContain('created by this run:');
 			expect(reported).toContain('bare repo');
-			expect(reported).toContain('worktree + branch (wt.toml uncommitted)');
+			expect(reported).toContain('worktree + branch, wt.toml uncommitted');
 			expect(reported).toContain('resume: trunk init ./broken');
 
 			const setupWorktree = join(

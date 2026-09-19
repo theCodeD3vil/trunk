@@ -35,6 +35,7 @@ import {
 } from './resolve.js';
 import {
 	badUsage,
+	exitCodes,
 	operationFailed,
 	succeed,
 	userAborted,
@@ -96,6 +97,8 @@ export type FlowPlan = Readonly<{
 	gitDirectory: string;
 	/** Known before any work for `init`; a clone learns it after cloning. */
 	defaultBranch?: string;
+	/** For a clone: asks the remote for its default branch while the questions run. */
+	probeDefaultBranch?: () => Promise<string | undefined>;
 	/** The steps before the shared ones, in order. */
 	prepareSteps: readonly StepDefinition[];
 	prepare: (
@@ -195,6 +198,15 @@ export async function runInteractiveSetup(
 		}
 	}
 
+	// A clone cannot know the default branch until it has cloned, but the review
+	// can name it if the remote is asked while the questions are being answered.
+	let probed: string | undefined;
+	if (plan.probeDefaultBranch !== undefined) {
+		void (async () => {
+			probed = await plan.probeDefaultBranch?.();
+		})();
+	}
+
 	const installed = installedAgents(base.tools);
 	const rootName = basename(plan.projectDirectory);
 	const request: ConfigureRequest = {
@@ -203,6 +215,7 @@ export async function runInteractiveSetup(
 		rootName,
 		destination: displayPath(plan.projectDirectory),
 		defaultBranch: plan.defaultBranch,
+		probedDefaultBranch: () => probed,
 		direct: flags.direct ?? false,
 		values,
 		fromFlags,
@@ -620,6 +633,12 @@ async function handleFailure(
 	}
 
 	const message = errorMessage(error);
+	// A rejected config is the one failure with its own wording: what wt said, under a lead-in.
+	const rejection = 'Worktrunk rejected the generated config.';
+	const rejected =
+		error instanceof StepFailure &&
+		error.stepId === 'validate' &&
+		message.startsWith(rejection);
 	const rows = journal.rows(context.cwd);
 	const created = journal.entries.map((entry, index) => ({
 		path:
@@ -631,17 +650,49 @@ async function handleFailure(
 	const answer = await session.fail({
 		command: plan.command,
 		project: plan.project,
-		title: error instanceof StepFailure ? `${label} failed` : 'Setup stopped',
-		detail: message,
+		title: rejected
+			? rejection.replace(/\.$/, '')
+			: error instanceof StepFailure
+			? `${label} failed`
+			: 'Setup stopped',
+		detail: rejected
+			? `wt config show reported:\n${message.slice(rejection.length).trim()}`
+			: message,
 		created,
 		resume,
 		rollback: !journal.isEmpty,
 	});
 	if (answer === 'rollback') {
-		await rollback(context, plan.projectDirectory, undo);
-		return userAborted(`rolled back ${plan.projectDirectory}`);
+		// The outcome is drawn under the steps, so nothing is printed afterwards.
+		const removed: ResultLine[] = [];
+		await rollback(
+			{
+				...context,
+				report(kind, text) {
+					removed.push(
+						kind === 'info'
+							? {ok: true, plain: true, text}
+							: {
+									ok: kind === 'success',
+									text: `${text.replace(/^remove /, 'Removed ')}${
+										kind === 'success' ? '.' : ''
+									}`,
+							  },
+					);
+				},
+			},
+			plan.projectDirectory,
+			undo,
+		);
+		session.result(removed);
+		return {code: exitCodes.userAborted};
 	}
 
-	reportKept();
+	// The failure card disappears when the steps come back, so what it said about
+	// how to resume is repeated under them.
+	session.result([
+		{ok: true, text: 'Kept everything this run created.'},
+		{ok: true, plain: true, text: `Resume later with ${resume}`},
+	]);
 	return operationFailed(message.split('\n')[0] ?? 'setup failed');
 }

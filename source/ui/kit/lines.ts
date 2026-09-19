@@ -23,6 +23,11 @@ export type Line = Readonly<{
 	bg?: LineBackground;
 	/** Identifies a clickable row, for terminals that report the mouse. */
 	row?: string;
+	/**
+	 * A command to copy: it is never clipped, and the terminal may wrap it. Every
+	 * other line is cut at the screen edge so the frame's height stays exact.
+	 */
+	soft?: boolean;
 }>;
 
 export type KeyHint = readonly [label: string, text: string, key?: string];
@@ -62,6 +67,7 @@ export function createKit(g: Glyphs, cols: number) {
 	const spaces = (count: number): string => ' '.repeat(Math.max(0, count));
 	const withBg = (l: Line, bg: LineBackground): Line => ({...l, bg});
 	const withRow = (l: Line, row: string): Line => ({...l, row});
+	const soft = (l: Line): Line => ({...l, soft: true});
 	const padTo = (l: Line, w: number): Line => ({
 		...l,
 		segs: [...l.segs, {t: spaces(w - width(l)), c: ''}],
@@ -266,34 +272,46 @@ export function createKit(g: Glyphs, cols: number) {
 		return [line(...parts)];
 	}
 
+	/** Screen rows a line takes: one, unless it is a command the terminal wraps. */
+	const rowsOf = (l: Line): number =>
+		l.soft === true ? Math.max(1, Math.ceil(width(l) / cols)) : 1;
+	const rowsIn = (lines: readonly Line[]): number =>
+		lines.reduce((total, l) => total + rowsOf(l), 0);
+
 	/**
-	 * Body, a rule and the key bar. The body is padded to `minRows` so the footer
-	 * stays put as a screen changes, and trimmed so the whole frame never reaches
-	 * the terminal's height, where Ink would clear the screen on every render.
+	 * Body, a rule and the key bar. With `maxRows` (the terminal's height) the
+	 * frame is exactly one row shorter: the key bar sits at the bottom on every
+	 * screen, and the free row keeps Ink from clearing the whole screen, which it
+	 * does for a frame as tall as the terminal. The `tail`, usually a question,
+	 * follows the body and is never the part that gets trimmed.
 	 */
 	function frame(
 		body: readonly Line[],
 		footer: readonly Line[],
-		options: {minRows?: number; maxRows?: number} = {},
+		options: {maxRows?: number; tail?: readonly Line[]} = {},
 	): Line[] {
-		// The footer, its rule, and one row left free: Ink clears the whole screen
-		// whenever a frame is as tall as the terminal.
-		const chrome = footer.length + 2;
-		let lines = [...body];
-		const target = Math.max(options.minRows ?? 0, lines.length);
-		const limit =
-			options.maxRows === undefined
-				? target
-				: Math.min(target, options.maxRows - chrome);
-		if (lines.length > limit) {
-			lines = lines.slice(0, Math.max(0, limit));
+		const tail = options.tail ?? [];
+		const chrome = footer.length + 1;
+		if (options.maxRows === undefined) {
+			return [...body, ...tail, rule(cols), ...footer];
 		}
 
-		while (lines.length < limit) {
-			lines.push(line());
+		const room = Math.max(0, options.maxRows - 1 - chrome);
+		const lines: Line[] = [];
+		let used = rowsIn(tail);
+		for (const l of body) {
+			if (used + rowsOf(l) > room) {
+				break;
+			}
+
+			lines.push(l);
+			used += rowsOf(l);
 		}
 
-		return [...lines, rule(cols), ...footer];
+		const padding = Array.from({length: Math.max(0, room - used)}, () =>
+			line(),
+		);
+		return [...lines, ...tail, ...padding, rule(cols), ...footer];
 	}
 
 	return {
@@ -304,6 +322,7 @@ export function createKit(g: Glyphs, cols: number) {
 		spaces,
 		withBg,
 		withRow,
+		soft,
 		padTo,
 		clip,
 		justify,
@@ -318,6 +337,7 @@ export function createKit(g: Glyphs, cols: number) {
 		header,
 		keybar,
 		frame,
+		rowsIn,
 	};
 }
 

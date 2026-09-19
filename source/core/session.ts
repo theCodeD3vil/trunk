@@ -19,6 +19,12 @@ export type ConfigureRequest = Readonly<{
 	destination: string;
 	/** Known for `init`; a clone only learns it after cloning. */
 	defaultBranch?: string;
+	/**
+	 * For a clone, the remote's default branch once it has been asked, which
+	 * happens while the questions are answered. Undefined until the answer is in
+	 * or when the remote does not say.
+	 */
+	probedDefaultBranch?: () => string | undefined;
 	/** Commit on the default branch instead of a setup branch. */
 	direct: boolean;
 	/** The answers to start from, with any flags already applied. */
@@ -109,6 +115,8 @@ export type Refusal =
 			name: string;
 			url: string;
 			unsaved: readonly string[];
+			/** The clone's default branch, when it can be read. */
+			branch?: string;
 	  }>
 	| Readonly<{kind: 'empty-repository'; name: string; rerun: string}>;
 
@@ -116,7 +124,8 @@ export type Refusal =
 export type TerminalUi = Readonly<{
 	session: () => Promise<Session>;
 	refuse: (refusal: Refusal) => Promise<void>;
-	welcome: (version: string) => Promise<void>;
+	/** `full` lists every option, for `trunk --help`; the default is the short screen. */
+	welcome: (version: string, detail?: 'summary' | 'full') => Promise<void>;
 }>;
 
 export type TerminalUiFactory = () => Promise<TerminalUi>;

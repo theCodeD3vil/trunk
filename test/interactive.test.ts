@@ -3,7 +3,7 @@ import {join} from 'node:path';
 import process from 'node:process';
 import {fileURLToPath} from 'node:url';
 import {afterEach, describe, expect, test} from 'bun:test';
-import {importInteractive} from '../source/core/interactive.js';
+import {colourLevel, importInteractive} from '../source/core/interactive.js';
 
 const sourceRoot = fileURLToPath(new URL('../source/', import.meta.url));
 const original = process.env['CI'];
@@ -14,6 +14,86 @@ afterEach(() => {
 	} else {
 		process.env['CI'] = original;
 	}
+});
+
+/** A terminal that answers for the environment it is given, as Node's does. */
+function terminal(depth: (environment: NodeJS.ProcessEnv) => number) {
+	return {getColorDepth: depth};
+}
+
+/** An environment from name/value pairs, so the names can stay upper case. */
+const env = (...pairs: Array<[string, string]>): NodeJS.ProcessEnv =>
+	Object.fromEntries(pairs);
+
+describe('colour under the CI override', () => {
+	test('the colour level ignores CI, which is only set to silence Ink', () => {
+		// Node, like Ink's colour library, says "no colour" whenever CI exists.
+		const depth = (environment: NodeJS.ProcessEnv) =>
+			'CI' in environment ? 1 : 24;
+
+		expect(colourLevel(terminal(depth), env(['CI', 'false']))).toBe(3);
+		expect(colourLevel(terminal(depth), env(['CI', 'true']))).toBe(3);
+	});
+
+	test('maps the terminal depth to chalk levels', () => {
+		const at = (bits: number) =>
+			colourLevel(
+				terminal(() => bits),
+				env(),
+			);
+
+		expect([at(24), at(8), at(4), at(1)]).toEqual([3, 2, 1, 0]);
+		// A stream that cannot say, such as a pipe, gets no colour.
+		expect(colourLevel({}, env())).toBe(0);
+	});
+
+	test('pins the level for the import, then restores what the user had', async () => {
+		const environment = env(['CI', 'true']);
+		let during: Array<string | undefined> = [];
+
+		await importInteractive(
+			async () => {
+				during = [environment['CI'], environment['FORCE_COLOR']];
+			},
+			terminal(() => 24),
+			environment,
+		);
+
+		// Ink sees CI=false, and its colour library sees a truecolor terminal.
+		expect(during).toEqual(['false', '3']);
+		expect(environment).toEqual(env(['CI', 'true']));
+	});
+
+	test('does not override a FORCE_COLOR the user set', async () => {
+		const environment = env(['FORCE_COLOR', '1']);
+		let during: string | undefined;
+
+		await importInteractive(
+			async () => {
+				during = environment['FORCE_COLOR'];
+			},
+			terminal(() => 24),
+			environment,
+		);
+
+		expect(during).toBe('1');
+		expect(environment['FORCE_COLOR']).toBe('1');
+	});
+
+	test('asks for no colour when the terminal offers none, as with NO_COLOR', async () => {
+		const environment = env(['NO_COLOR', '1']);
+		let during: string | undefined;
+
+		await importInteractive(
+			async () => {
+				during = environment['FORCE_COLOR'];
+			},
+			terminal(() => 1),
+			environment,
+		);
+
+		expect(during).toBeUndefined();
+	});
 });
 
 describe('importInteractive', () => {

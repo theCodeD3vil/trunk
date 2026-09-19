@@ -9,9 +9,9 @@ describe('run journal', () => {
 
 		expect(journal.describe('/work')).toEqual([
 			'./acme-admin                    project folder',
-			'./acme-admin/.git               bare repo',
+			'./acme-admin/.git               bare repository',
 			'./acme-admin/main               worktree',
-			'./acme-admin/chore-trunk-setup  worktree + branch (wt.toml uncommitted)',
+			'./acme-admin/chore-trunk-setup  worktree + branch, wt.toml uncommitted',
 		]);
 	});
 

@@ -146,16 +146,39 @@ export type OverwriteStep = Readonly<{
 	answer?: 'keep' | 'replace';
 }>;
 
+/** Rows of the diff shown at once; the same 12 as the proposal, less on a short terminal. */
+export function diffRows(rows: number): number {
+	return Math.max(5, Math.min(12, rows - 14));
+}
+
+/** The furthest the diff can scroll, so an extra key press never has to be undone. */
+export function scrollLimit(
+	model: OverwriteModel,
+	state: OverwriteState,
+	rows: number,
+): number {
+	return Math.max(
+		0,
+		shownRows(model, state.onlyRemoved).length - diffRows(rows),
+	);
+}
+
 export function overwriteKey(
 	state: OverwriteState,
 	key: string,
+	limit = Number.POSITIVE_INFINITY,
 ): OverwriteStep {
 	if (key === 'up' || key === 'k') {
 		return {state: {...state, scroll: Math.max(0, state.scroll - 1)}};
 	}
 
 	if (key === 'down' || key === 'j') {
-		return {state: {...state, scroll: state.scroll + 1}};
+		return {state: {...state, scroll: Math.min(limit, state.scroll + 1)}};
+	}
+
+	// A click on one of the two buttons answers at once.
+	if (key === 'keep' || key === 'replace') {
+		return {state, answer: key};
 	}
 
 	if (key === 'r') {
@@ -227,7 +250,7 @@ export function overwriteLines(
 		line(),
 	];
 	const visible = shownRows(model, state.onlyRemoved);
-	const view = Math.max(5, Math.min(12, rows - 17));
+	const view = diffRows(rows);
 	const scroll = Math.min(state.scroll, Math.max(0, visible.length - view));
 	const textWidth = Math.max(10, contentWidth - 12);
 	const window = visible.slice(scroll, scroll + view);
@@ -296,20 +319,27 @@ export function overwriteLines(
 			'c-faint',
 		]),
 		line(),
-		line('  ', ["Replace it with Trunk's version?", 'b']),
-		line('  ', ...kit.choice(['Keep mine', 'Replace'], state.sel), [
-			'   Keeping is the default and changes nothing.',
-			'c-dim',
-		]),
 	);
+	// The question is the one part that is never trimmed on a short terminal.
+	const tail = [
+		line('  ', ["Replace it with Trunk's version?", 'b']),
+		line(
+			'  ',
+			...kit.choice(['Keep mine', 'Replace'], state.sel, true, [
+				'keep',
+				'replace',
+			]),
+			['   Keeping is the default and changes nothing.', 'c-dim'],
+		),
+	];
 	return kit.frame(
 		body,
 		kit.keybar([
 			[g.updown, 'scroll'],
-			['r', state.onlyRemoved ? 'show all' : 'only removals'],
+			['r', state.onlyRemoved ? 'show all' : 'only removals', 'r'],
 			[g.leftright, 'choose'],
-			[g.enter, 'confirm'],
+			[g.enter, 'confirm', 'enter'],
 		]),
-		{maxRows: rows},
+		{maxRows: rows, tail},
 	);
 }

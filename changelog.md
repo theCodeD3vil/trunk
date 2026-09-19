@@ -12,8 +12,23 @@
 - A highlighted diff before an interactive overwrite of an existing `.config/wt.toml`.
 - `bun run smoke`, which packs the tarball, installs it as an npm consumer, and exercises the installed CLI on throwaway repositories.
 
+### Fixed
+
+- The screens are drawn in colour again. Loading them with `CI=false`, which stops Ink treating your shell as CI, also told its colour library that there was no colour, so every screen was plain text and the highlighted option in each choice was invisible. The colour level is now read from the real terminal and handed over for the import.
+- Text you paste, and keys held down while a screen redraws, are no longer dropped. Input is parsed key by key instead of as one press per burst.
+- On a short terminal, such as 80 by 24, the result card keeps the push question on screen by folding the step list to one line. The same holds for the failure and existing-config questions.
+- A command that does not fit in a refusal card, such as `trunk clone <long url>`, is shown whole beneath it instead of being cut off at the card's edge.
+- Next-step notes no longer disappear when the project path is long.
+- The clone review names the remote's default branch instead of a placeholder. It is asked while you answer the questions, never prompts, and gives up after six seconds.
+- Rolling back a failed run now shows what was removed under the steps, with a tick for each, instead of printing a log after the screen closes; keeping it repeats how to resume.
+- Scrolling the existing-config diff past its end no longer needs extra key presses to come back.
+
 ### Changed
 
+- Every screen is now as tall as the terminal minus one row, so the key bar is always on the last row instead of floating under the content. The choices card and the result card stop at 76 columns.
+- Key caps, buttons, sidebar entries, form rows, search results and snippet rows respond to a click, and the mouse wheel scrolls. `TRUNK_MOUSE=0` turns mouse reporting off.
+- `trunk` on its own shows the short welcome with the options on one line, and `trunk --help` lists every option. The welcome's example uses the `❯` prompt.
+- Docs section titles are short enough for the sidebar, and search still finds them by their old words.
 - The terminal UI is redesigned as one continuous screen: a welcome, a setup form with a live preview of the hooks it will generate, a review that gates everything, named running steps with timings, a result card with the next commands, a numbered diff before overwriting an existing config, and cards for failures and refusals. `trunk docs` is now a two-pane browser with a sidebar.
 - Interactive `clone` and `init` ask for consent once, at the review, and never commit before it. The result card asks whether to push, and the answer starts on "Not now".
 - The screens honour `NO_COLOR`, `TRUNK_ASCII=1`, and `TRUNK_THEME`, fall back to ASCII on a Linux console or non-UTF-8 locale, and lay out to 104 columns, with two panes from 100.

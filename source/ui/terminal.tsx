@@ -81,8 +81,8 @@ export async function openTerminalUi(): Promise<TerminalUi> {
 		async refuse(refusal) {
 			await print(process.stderr, kit => refusalLines(kit, refusal));
 		},
-		async welcome(version) {
-			await print(process.stdout, kit => welcomeLines(kit, version));
+		async welcome(version, detail) {
+			await print(process.stdout, kit => welcomeLines(kit, version, detail));
 		},
 	};
 }

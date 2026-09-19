@@ -166,19 +166,57 @@ describe('layout kit', () => {
 		expect(text(top!)).toContain('acme/admin');
 	});
 
-	test('frame pads a short body so the footer stays put, and trims a tall one below the terminal height', () => {
+	test('a frame is one row shorter than the terminal, with the key bar on the last of them', () => {
 		const footer = kit.keybar([['q', 'quit']]);
-		const short = kit.frame([kit.line('a')], footer, {minRows: 10});
-		expect(short).toHaveLength(10 + 1 + footer.length);
+		const short = kit.frame([kit.line('a')], footer, {maxRows: 20});
+
+		// Ink clears the whole screen for a frame as tall as the terminal.
+		expect(short).toHaveLength(19);
+		expect(text(short.at(-1)!)).toContain('quit');
+		expect(text(short.at(-2)!)).toMatch(/^─+$/);
 
 		const tall = kit.frame(
 			Array.from({length: 50}, (_, index) => kit.line(`line ${index}`)),
 			footer,
 			{maxRows: 20},
 		);
-		// One row is always left free: Ink clears the screen when a frame fills it.
 		expect(tall).toHaveLength(19);
 		expect(text(tall.at(-1)!)).toContain('quit');
+	});
+
+	test('the same body lands its key bar on the same row in any terminal height', () => {
+		const footer = kit.keybar([['q', 'quit']]);
+		for (const rows of [24, 30, 50]) {
+			const lines = kit.frame([kit.line('a')], footer, {maxRows: rows});
+			expect(lines, `${rows} rows`).toHaveLength(rows - 1);
+		}
+	});
+
+	test('a tail, such as a question, survives when the body is trimmed', () => {
+		const footer = kit.keybar([['q', 'quit']]);
+		const question = [kit.line('Push it?'), kit.line('Yes  No')];
+		const lines = kit.frame(
+			Array.from({length: 50}, (_, index) => kit.line(`line ${index}`)),
+			footer,
+			{maxRows: 12, tail: question},
+		);
+
+		expect(lines).toHaveLength(11);
+		expect(lines.map(l => text(l))).toContain('Push it?');
+		expect(lines.map(l => text(l))).toContain('Yes  No');
+		// The body gave way instead, from its end.
+		expect(lines.map(l => text(l))).toContain('line 0');
+		expect(lines.map(l => text(l))).not.toContain('line 49');
+	});
+
+	test('a soft line counts the rows the terminal will wrap it onto', () => {
+		const command = kit.soft(kit.line('x'.repeat(200)));
+
+		expect(kit.rowsIn([command])).toBe(3);
+		expect(kit.rowsIn([kit.line('x'.repeat(200))])).toBe(1);
+		const lines = kit.frame([command, command, command], [], {maxRows: 8});
+		// 8 rows minus the free one and the rule leaves 6: two commands fit.
+		expect(lines.filter(l => l.soft === true)).toHaveLength(2);
 	});
 
 	test('a choice marks exactly one option as selected', () => {
