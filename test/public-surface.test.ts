@@ -1,5 +1,5 @@
 /**
- * The public surface has to agree with itself: the README, `trunk --help`,
+ * The public surface has to agree with itself: the README, `trunk-cli --help`,
  * the package metadata, the release checklist and CI must all describe the same
  * three commands and the same language-agnostic scope. These tests read the
  * real files, so a change to one that forgets the others fails here.
@@ -19,6 +19,7 @@ const commands = ['clone', 'init', 'docs'];
 /** What the removed features were called, which no current document may teach. */
 const removed = [
 	'trunk new',
+	'trunk-cli new',
 	'--pm',
 	'--server',
 	'--caddy',
@@ -36,7 +37,7 @@ function withoutUpgrading(readme: string): string {
 
 describe('commands', () => {
 	test('the help text lists exactly clone, init and docs', () => {
-		const listed = [...helpText.matchAll(/^\s*\$ trunk (\w+)/gm)].map(
+		const listed = [...helpText.matchAll(/^\s*\$ trunk-cli (\w+)/gm)].map(
 			match => match[1],
 		);
 
@@ -48,7 +49,7 @@ describe('commands', () => {
 		const headings = [...readme.matchAll(/^### (\w+)$/gm)].map(match =>
 			match[1]!.toLowerCase(),
 		);
-		const examples = [...readme.matchAll(/^trunk (\w+)/gm)].map(
+		const examples = [...readme.matchAll(/^trunk-cli (\w+)/gm)].map(
 			match => match[1],
 		);
 
@@ -164,7 +165,7 @@ describe('packaging and release', () => {
 		};
 
 		expect(packageJson.files).toEqual(['dist']);
-		expect(packageJson.bin).toEqual({trunk: 'dist/cli.js'});
+		expect(packageJson.bin).toEqual({'trunk-cli': 'dist/cli.js'});
 		expect(packageJson.engines.node).toBe('>=20');
 		expect(await read('readme.md')).toMatch(/Node\.js\s*\|\s*20 or newer/);
 		// Releases stay manual and on main.

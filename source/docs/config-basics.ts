@@ -47,7 +47,7 @@ tmux = '''
 					'standalone',
 				),
 				text(
-					'Trunk only rewrites the file if you ask: `trunk init` shows a diff and waits for your confirmation, and `--yes` always keeps the file that is there. Everything else in it is yours to edit.',
+					'Trunk only rewrites the file if you ask: `trunk-cli init` shows a diff and waits for your confirmation, and `--yes` always keeps the file that is there. Everything else in it is yours to edit.',
 				),
 				text(
 					"Personal settings, such as where worktrees are created, how commit messages are generated, or hooks only you want, belong in Worktrunk's user config, ~/.config/worktrunk/config.toml. Trunk never writes to it. See https://worktrunk.dev/config/.",
@@ -182,7 +182,7 @@ setup = "./scripts/setup.sh"`,
 					"Declining skips all of the project's commands for that operation, including ones you approved earlier.",
 				),
 				text(
-					'Trunk offers to run `wt config approvals add` after `trunk clone` and `trunk init`, and never approves anything itself. The `--yes` flag on wt commands skips the prompt; keep it for CI, where the contents of the file are already controlled.',
+					'Trunk offers to run `wt config approvals add` after `trunk-cli clone` and `trunk-cli init`, and never approves anything itself. The `--yes` flag on wt commands skips the prompt; keep it for CI, where the contents of the file are already controlled.',
 				),
 				shell(
 					'Review and approve',

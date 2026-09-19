@@ -28,7 +28,7 @@ describe('CLI', () => {
 
 		expect(run.exitCode).toBe(exitCodes.success);
 		expect(run.stdout).toContain('Usage');
-		expect(run.stdout).toContain('$ trunk clone <url> [dir]');
+		expect(run.stdout).toContain('$ trunk-cli clone <url> [dir]');
 		expect(run.stderr).toBe('');
 	});
 
@@ -37,7 +37,7 @@ describe('CLI', () => {
 		runs.push(run);
 
 		expect(run.exitCode).toBe(exitCodes.success);
-		expect(run.stdout).toContain('$ trunk docs');
+		expect(run.stdout).toContain('$ trunk-cli docs');
 		expect(run.stderr).toBe('');
 	});
 
@@ -45,12 +45,12 @@ describe('CLI', () => {
 		const run = await runBuiltCli(['--help']);
 		runs.push(run);
 
-		const commands = [...run.stdout.matchAll(/^\s*\$ trunk (\w+)/gm)].map(
+		const commands = [...run.stdout.matchAll(/^\s*\$ trunk-cli (\w+)/gm)].map(
 			match => match[1],
 		);
 		expect(commands).toEqual(['clone', 'init', 'docs']);
 		for (const removed of [
-			'trunk new',
+			'trunk-cli new',
 			'--pm',
 			'--server',
 			'--caddy',
@@ -86,7 +86,7 @@ describe('CLI', () => {
 		}
 	});
 
-	test('trunk docs without a terminal exits 2 with guidance and no stack trace', async () => {
+	test('trunk-cli docs without a terminal exits 2 with guidance and no stack trace', async () => {
 		// The built CLI runs with stdin ignored, which is the shape that would
 		// otherwise reach Ink's raw mode and print a React component stack.
 		const run = await runBuiltCli(['docs']);
@@ -101,7 +101,7 @@ describe('CLI', () => {
 		expect(run.stderr).not.toContain('    at ');
 	});
 
-	test('trunk docs takes no arguments', async () => {
+	test('trunk-cli docs takes no arguments', async () => {
 		const run = await runBuiltCli(['docs', 'node']);
 		runs.push(run);
 

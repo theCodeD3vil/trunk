@@ -7,12 +7,12 @@ import process from 'node:process';
 import meow, {type TypedFlags} from 'meow';
 import {trunkVersion} from './version.js';
 
-/** Printed for `trunk` with no command and for `--help`. */
+/** Printed for `trunk-cli` with no command and for `--help`. */
 export const helpText = `
 	Usage
-	  $ trunk clone <url> [dir]   set up a bare-layout project from a remote
-	  $ trunk init [dir]          set up an existing bare-layout project
-	  $ trunk docs                browse the offline documentation
+	  $ trunk-cli clone <url> [dir]   set up a bare-layout project from a remote
+	  $ trunk-cli init [dir]          set up an existing bare-layout project
+	  $ trunk-cli docs                browse the offline documentation
 
 	Options
 	  --yes                 accept the defaults, no form (needed without a TTY)

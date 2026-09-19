@@ -87,7 +87,7 @@ describe('generated config validation', () => {
 		// The branch comes from Worktrunk's template variables, so the hook needs
 		// nothing from the worktree that is about to disappear.
 		expect(postRemove?.expanded).toContain('B=main');
-		expect(postRemove?.expanded).toContain('tmux kill-session -t "=$S"');
+		expect(postRemove?.expanded).toContain('tmux kill-session -t "$SID"');
 	}, 30_000);
 
 	test('reports a hook the config failed to define', async () => {

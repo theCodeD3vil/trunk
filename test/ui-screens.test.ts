@@ -116,7 +116,7 @@ const failure: FailureRequest = {
 		{path: 'acme-admin/', description: 'project folder'},
 		{path: 'chore-trunk-setup/', description: 'worktree + branch'},
 	],
-	resume: 'trunk clone https://example.com/acme/admin.git acme-admin',
+	resume: 'trunk-cli clone https://example.com/acme/admin.git acme-admin',
 	rollback: true,
 };
 
@@ -184,7 +184,7 @@ function screens(kit: Kit, rows: number): Array<[string, Line[]]> {
 			'docs',
 			documentationLines(kit, initialDocumentation, {caret: true, rows}),
 		],
-		['missing tools', missingToolLines(kit, ['git', 'wt'], 'trunk init')],
+		['missing tools', missingToolLines(kit, ['git', 'wt'], 'trunk-cli init')],
 		[
 			'normal clone',
 			normalCloneLines(kit, {
@@ -193,7 +193,10 @@ function screens(kit: Kit, rows: number): Array<[string, Line[]]> {
 				unsaved: ['3 uncommitted files'],
 			}),
 		],
-		['empty repository', emptyRepositoryLines(kit, 'acme-admin', 'trunk init')],
+		[
+			'empty repository',
+			emptyRepositoryLines(kit, 'acme-admin', 'trunk-cli init'),
+		],
 	];
 }
 
@@ -621,11 +624,13 @@ describe('failure and refusal cards', () => {
 	});
 
 	test('a missing tool names it, links the fix and shows the command to re-run', () => {
-		const screen = screenText(missingToolLines(kit, ['wt'], 'trunk clone x'));
+		const screen = screenText(
+			missingToolLines(kit, ['wt'], 'trunk-cli clone x'),
+		);
 
 		expect(screen).toContain('Worktrunk');
 		expect(screen).toContain('https://worktrunk.dev');
-		expect(screen).toContain('trunk clone x');
+		expect(screen).toContain('trunk-cli clone x');
 		expect(screen).toContain('exit 3');
 	});
 
@@ -640,7 +645,7 @@ describe('failure and refusal cards', () => {
 
 		expect(screen).toContain('acme-admin is a normal clone');
 		expect(screen).toContain(
-			'trunk clone https://example.com/a.git acme-admin-wt',
+			'trunk-cli clone https://example.com/a.git acme-admin-wt',
 		);
 	});
 });
@@ -879,7 +884,7 @@ describe('commands are never cut off', () => {
 
 	test('a normal clone with a long URL shows the whole command below its card', () => {
 		const lines = normalCloneLines(kit, {name: 'storefront', url, unsaved: []});
-		const command = `trunk clone ${url} storefront-wt`;
+		const command = `trunk-cli clone ${url} storefront-wt`;
 		const soft = lines
 			.filter(line => line.soft === true)
 			.map(line => text(line).trim());
@@ -898,12 +903,12 @@ describe('commands are never cut off', () => {
 
 		expect(lines.some(line => line.soft === true)).toBe(false);
 		expect(screenText(lines)).toContain(
-			'trunk clone git@github.com:acme/storefront.git storefront-wt',
+			'trunk-cli clone git@github.com:acme/storefront.git storefront-wt',
 		);
 	});
 
 	test('the same holds for the missing-tool and empty-repository re-run commands', () => {
-		const rerun = `trunk clone ${url} some-directory`;
+		const rerun = `trunk-cli clone ${url} some-directory`;
 		const missing = missingToolLines(kit, ['wt'], rerun);
 		const empty = emptyRepositoryLines(kit, 'storefront', rerun);
 
@@ -916,7 +921,7 @@ describe('commands are never cut off', () => {
 
 	test('the resume command sits beside the choice when it fits and below it when it does not', () => {
 		const beside = screenText(failureLines(kit, failure, {sel: 0}, 40));
-		const longResume = `trunk clone ${url} storefront`;
+		const longResume = `trunk-cli clone ${url} storefront`;
 		const below = failureLines(
 			kit,
 			{...failure, resume: longResume},
@@ -925,7 +930,7 @@ describe('commands are never cut off', () => {
 		);
 
 		expect(beside).toMatch(
-			/Keep {4}Roll back {4}Resume later with trunk clone /,
+			/Keep {4}Roll back {4}Resume later with trunk-cli clone /,
 		);
 		expect(
 			below.filter(line => line.soft === true).map(line => text(line).trim()),
@@ -948,11 +953,11 @@ describe('welcome', () => {
 		);
 		expect(screen).not.toContain('tmux session prefix');
 		expect(screen).toContain(
-			'❯ trunk clone git@github.com:acme/storefront.git',
+			'❯ trunk-cli clone git@github.com:acme/storefront.git',
 		);
 	});
 
-	test('trunk --help lists what every option means', () => {
+	test('trunk-cli --help lists what every option means', () => {
 		const screen = screenText(welcomeLines(kit, '0.3.0', 'full'));
 
 		for (const meaning of [
@@ -1170,17 +1175,17 @@ describe('wording follows the proposal', () => {
 
 	test('a missing wt says what Trunk does through it, and a missing git the same for git', () => {
 		expect(
-			screenText(missingToolLines(kit, ['wt'], 'trunk clone x')),
+			screenText(missingToolLines(kit, ['wt'], 'trunk-cli clone x')),
 		).toContain(
 			'Trunk creates worktrees through the `wt` command, and it was not found on your',
 		);
 		expect(
-			screenText(missingToolLines(kit, ['git'], 'trunk clone x')),
+			screenText(missingToolLines(kit, ['git'], 'trunk-cli clone x')),
 		).toContain(
 			'Trunk reads and clones repositories through the `git` command',
 		);
 		expect(
-			screenText(missingToolLines(kit, ['git', 'wt'], 'trunk clone x')),
+			screenText(missingToolLines(kit, ['git', 'wt'], 'trunk-cli clone x')),
 		).toContain(
 			'Trunk needs `git` and `wt` on your PATH, and neither was found.',
 		);

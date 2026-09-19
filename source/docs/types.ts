@@ -1,6 +1,6 @@
 /**
  * The shape of the bundled documentation. Content is plain data compiled into
- * the package, so `trunk docs` never reads a file, a checkout or the network.
+ * the package, so `trunk-cli docs` never reads a file, a checkout or the network.
  */
 
 export type CodeLanguage = 'toml' | 'sh';

@@ -161,7 +161,7 @@ export function normalCloneLines(kit: Kit, input: NormalCloneInput): Line[] {
 			commandRow(
 				kit,
 				[[' 1  ', 'c-dim']],
-				`trunk clone ${input.url} ${input.name}-wt`,
+				`trunk-cli clone ${input.url} ${input.name}-wt`,
 				width,
 				overflow,
 				`clone it as ${input.name}-wt, command in full below`,

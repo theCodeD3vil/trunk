@@ -9,6 +9,38 @@ import {shellQuote} from './toml.js';
 const branchTemplate = '{{ branch | sanitize }}';
 const worktreeTemplate = '{{ worktree_path }}';
 
+/**
+ * The tmux user option (`twt`: trunk worktree) that ties a session to its
+ * worktree. A session's name is the user's to change; this is not, so every hook
+ * can still find the session after a rename. Kept short because it is written
+ * into every generated file.
+ */
+const worktreeTag = '@twt';
+
+/** Prints the id of the session tagged with this worktree's path, if any. */
+const ownedSession = `owned_session() {
+  for id in $(tmux list-sessions -F '#{session_id}' 2>/dev/null); do
+    [ "$(tmux show-options -qv -t "$id" ${worktreeTag} 2>/dev/null)" = "$W" ] && { echo "$id"; return; }
+  done
+}`;
+
+/**
+ * Prints the id of this worktree's session for the hooks that tear it down:
+ * the tagged one, else one still under the generated name that predates the
+ * tag. A session tagged for another worktree is never this one, whatever it is
+ * called, so a neighbour that was renamed onto this name is left alone.
+ */
+const findSession = `${ownedSession}
+
+find_session() {
+  found=$(owned_session)
+  [ -n "$found" ] && { echo "$found"; return; }
+  tmux has-session -t "=$S" 2>/dev/null || return 0
+  found=$(tmux display-message -p -t "=$S:" '#{session_id}')
+  [ -z "$(tmux show-options -qv -t "$found" ${worktreeTag} 2>/dev/null)" ] && echo "$found"
+  return 0
+}`;
+
 /** Editor window, optional Agents window, and a two-pane Terminal window. */
 export function tmuxStartBody(settings: Settings): string {
 	const defaultAgents = settings.agents.join(' ');
@@ -45,20 +77,35 @@ P=${shellQuote(settings.prefix)}
 B=${branchTemplate}
 W=${worktreeTemplate}
 S="\${P}_$B"
+${ownedSession}
+
+SID=$(owned_session)
+if [ -n "$SID" ]; then
+  echo "tmux session $(tmux display-message -p -t "$SID" '#{session_name}') already exists"
+  exit 0
+fi
 
 if tmux has-session -t "=$S" 2>/dev/null; then
-  session_path=$(tmux display-message -p -t "=$S" '#{session_path}')
+  SID=$(tmux display-message -p -t "=$S:" '#{session_id}')
+  owner=$(tmux show-options -qv -t "$SID" ${worktreeTag} 2>/dev/null)
+  if [ -n "$owner" ] && [ -d "$owner" ]; then
+    echo "tmux session $S belongs to $owner; not creating one for this worktree"
+    exit 0
+  fi
+  session_path=$(tmux display-message -p -t "$SID" '#{session_path}')
   if [ "$session_path" = "$W" ]; then
+    tmux set-option -t "$SID" ${worktreeTag} "$W"
     echo "tmux session $S already exists"
     exit 0
   fi
-  tmux kill-session -t "=$S" 2>/dev/null || true
+  tmux kill-session -t "$SID" 2>/dev/null || true
 fi
 
-if ! tmux new-session -d -s "$S" -c "$W" -n Editor; then
+if ! SID=$(tmux new-session -d -P -F '#{session_id}' -s "$S" -c "$W" -n Editor); then
   echo "could not create tmux session $S"
   exit 0
 fi
+tmux set-option -t "$SID" ${worktreeTag} "$W"
 ED_W=$(tmux display-message -p -t "=$S:1" '#{window_id}')
 editor=\${WT_EDITOR-\${EDITOR-nvim}}
 if [ -n "$editor" ] && command -v "$editor" >/dev/null 2>&1; then
@@ -80,8 +127,12 @@ export function tmuxStopBody(settings: Settings): string {
 	return `command -v tmux >/dev/null 2>&1 || exit 0
 P=${shellQuote(settings.prefix)}
 B=${branchTemplate}
+W=${worktreeTemplate}
 S="\${P}_$B"
-tmux has-session -t "=$S" 2>/dev/null || exit 0
+${findSession}
+
+SID=$(find_session)
+[ -n "$SID" ] || exit 0
 
 # Collect what runs under each pane. The panes' own shells are left for
 # post-remove, because an interactive shell ignores SIGTERM.
@@ -92,7 +143,7 @@ collect_tree() {
     collect_tree "$child"
   done
 }
-for pane in $(tmux list-panes -s -t "=$S" -F '#{pane_id}'); do
+for pane in $(tmux list-panes -s -t "$SID" -F '#{pane_id}'); do
   # The pane running this removal must survive it.
   [ "$pane" = "\${TMUX_PANE-}" ] && continue
   pane_pid=$(tmux display-message -p -t "$pane" '#{pane_pid}')
@@ -125,6 +176,11 @@ export function tmuxKillBody(settings: Settings): string {
 	return `command -v tmux >/dev/null 2>&1 || exit 0
 P=${shellQuote(settings.prefix)}
 B=${branchTemplate}
+W=${worktreeTemplate}
 S="\${P}_$B"
-tmux kill-session -t "=$S" 2>/dev/null || true`;
+${findSession}
+
+SID=$(find_session)
+[ -n "$SID" ] && tmux kill-session -t "$SID" 2>/dev/null
+exit 0`;
 }

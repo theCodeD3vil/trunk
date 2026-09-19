@@ -243,13 +243,13 @@ describe('setup resolution', () => {
 		}) as NeedsInputResolution;
 
 		const rerun = buildRerunCommand(
-			'trunk',
+			'trunk-cli',
 			['clone', 'git@example.com:o/r.git', '--prefix=mine'],
 			resolution,
 		);
 
 		expect(rerun.display).toBe(
-			'trunk clone git@example.com:o/r.git --prefix=mine --tmux --no-copy --mc',
+			'trunk-cli clone git@example.com:o/r.git --prefix=mine --tmux --no-copy --mc',
 		);
 	});
 });

@@ -22,6 +22,7 @@ const shellcheckExclusions: Readonly<Record<string, readonly string[]>> =
 		['alias:mc', ['SC2016']],
 		['pre-start:tmux', ['SC2046', 'SC2086']],
 		['pre-remove:tmux', ['SC2046', 'SC2086']],
+		['post-remove:tmux', ['SC2046']],
 	]);
 
 describe('generated POSIX shell', () => {

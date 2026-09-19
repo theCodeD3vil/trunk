@@ -2,15 +2,15 @@
 
 ## Unreleased
 
-`trunk` is now language-agnostic. It configures the worktree experience and no longer models a project's stack. This release is breaking; it is expected to ship as 0.2.0.
+`trunk-cli` is now language-agnostic. It configures the worktree experience and no longer models a project's stack. This release is breaking; it is expected to ship as 0.2.0.
 
 ### Added
 
 - Pushing the setup branch shows its progress. The question becomes two named steps, _Push to origin_ and _Open pull request_, each with a spinner and a clock. A failed push gets a card with git's own words, one line on how to fix it, and the command to run afterwards, with Retry first. If the push worked and the pull request did not, the push stays ticked and Retry repeats only the pull request. After ten seconds a slow push says it is still waiting.
 - Ctrl+C during a push or pull request stops that command and prints how to finish by hand.
-- `trunk docs`, an offline interactive documentation browser bundled with the package. It has two topics, Config Basics and Node, with live search, scrolling, and copyable snippets. Without a terminal that can read keys it exits with status 2.
-- `trunk init` support for a bare-layout project that has no origin remote. The project directory's name seeds the suggested prefix, and the local merge command is printed instead of a pull request.
-- `trunk init` refuses an empty bare repository instead of creating history in it.
+- `trunk-cli docs`, an offline interactive documentation browser bundled with the package. It has two topics, Config Basics and Node, with live search, scrolling, and copyable snippets. Without a terminal that can read keys it exits with status 2.
+- `trunk-cli init` support for a bare-layout project that has no origin remote. The project directory's name seeds the suggested prefix, and the local merge command is printed instead of a pull request.
+- `trunk-cli init` refuses an empty bare repository instead of creating history in it.
 - A highlighted diff before an interactive overwrite of an existing `.config/wt.toml`.
 - `bun run smoke`, which packs the tarball, installs it as an npm consumer, and exercises the installed CLI on throwaway repositories.
 
@@ -21,7 +21,7 @@
 - The screens are drawn in colour again. Loading them with `CI=false`, which stops Ink treating your shell as CI, also told its colour library that there was no colour, so every screen was plain text and the highlighted option in each choice was invisible. The colour level is now read from the real terminal and handed over for the import.
 - Text you paste, and keys held down while a screen redraws, are no longer dropped. Input is parsed key by key instead of as one press per burst.
 - On a short terminal, such as 80 by 24, the result card keeps the push question on screen by folding the step list to one line. The same holds for the failure and existing-config questions.
-- A command that does not fit in a refusal card, such as `trunk clone <long url>`, is shown whole beneath it instead of being cut off at the card's edge.
+- A command that does not fit in a refusal card, such as `trunk-cli clone <long url>`, is shown whole beneath it instead of being cut off at the card's edge.
 - Next-step notes no longer disappear when the project path is long.
 - The clone review names the remote's default branch instead of a placeholder. It is asked while you answer the questions, never prompts, and gives up after six seconds.
 - Rolling back a failed run now shows what was removed under the steps, with a tick for each, instead of printing a log after the screen closes; keeping it repeats how to resume.
@@ -29,11 +29,12 @@
 
 ### Changed
 
+- **Breaking:** the installed command is now `trunk-cli`. `trunk` collided with the Rust/Wasm `trunk` bundler and the Trunk.io CLI, both of which install a `trunk` binary. The package name is unchanged, so `bun add --global @cod3vil/trunk` installs `trunk-cli`. There is no `trunk` alias, because it would keep the collision; update scripts and shell aliases that call `trunk`. Tool names in prose and the `chore/trunk-setup` branch are unchanged.
 - Every screen is now as tall as the terminal minus one row, so the key bar is always on the last row instead of floating under the content. The choices card and the result card stop at 76 columns.
 - Key caps, buttons, sidebar entries, form rows, search results and snippet rows respond to a click, and the mouse wheel scrolls. `TRUNK_MOUSE=0` turns mouse reporting off.
-- `trunk` on its own shows the short welcome with the options on one line, and `trunk --help` lists every option. The welcome's example uses the `❯` prompt.
+- `trunk-cli` on its own shows the short welcome with the options on one line, and `trunk-cli --help` lists every option. The welcome's example uses the `❯` prompt.
 - Docs section titles are short enough for the sidebar, and search still finds them by their old words.
-- The terminal UI is redesigned as one continuous screen: a welcome, a setup form with a live preview of the hooks it will generate, a review that gates everything, named running steps with timings, a result card with the next commands, a numbered diff before overwriting an existing config, and cards for failures and refusals. `trunk docs` is now a two-pane browser with a sidebar.
+- The terminal UI is redesigned as one continuous screen: a welcome, a setup form with a live preview of the hooks it will generate, a review that gates everything, named running steps with timings, a result card with the next commands, a numbered diff before overwriting an existing config, and cards for failures and refusals. `trunk-cli docs` is now a two-pane browser with a sidebar.
 - Interactive `clone` and `init` ask for consent once, at the review, and never commit before it. The result card asks whether to push, and the answer starts on "Not now".
 - The screens honour `NO_COLOR`, `TRUNK_ASCII=1`, and `TRUNK_THEME`, fall back to ASCII on a Linux console or non-UTF-8 locale, and lay out to 104 columns, with two panes from 100.
 - The interactive path runs Git and Worktrunk quietly so nothing scrolls through the screen; the `--yes` and non-terminal paths are unchanged.
@@ -55,15 +56,15 @@
 
 ### Fixed
 
-- Interactive screens, `trunk docs` and the setup form, now draw immediately when the environment looks like CI, for example a `CI` variable or a hosting vendor marker such as `VERCEL` exported in a shell profile. Ink treats such an environment as CI and draws nothing until the program exits, so the screen only appeared after Ctrl+C, when the command was already gone.
+- Interactive screens, `trunk-cli docs` and the setup form, now draw immediately when the environment looks like CI, for example a `CI` variable or a hosting vendor marker such as `VERCEL` exported in a shell profile. Ink treats such an environment as CI and draws nothing until the program exits, so the screen only appeared after Ctrl+C, when the command was already gone.
 - A worktree that Worktrunk placed somewhere other than the proposed path is now found by its branch, so the generated file is written into the real setup worktree.
 - Rolling back an interrupted run now removes the setup worktree even though it holds the uncommitted config, which `wt remove` otherwise refuses to do.
 
 ### Upgrading
 
 - Nothing changes on disk until you run `trunk` again, and an existing `.config/wt.toml` keeps working with Worktrunk unchanged.
-- To adopt the generic file, run `trunk init`, review the diff, and confirm. The old generated file is not carried over; re-add the install and server steps you want from `trunk docs`.
-- Project-specific setup that used to be generated is now documented, not detected. See the Node topic in `trunk docs`.
+- To adopt the generic file, run `trunk-cli init`, review the diff, and confirm. The old generated file is not carried over; re-add the install and server steps you want from `trunk-cli docs`.
+- Project-specific setup that used to be generated is now documented, not detected. See the Node topic in `trunk-cli docs`.
 
 ## 0.1.0 - 2026-09-18
 

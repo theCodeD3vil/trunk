@@ -1,6 +1,6 @@
 /**
  * The interactive setup flow, driven by a fake session instead of a terminal.
- * Everything else is real: `trunk clone` runs against a local bare remote with
+ * Everything else is real: `trunk-cli clone` runs against a local bare remote with
  * real git and wt, so these tests check what the screens are told (steps, the
  * result card, the questions) and what really ends up on disk.
  */
@@ -305,7 +305,7 @@ describe('the interactive setup flow', () => {
 		const said = record.results.map(line => line.text);
 		expect(said).toHaveLength(2);
 		expect(said[0]).toBe('Kept everything this run created.');
-		expect(said[1]).toMatch(/^Resume later with trunk init /);
+		expect(said[1]).toMatch(/^Resume later with trunk-cli init /);
 		expect(await exists(join(fixture.workingDirectory, 'acme-admin'))).toBe(
 			true,
 		);
@@ -347,7 +347,7 @@ async function run(
 			env: {...fixture.environment, ...options.environment},
 			interactive: true,
 			terminalUi: async () => terminal,
-			invocation: {executable: 'trunk', arguments: ['clone']},
+			invocation: {executable: 'trunk-cli', arguments: ['clone']},
 			now: () => new Date('2026-09-18T00:00:00.000Z'),
 			async attach(command, arguments_, options) {
 				const result = await runCommand(command, arguments_, options);

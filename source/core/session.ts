@@ -181,7 +181,7 @@ export type Refusal =
 export type TerminalUi = Readonly<{
 	session: () => Promise<Session>;
 	refuse: (refusal: Refusal) => Promise<void>;
-	/** `full` lists every option, for `trunk --help`; the default is the short screen. */
+	/** `full` lists every option, for `trunk-cli --help`; the default is the short screen. */
 	welcome: (version: string, detail?: 'summary' | 'full') => Promise<void>;
 }>;
 

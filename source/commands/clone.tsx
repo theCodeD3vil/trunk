@@ -1,5 +1,5 @@
 /**
- * `trunk clone <url> [dir]`: from a remote URL to a project on disk, then into
+ * `trunk-cli clone <url> [dir]`: from a remote URL to a project on disk, then into
  * the shared setup pipeline.
  *
  * Nothing here ever changes directory: every git call carries `--git-dir` or
@@ -50,7 +50,7 @@ export async function runClone(
 ): Promise<Outcome> {
 	const [url, directory, ...extra] = arguments_;
 	if (!url) {
-		return badUsage('trunk clone needs a remote URL');
+		return badUsage('trunk-cli clone needs a remote URL');
 	}
 
 	if (extra.length > 0) {

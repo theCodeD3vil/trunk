@@ -1,5 +1,5 @@
 /**
- * The screen for `trunk` and `trunk --help` in a terminal: the three commands
+ * The screen for `trunk-cli` and `trunk-cli --help` in a terminal: the three commands
  * first, an example to copy, and the options as a reference rather than the
  * headline. It is printed once and left in the scrollback, so it has no keys.
  */
@@ -24,8 +24,8 @@ const options: ReadonlyArray<readonly [flag: string, text: string]> = [
 ];
 
 /**
- * `summary` is what plain `trunk` shows: the options collapse to one dim line,
- * because they are a reference and not the headline. `full` is `trunk --help`,
+ * `summary` is what plain `trunk-cli` shows: the options collapse to one dim line,
+ * because they are a reference and not the headline. `full` is `trunk-cli --help`,
  * where the reference is the point, so every option is listed with its meaning.
  */
 export type WelcomeDetail = 'summary' | 'full';
@@ -67,7 +67,7 @@ export function welcomeLines(
 				[
 					line(
 						[`${g.prompt} `, 'c-acc'],
-						['trunk clone git@github.com:acme/storefront.git', 'b'],
+						['trunk-cli clone git@github.com:acme/storefront.git', 'b'],
 					),
 				],
 				Math.min(contentWidth, 64),

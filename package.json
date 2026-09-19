@@ -19,7 +19,7 @@
 	"license": "MIT",
 	"packageManager": "bun@1.4.0",
 	"bin": {
-		"trunk": "dist/cli.js"
+		"trunk-cli": "dist/cli.js"
 	},
 	"type": "module",
 	"engines": {

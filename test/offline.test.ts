@@ -1,6 +1,6 @@
 /**
  * Trunk has no network of its own. `clone` reaches a remote only by running
- * git, and everything else, `trunk docs` included, works from what is on disk.
+ * git, and everything else, `trunk-cli docs` included, works from what is on disk.
  * This guards that by refusing any network API in the source.
  */
 import {readFile, readdir} from 'node:fs/promises';

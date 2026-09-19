@@ -1,5 +1,5 @@
 /**
- * `trunk clone` against a local bare remote. Everything here runs the real
+ * `trunk-cli clone` against a local bare remote. Everything here runs the real
  * pipeline: real git, real wt, real files. Only the terminal is missing, which
  * is the point — this is the `--yes` path a script or CI would take.
  */
@@ -29,7 +29,7 @@ type Fixture = Readonly<{
 	tools: ToolProbe;
 }>;
 
-describe('trunk clone end to end', () => {
+describe('trunk-cli clone end to end', () => {
 	let fixture: Fixture;
 
 	beforeAll(async () => {
@@ -238,7 +238,7 @@ describe('trunk clone end to end', () => {
 			expect(reported).toContain('created by this run:');
 			expect(reported).toContain('bare repo');
 			expect(reported).toContain('worktree + branch, wt.toml uncommitted');
-			expect(reported).toContain('resume: trunk init ./broken');
+			expect(reported).toContain('resume: trunk-cli init ./broken');
 
 			const setupWorktree = join(
 				local.workingDirectory,
@@ -355,7 +355,7 @@ describe('trunk clone end to end', () => {
 			expect(outcome.code).toBe(exitCodes.operationFailed);
 
 			const reported = lines.join('\n');
-			expect(reported).toContain('resume: trunk init ./kept');
+			expect(reported).toContain('resume: trunk-cli init ./kept');
 			expect(reported).toContain('remove chore/trunk-setup --no-hooks --yes');
 			expect(await exists(join(local.workingDirectory, 'kept'))).toBe(true);
 		} finally {
@@ -422,7 +422,7 @@ function dependencies(fixture: Fixture) {
 		cwd: fixture.workingDirectory,
 		env: fixture.environment,
 		interactive: false,
-		invocation: {executable: 'trunk', arguments: ['clone']},
+		invocation: {executable: 'trunk-cli', arguments: ['clone']},
 		now: () => new Date('2026-09-18T00:00:00.000Z'),
 		// Capture what would normally stream to trunk's terminal, so the test
 		// runner's output stays readable.
