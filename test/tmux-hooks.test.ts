@@ -124,6 +124,95 @@ describe('generated tmux hooks on a real tmux server', () => {
 		await tmux(['kill-session', '-t', `=${neighbour}`]);
 	}, 30_000);
 
+	test('a second start keeps the session instead of rebuilding it', async () => {
+		const hooks = renderHooks(testSettings({agents: []}));
+		await run(hooks.start);
+		const before = await sessionId(session);
+		expect(await tag(session)).toBe(worktree);
+
+		await run(hooks.start);
+
+		expect(await sessionId(session)).toBe(before);
+		await run(hooks.kill);
+	}, 30_000);
+
+	describe('when the user renames the session', () => {
+		const renamed = 'my-own-name';
+
+		test('finds it again: no duplicate on a second start, then stop and kill reach it', async () => {
+			const hooks = renderHooks(testSettings({agents: []}));
+			await run(hooks.start);
+			await tmux(['rename-session', '-t', `=${session}`, renamed]);
+
+			// Starting again must adopt the renamed session, not build a twin.
+			await run(hooks.start);
+			expect(await hasSession(session)).toBe(false);
+			expect(await sessionNames()).toEqual([renamed]);
+
+			const pidFile = join(root, 'renamed.pid');
+			await startWorker(
+				'renamed',
+				`trap '' TERM\necho $$ > "${pidFile}"`,
+				renamed,
+			);
+			const recorded = await readFile(pidFile, 'utf8');
+			const pid = Number(recorded.trim());
+			expect(isAlive(pid)).toBe(true);
+
+			await run(hooks.stop);
+			expect(isAlive(pid)).toBe(false);
+			expect(await hasSession(renamed)).toBe(true);
+
+			await run(hooks.kill);
+			expect(await sessionNames()).toEqual([]);
+		}, 30_000);
+
+		test('leaves alone a session tagged for another worktree that took this name', async () => {
+			const other = join(root, 'other-worktree');
+			await mkdir(other);
+			await tmux(['new-session', '-d', '-s', session, '-c', other]);
+			await tmux(['set-option', '-t', session, '@twt', other]);
+			const hooks = renderHooks(testSettings({agents: []}));
+
+			await run(hooks.stop);
+			await run(hooks.kill);
+			expect(await hasSession(session)).toBe(true);
+
+			// Nor may the start hook replace a live neighbour.
+			await run(hooks.start);
+			expect(await sessionNames()).toEqual([session]);
+			expect(await tag(session)).toBe(other);
+
+			await tmux(['kill-session', '-t', `=${session}`]);
+		}, 30_000);
+	});
+
+	describe('a session made before sessions were tagged', () => {
+		test('is still removed by its generated name', async () => {
+			await tmux(['new-session', '-d', '-s', session, '-c', worktree]);
+
+			await run(renderHooks(testSettings()).kill);
+
+			expect(await hasSession(session)).toBe(false);
+		}, 30_000);
+
+		test('is adopted by the start hook, so a later rename cannot lose it', async () => {
+			await tmux(['new-session', '-d', '-s', session, '-c', worktree]);
+			const before = await sessionId(session);
+			const hooks = renderHooks(testSettings());
+
+			await run(hooks.start);
+
+			// The same session, now tagged; not a replacement built beside it.
+			expect(await sessionId(session)).toBe(before);
+			expect(await tag(session)).toBe(worktree);
+
+			await tmux(['rename-session', '-t', session, 'renamed-later']);
+			await run(hooks.kill);
+			expect(await sessionNames()).toEqual([]);
+		}, 30_000);
+	});
+
 	test('does nothing when the session is already gone', async () => {
 		const hooks = renderHooks(testSettings());
 
@@ -164,7 +253,11 @@ async function run(body: string): Promise<void> {
  * Starts a background script in the Terminal window's first pane and waits until
  * it has begun, so a signal cannot arrive before its trap is installed.
  */
-async function startWorker(name: string, setup: string): Promise<void> {
+async function startWorker(
+	name: string,
+	setup: string,
+	target = session,
+): Promise<void> {
 	const script = join(root, `${name}.sh`);
 	const started = join(root, `${name}.started`);
 	await writeFile(
@@ -174,7 +267,7 @@ async function startWorker(name: string, setup: string): Promise<void> {
 	await tmux([
 		'send-keys',
 		'-t',
-		`=${session}:Terminal.0`,
+		`=${target}:Terminal.0`,
 		`sh ${script}`,
 		'Enter',
 	]);
@@ -197,6 +290,33 @@ async function windows(): Promise<string[]> {
 		'#{window_name}',
 	]);
 	return output.trim().split('\n');
+}
+
+/** The session's id, which unlike its name does not change on a rename. */
+async function sessionId(name: string): Promise<string> {
+	const output = await tmux([
+		'display-message',
+		'-p',
+		'-t',
+		`=${name}:`,
+		'#{session_id}',
+	]);
+	return output.trim();
+}
+
+async function tag(name: string): Promise<string> {
+	const output = await tmux(['show-options', '-qv', '-t', name, '@twt']);
+	return output.trim();
+}
+
+async function sessionNames(): Promise<string[]> {
+	const result = await runCommand(
+		tmuxPath,
+		['-L', socket, 'list-sessions', '-F', '#{session_name}'],
+		{env: environment},
+	);
+	// With no server left, tmux exits non-zero and prints nothing on stdout.
+	return result.stdout.trim() === '' ? [] : result.stdout.trim().split('\n');
 }
 
 async function hasSession(name: string): Promise<boolean> {

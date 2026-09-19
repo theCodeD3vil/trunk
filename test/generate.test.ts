@@ -129,9 +129,29 @@ describe('wt.toml generator', () => {
 		expect(stop).not.toContain('kill-session');
 		// No detached, delayed command: the shutdown finishes before removal does.
 		expect(stop).not.toContain('run-shell');
-		expect(kill).toContain('tmux kill-session -t "=$S"');
+		expect(kill).toContain('tmux kill-session -t "$SID"');
 		expect(kill).not.toContain('run-shell');
 		expect(kill).toContain(`S="\${P}_$B"`);
+	});
+
+	test('finds the session by its worktree tag, not only by its name', () => {
+		const document = parseGenerated(compose(testSettings())) as {
+			'pre-start': Array<Record<string, string>>;
+			'pre-remove': Record<string, string>;
+			'post-remove': Record<string, string>;
+		};
+		const start = document['pre-start'].find(step => step['tmux'])!['tmux']!;
+
+		// The tag is written once, at creation, and read by every hook.
+		expect(start).toContain('set-option -t "$SID" @twt "$W"');
+		for (const body of [
+			start,
+			document['pre-remove']['tmux']!,
+			document['post-remove']['tmux']!,
+		]) {
+			expect(body).toContain('show-options -qv -t "$id" @twt');
+			expect(body).toContain('W={{ worktree_path }}');
+		}
 	});
 
 	test('names every expected hook the generated file defines', () => {
