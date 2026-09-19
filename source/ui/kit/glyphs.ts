@@ -28,6 +28,12 @@ export type Glyphs = Readonly<{
 	barOff: string;
 	chk: string;
 	unchk: string;
+	/** A checkbox in its three states, each three cells wide in both glyph sets. */
+	boxOn: string;
+	boxOff: string;
+	boxNo: string;
+	more: string;
+	less: string;
 	tri: string;
 	mid: string;
 	dash: string;
@@ -71,6 +77,11 @@ export const unicodeGlyphs: Glyphs = Object.freeze({
 	barOff: '▱',
 	chk: '◼',
 	unchk: '◻',
+	boxOn: ' ◼ ',
+	boxOff: ' ◻ ',
+	boxNo: ' – ',
+	more: '▾',
+	less: '▴',
 	tri: '▸',
 	mid: '·',
 	dash: '—',
@@ -114,6 +125,11 @@ export const asciiGlyphs: Glyphs = Object.freeze({
 	barOff: '.',
 	chk: 'x',
 	unchk: ' ',
+	boxOn: '[x]',
+	boxOff: '[ ]',
+	boxNo: '[-]',
+	more: 'v',
+	less: '^',
 	tri: '>',
 	mid: '.',
 	dash: '-',

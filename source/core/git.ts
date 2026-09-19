@@ -346,6 +346,24 @@ export async function remoteDefaultBranch(
  * time limit, and no error, only `undefined`, for a remote that will not say.
  * It only fills in a label on the review screen; the clone itself still decides.
  */
+/**
+ * The environment for a command that must never wait for the user: git and ssh
+ * would otherwise ask for a password, a passphrase or a host-key decision on
+ * the terminal, where nobody is looking while the UI owns the screen. Without
+ * a prompt the command fails in a moment with a message that can be shown.
+ */
+export function withoutPrompts(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+	const env: NodeJS.ProcessEnv = {...base};
+	env['GIT_TERMINAL_PROMPT'] = '0';
+	env['GH_PROMPT_DISABLED'] = '1';
+	// Someone who set their own ssh command meant it; otherwise never prompt.
+	if (base['GIT_SSH_COMMAND'] === undefined && base['GIT_SSH'] === undefined) {
+		env['GIT_SSH_COMMAND'] = 'ssh -o BatchMode=yes';
+	}
+
+	return env;
+}
+
 export async function probeDefaultBranch(
 	url: string,
 	options: GitOptions & {
@@ -353,13 +371,7 @@ export async function probeDefaultBranch(
 		timeoutMs?: number;
 	} = {},
 ): Promise<string | undefined> {
-	const base = options.env ?? process.env;
-	const env: NodeJS.ProcessEnv = {...base};
-	env['GIT_TERMINAL_PROMPT'] = '0';
-	// Someone who set their own ssh command meant it; otherwise never prompt.
-	if (base['GIT_SSH_COMMAND'] === undefined && base['GIT_SSH'] === undefined) {
-		env['GIT_SSH_COMMAND'] = 'ssh -o BatchMode=yes';
-	}
+	const env = withoutPrompts(options.env ?? process.env);
 
 	const asked = (async () => {
 		try {

@@ -25,8 +25,16 @@ const text = (line: Line): string =>
 	line.segs.map(segment => segment.t).join('');
 const widthOf = (line: Line): number => [...text(line)].length;
 
-/** Names that are short labels for a key or a pair of arrows, not one cell of layout. */
-const labels = new Set(['updown', 'leftright', 'dots', 'enter']);
+/** Names that are short labels, or a checkbox that is three cells in both sets, not one cell of layout. */
+const labels = new Set([
+	'updown',
+	'leftright',
+	'dots',
+	'enter',
+	'boxOn',
+	'boxOff',
+	'boxNo',
+]);
 
 function glyphValues(glyphs: Glyphs): string[] {
 	return Object.entries(glyphs)

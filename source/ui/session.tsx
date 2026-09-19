@@ -47,9 +47,13 @@ import {
 } from './screens/overwrite.js';
 import {reviewKey, reviewLines, type ReviewState} from './screens/review.js';
 import {
+	askPublish,
+	endPublish,
 	initialRun,
 	runKey,
 	runningLines,
+	startPublish,
+	updatePublish,
 	updateStep,
 	type RunState,
 } from './screens/running.js';
@@ -125,7 +129,8 @@ function SessionApp({store, theme, onKey}: AppProperties): React.ReactElement {
 
 	const spinning =
 		screen.kind === 'run' &&
-		screen.run.steps.some(step => step.status === 'active');
+		(screen.run.steps.some(step => step.status === 'active') ||
+			screen.run.publish?.rows.some(row => row.status === 'active') === true);
 	const typing = screen.kind === 'configure' && screen.stage === 'setup';
 	useEffect(() => {
 		if (!spinning) {
@@ -223,6 +228,8 @@ export async function openSession(): Promise<Session> {
 	let onKey: (name: string) => void = () => undefined;
 	/** Resolves the question on screen with undefined, when the user cancels. */
 	let cancelPending: (() => void) | undefined;
+	/** Set while a push or pull request runs; aborting it stops the command. */
+	let publishing: AbortController | undefined;
 
 	const showRun = () => {
 		if (run !== undefined) {
@@ -239,6 +246,24 @@ export async function openSession(): Promise<Session> {
 		if (cancelPending !== undefined) {
 			aborted = true;
 			cancelPending();
+			return;
+		}
+
+		// A push or a pull request is running: stop that command, and quit at
+		// once if it is already being stopped.
+		if (publishing !== undefined) {
+			if (publishing.signal.aborted) {
+				app.unmount();
+				// eslint-disable-next-line unicorn/no-process-exit
+				process.exit(130);
+			}
+
+			publishing.abort();
+			if (run?.publish !== undefined) {
+				run = {...run, publish: {...run.publish, stopping: true}};
+				showRun();
+			}
+
 			return;
 		}
 
@@ -410,7 +435,7 @@ export async function openSession(): Promise<Session> {
 					state = step.state;
 					run = state;
 					showRun();
-					if (step.answer !== undefined) {
+					if (step.answer === 'push' || step.answer === 'skip') {
 						resolve(step.answer);
 					}
 				},
@@ -427,6 +452,50 @@ export async function openSession(): Promise<Session> {
 			} else if (run !== undefined) {
 				// A run that stopped: say what was kept or rolled back.
 				run = {...run, outcome: [...(run.outcome ?? []), ...lines]};
+				showRun();
+			}
+		},
+
+		publishStart(request) {
+			publishing = new AbortController();
+			if (run !== undefined) {
+				run = startPublish(run, request);
+				showRun();
+			}
+
+			return publishing.signal;
+		},
+
+		publishUpdate(step, status, detail) {
+			if (run !== undefined) {
+				run = updatePublish(run, step, status, performance.now(), detail);
+				showRun();
+			}
+		},
+
+		async publishProblem(problem) {
+			if (run === undefined) {
+				return undefined;
+			}
+
+			run = askPublish(run, problem);
+			return ask<'retry' | 'later'>(
+				() => ({kind: 'run', run: run!}),
+				(name, resolve) => {
+					const step = runKey(run!, name);
+					run = step.state;
+					showRun();
+					if (step.answer === 'retry' || step.answer === 'later') {
+						resolve(step.answer);
+					}
+				},
+			);
+		},
+
+		publishEnd(lines) {
+			publishing = undefined;
+			if (run !== undefined) {
+				run = endPublish(run, lines);
 				showRun();
 			}
 		},

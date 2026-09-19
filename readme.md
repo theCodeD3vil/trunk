@@ -85,10 +85,12 @@ trunk docs
 
 In a terminal, `clone` and `init` are one continuous screen rather than a series of prompts:
 
-1. A short form for whatever you did not pass as a flag. A preview beside it shows exactly the hooks your answers will produce, and updates as you type.
+1. A short form for whatever you did not pass as a flag. A preview beside it shows exactly the hooks your answers will produce, and updates as you type. The agents are a list with a checkbox each: every known agent is shown, the ones not installed are dim and skipped by the cursor, and at four the rest say why they cannot be picked.
 2. A review of what will be written and where. Nothing is created until you confirm it, and you can go back and edit.
 3. The named steps running, each with its own detail and time.
 4. A result card with the next commands to run, and the one question about pushing.
+
+Answering yes to the push question turns it into two steps that show their progress: _Push to origin_, then _Open pull request_ when `gh` can. If something goes wrong, a card gives what git or `gh` said, one line on what to do, and the command to run afterwards, with Retry first. Ctrl+C stops the command and says how to finish by hand. Neither command can ask a question on the screen: git and `gh` run with prompts off and ssh in batch mode, so a missing key or token fails at once with a readable card instead of waiting.
 
 If `.config/wt.toml` already exists, the run pauses on a numbered diff. Keeping your file is the default. If something fails, a card says what went wrong, what the run created, and how to resume, and offers to keep the result or roll it back. Ctrl+C at a question cancels; during a run it stops after the current step, and a second press quits at once.
 

@@ -6,6 +6,8 @@
 
 ### Added
 
+- Pushing the setup branch shows its progress. The question becomes two named steps, _Push to origin_ and _Open pull request_, each with a spinner and a clock. A failed push gets a card with git's own words, one line on how to fix it, and the command to run afterwards, with Retry first. If the push worked and the pull request did not, the push stays ticked and Retry repeats only the pull request. After ten seconds a slow push says it is still waiting.
+- Ctrl+C during a push or pull request stops that command and prints how to finish by hand.
 - `trunk docs`, an offline interactive documentation browser bundled with the package. It has two topics, Config Basics and Node, with live search, scrolling, and copyable snippets. Without a terminal that can read keys it exits with status 2.
 - `trunk init` support for a bare-layout project that has no origin remote. The project directory's name seeds the suggested prefix, and the local merge command is printed instead of a pull request.
 - `trunk init` refuses an empty bare repository instead of creating history in it.
@@ -14,6 +16,8 @@
 
 ### Fixed
 
+- The agents picker no longer cuts the list off. It is now a vertical list with a checkbox per agent, so all six fit at any width. Agents that are not installed stay listed, dim, with the reason, and the cursor skips them; at four picked the others say "limit reached" and Space explains why. Up and down move through the list and cross into the neighbouring field at either end. A short terminal shows a window onto the list that follows the cursor.
+- The push and the pull request no longer run with prompts on. A missing key, token or host key failed silently behind the screen before; it now fails at once with a card that says what to do. A failed push or pull request also no longer prints its raw output through the layout.
 - The screens are drawn in colour again. Loading them with `CI=false`, which stops Ink treating your shell as CI, also told its colour library that there was no colour, so every screen was plain text and the highlighted option in each choice was invisible. The colour level is now read from the real terminal and handed over for the import.
 - Text you paste, and keys held down while a screen redraws, are no longer dropped. Input is parsed key by key instead of as one press per burst.
 - On a short terminal, such as 80 by 24, the result card keeps the push question on screen by folding the step list to one line. The same holds for the failure and existing-config questions.
