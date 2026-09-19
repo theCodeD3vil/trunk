@@ -94,9 +94,9 @@ describe('packaged installation', () => {
 			'new-session',
 			'-d',
 			'-x',
-			'80',
+			'110',
 			'-y',
-			'24',
+			'36',
 			'-s',
 			'docs',
 			'-c',
@@ -107,18 +107,18 @@ describe('packaged installation', () => {
 		]);
 		expect(started.code, started.stderr).toBe(0);
 
-		const menu = await waitForScreen(tmux!, 'Config Basics');
-		expect(menu).toContain('Node');
-		expect(menu).toContain('trunk docs');
+		// Both topics and every section are listed in the sidebar at once.
+		const screen = await waitForScreen(tmux!, 'Config Basics');
+		expect(screen).toContain('Node');
+		expect(screen).toContain('Install dependencies');
+		expect(screen).toContain('Caddy routes');
 
-		// Keys go in one at a time, as they do from a keyboard.
-		await sendKeys(tmux!, ['Down']);
-		await sendKeys(tmux!, ['Enter']);
-		const sections = await waitForScreen(
-			tmux!,
-			'Install dependencies (npm, pnpm, Bun)',
-		);
-		expect(sections).toContain('Caddy routes (advanced)');
+		// Keys go in one at a time, as they do from a keyboard: step to the
+		// second section and see the reader change.
+		await sendKeys(tmux!, ['Right']);
+		// The sidebar already lists 'Hook lifecycle', so wait on the counter instead.
+		const next = await waitForScreen(tmux!, '2 of 13');
+		expect(next).toContain('Hook lifecycle');
 
 		await sendKeys(tmux!, ['q']);
 		await waitForSessionEnd(tmux!);

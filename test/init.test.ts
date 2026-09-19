@@ -24,7 +24,7 @@ import {runCommand, type CommandOptions} from '../source/core/process.js';
 import {exitCodes} from '../source/core/result.js';
 import type {SetupPrompts} from '../source/core/pipeline.js';
 import {resolve} from '../source/core/resolve.js';
-import type {collectSettings} from '../source/ui/SetupForm.js';
+import type {collectSettings} from '../source/core/collect.js';
 
 type CollectSettings = typeof collectSettings;
 

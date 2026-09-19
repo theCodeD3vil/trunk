@@ -14,6 +14,10 @@
 
 ### Changed
 
+- The terminal UI is redesigned as one continuous screen: a welcome, a setup form with a live preview of the hooks it will generate, a review that gates everything, named running steps with timings, a result card with the next commands, a numbered diff before overwriting an existing config, and cards for failures and refusals. `trunk docs` is now a two-pane browser with a sidebar.
+- Interactive `clone` and `init` ask for consent once, at the review, and never commit before it. The result card asks whether to push, and the answer starts on "Not now".
+- The screens honour `NO_COLOR`, `TRUNK_ASCII=1`, and `TRUNK_THEME`, fall back to ASCII on a Linux console or non-UTF-8 locale, and lay out to 104 columns, with two panes from 100.
+- The interactive path runs Git and Worktrunk quietly so nothing scrolls through the screen; the `--yes` and non-terminal paths are unchanged.
 - The generated `.config/wt.toml` contains only worktree concerns: a generic header, `up` and `mc` aliases, an ordered `pre-start` pipeline (optional `wt step copy-ignored`, then tmux), a `pre-remove` that asks pane processes to exit and force-stops stragglers, and a `post-remove` that closes exactly that tmux session. It has no dependency, server, port, proxy, or framework content, live or commented.
 - The setup form and flags cover only the prefix, tmux, agents, `copy-ignored`, and `mc`. Defaults are tmux on, no agents, `copy-ignored` off, and `mc` on.
 - Agents can only be selected when they are installed, and `--no-tmux` together with `--agents` is a usage error.
@@ -32,6 +36,7 @@
 
 ### Fixed
 
+- Interactive screens, `trunk docs` and the setup form, now draw immediately when the environment looks like CI, for example a `CI` variable or a hosting vendor marker such as `VERCEL` exported in a shell profile. Ink treats such an environment as CI and draws nothing until the program exits, so the screen only appeared after Ctrl+C, when the command was already gone.
 - A worktree that Worktrunk placed somewhere other than the proposed path is now found by its branch, so the generated file is written into the real setup worktree.
 - Rolling back an interrupted run now removes the setup worktree even though it holds the uncommitted config, which `wt remove` otherwise refuses to do.
 

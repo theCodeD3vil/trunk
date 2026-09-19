@@ -87,14 +87,21 @@ export class Journal {
 	 * them and how the resume command will repeat them.
 	 */
 	describe(workingDirectory: string): readonly string[] {
-		const rows = this.records.map(entry => ({
-			path: displayPath(entry.path, workingDirectory),
-			description: describeEntry(entry),
-		}));
+		const rows = this.rows(workingDirectory);
 		const width = Math.max(0, ...rows.map(row => row.path.length));
 		return Object.freeze(
 			rows.map(row => `${row.path.padEnd(width)}  ${row.description}`),
 		);
+	}
+
+	/** Each entry as a path and a description, for callers that lay them out themselves. */
+	rows(
+		workingDirectory: string,
+	): ReadonlyArray<Readonly<{path: string; description: string}>> {
+		return this.records.map(entry => ({
+			path: displayPath(entry.path, workingDirectory),
+			description: describeEntry(entry),
+		}));
 	}
 }
 

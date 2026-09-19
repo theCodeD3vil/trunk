@@ -1,33 +1,29 @@
 /* eslint-disable unicorn/filename-case -- React components use PascalCase file names. */
 /**
- * The offline documentation browser: a menu of topics, a section list, pages
- * with scrolling and copyable snippets, and live search. All navigation lives
- * in `docs/navigation.ts`; this file only draws the current screen and turns
- * key presses and clipboard results into state.
+ * The offline documentation browser: a sidebar of every topic and section beside
+ * a scrolling reader, with `/` search and `c` copy. All layout and navigation
+ * live in `screens/docs.ts`; this file draws the current state and turns key
+ * presses and clipboard results into state.
  */
-import React, {useRef, useState} from 'react';
-import {Box, Text, render, useApp, useInput, useStdout} from 'ink';
+import React, {useEffect, useRef, useState} from 'react';
+import {render, useApp, useInput, useStdout} from 'ink';
 import {supportsInteractiveInput} from '../core/platform.js';
 import {copyToClipboard, type CopyFunction} from '../docs/clipboard.js';
-import {topics} from '../docs/index.js';
-import {codeBlocks, layoutSection, wrap} from '../docs/layout.js';
+import {abortKey, keyName} from './keys.js';
+import {createKit} from './kit/lines.js';
+import {Lines} from './kit/render.js';
+import {resolveTheme, type Theme} from './kit/theme.js';
 import {
-	initialScreen,
-	pageViewport,
-	pageWidth,
-	reduce,
-	type PageScreen,
-	type Screen,
-	type SearchScreen,
-	type SectionsScreen,
-	type View,
-} from '../docs/navigation.js';
-import {search} from '../docs/search.js';
-import type {CodeBlock} from '../docs/types.js';
+	documentationKey,
+	documentationLines,
+	initialDocumentation,
+	type DocumentationState,
+} from './screens/docs.js';
 
 export type DocumentationBrowserProperties = Readonly<{
 	/** Overrides the terminal size, so tests render at a fixed width. */
-	size?: View;
+	size?: Readonly<{columns: number; rows: number}>;
+	theme?: Theme;
 	copy?: CopyFunction;
 	onExit?: () => void;
 }>;
@@ -37,245 +33,85 @@ export type DocumentationBrowserOutcome =
 	/** The terminal cannot read keys, so the caller explains and exits. */
 	| Readonly<{kind: 'unavailable'; reason: string}>;
 
-const defaultView: View = Object.freeze({columns: 80, rows: 24});
+const maximumColumns = 104;
 
 export default function DocumentationBrowser({
 	size,
+	theme = resolveTheme(),
 	copy = copyToClipboard,
 	onExit,
 }: DocumentationBrowserProperties): React.ReactElement {
 	const {exit} = useApp();
 	const {stdout} = useStdout();
-	const view: View = size ?? {
-		columns: stdout.columns || defaultView.columns,
-		rows: stdout.rows || defaultView.rows,
-	};
-	const [screen, setScreen] = useState<Screen>(initialScreen);
+	const [state, setState] = useState<DocumentationState>(initialDocumentation);
+	const [caret, setCaret] = useState(true);
 	const closed = useRef(false);
+	const columns = Math.min(
+		size?.columns ?? (stdout.columns || 80),
+		maximumColumns,
+	);
+	const rows = size?.rows ?? (stdout.rows || 40);
+	const kit = createKit(theme.glyphs, columns);
+	const searching = state.search !== undefined;
 
-	/** Copies one snippet, then shows what happened on the page it came from. */
-	const copySnippet = async (block: CodeBlock): Promise<void> => {
-		const result = await copy(block.code);
-		const notice = result.ok
-			? `Copied "${block.label}" to the clipboard (${result.via}).`
-			: result.message;
-		setScreen(current =>
-			current.name === 'page' ? {...current, notice} : current,
-		);
-	};
-
-	useInput((input, key) => {
-		const step = reduce(screen, input, key, view);
-		setScreen(step.screen);
-
-		const {effect} = step;
-		if (effect?.kind === 'quit' && !closed.current) {
+	const close = () => {
+		if (!closed.current) {
 			closed.current = true;
 			onExit?.();
 			exit();
-		} else if (effect?.kind === 'copy') {
-			void copySnippet(effect.block);
+		}
+	};
+
+	useEffect(() => {
+		if (!searching) {
+			return undefined;
+		}
+
+		const timer = setInterval(() => {
+			setCaret(value => !value);
+		}, 530);
+		return () => {
+			clearInterval(timer);
+		};
+	}, [searching]);
+
+	useInput((input, key) => {
+		const name = keyName(input, key);
+		if (name === undefined) {
+			return;
+		}
+
+		if (name === abortKey) {
+			close();
+			return;
+		}
+
+		const step = documentationKey(state, name, {kit, rows});
+		setState(step.state);
+		if (step.effect?.kind === 'quit') {
+			close();
+		} else if (step.effect?.kind === 'copy') {
+			const {label, code} = step.effect.block;
+			void (async () => {
+				const result = await copy(code);
+				const notice = {
+					ok: result.ok,
+					text: result.ok
+						? `Copied "${label}" to the clipboard (${result.via}).`
+						: result.message,
+				};
+				setState(current => ({...current, notice}));
+			})();
 		}
 	});
 
 	return (
-		<Box flexDirection="column" width={view.columns}>
-			{renderScreen(screen, view)}
-		</Box>
-	);
-}
-
-function renderScreen(screen: Screen, view: View): React.ReactElement {
-	switch (screen.name) {
-		case 'menu': {
-			return <Menu index={screen.index} />;
-		}
-
-		case 'sections': {
-			return <Sections screen={screen} />;
-		}
-
-		case 'search': {
-			return <Search screen={screen} view={view} />;
-		}
-
-		case 'page': {
-			return screen.picker === undefined ? (
-				<Page screen={screen} view={view} />
-			) : (
-				<Picker screen={screen} />
-			);
-		}
-	}
-}
-
-function Menu({index}: Readonly<{index: number}>): React.ReactElement {
-	return (
-		<Box flexDirection="column">
-			<Text bold>trunk docs</Text>
-			<Box flexDirection="column" marginTop={1}>
-				{topics.map((topic, position) => (
-					<Box key={topic.id} flexDirection="column">
-						<Text color={position === index ? 'cyan' : undefined}>
-							{position === index ? '›' : ' '} {topic.title}
-						</Text>
-						<Text dimColor>{`  ${topic.summary}`}</Text>
-					</Box>
-				))}
-			</Box>
-			<Hints text="↑/↓ choose · Enter open · / search · q quit" />
-		</Box>
-	);
-}
-
-function Sections({
-	screen,
-}: Readonly<{screen: SectionsScreen}>): React.ReactElement {
-	const topic = topics[screen.topic]!;
-	return (
-		<Box flexDirection="column">
-			<Text bold>{topic.title}</Text>
-			<Text dimColor>{topic.summary}</Text>
-			<Box flexDirection="column" marginTop={1}>
-				{topic.sections.map((section, position) => (
-					<Text
-						key={section.id}
-						color={position === screen.index ? 'cyan' : undefined}
-					>
-						{position === screen.index ? '›' : ' '} {section.title}
-					</Text>
-				))}
-			</Box>
-			<Hints text="↑/↓ choose · Enter open · / search · Esc back · q quit" />
-		</Box>
-	);
-}
-
-function Search({
-	screen,
-	view,
-}: Readonly<{screen: SearchScreen; view: View}>): React.ReactElement {
-	const results = search(screen.query);
-	// Each result takes two lines; the rest of the frame is the input and hints.
-	const capacity = Math.max(1, Math.floor((view.rows - 6) / 2));
-	const start = Math.min(
-		Math.max(0, screen.index - capacity + 1),
-		Math.max(0, results.length - capacity),
-	);
-	const visible = results.slice(start, start + capacity);
-
-	return (
-		<Box flexDirection="column">
-			<Text>
-				<Text color="cyan">/ </Text>
-				{screen.query}
-				<Text color="cyan">▌</Text>
-			</Text>
-			<Box flexDirection="column" marginTop={1}>
-				{screen.query.trim() === '' ? (
-					<Text dimColor>Type to search titles, prose and code.</Text>
-				) : results.length === 0 ? (
-					<Text dimColor>No matches.</Text>
-				) : (
-					visible.map((result, offset) => {
-						const active = start + offset === screen.index;
-						return (
-							<Box
-								key={`${result.topicId}/${result.sectionId}`}
-								flexDirection="column"
-							>
-								<Text color={active ? 'cyan' : undefined}>
-									{active ? '›' : ' '} {result.sectionTitle}
-									<Text dimColor> · {result.topicTitle}</Text>
-								</Text>
-								<Text dimColor wrap="truncate-end">
-									{'    '}
-									{result.snippet.text}
-								</Text>
-							</Box>
-						);
-					})
-				)}
-			</Box>
-			<Hints text="type to search · ↑/↓ choose · Enter open · Esc menu" />
-		</Box>
-	);
-}
-
-function Page({
-	screen,
-	view,
-}: Readonly<{screen: PageScreen; view: View}>): React.ReactElement {
-	const topic = topics[screen.topic]!;
-	const section = topic.sections[screen.section]!;
-	const lines = layoutSection(section, pageWidth(view));
-	const viewport = pageViewport(view);
-	const shown = lines.slice(screen.scroll, screen.scroll + viewport);
-	const snippets = codeBlocks(section).length;
-	const more = lines.length - (screen.scroll + viewport);
-	const notice = screen.notice
-		? wrap(screen.notice, pageWidth(view)).slice(0, 2)
-		: [];
-
-	return (
-		<Box flexDirection="column">
-			<Text dimColor>
-				{topic.title} › {section.title}
-				{more > 0 ? ' · more below' : ''}
-			</Text>
-			<Box flexDirection="column" marginTop={1} height={viewport}>
-				{shown.map((line, position) => (
-					<Text
-						key={`${screen.scroll + position}`}
-						bold={line.kind === 'title'}
-						dimColor={line.kind === 'code-label'}
-						color={line.kind === 'code' ? 'cyan' : undefined}
-					>
-						{line.text || ' '}
-					</Text>
-				))}
-			</Box>
-			<Box flexDirection="column" marginTop={1} height={3}>
-				<Text dimColor>
-					{`↑/↓ scroll · ←/→ section${
-						snippets > 0 ? ` · c copy (${snippets})` : ''
-					} · / search · Esc back`}
-				</Text>
-				{notice.map(line => (
-					<Text key={line} color="yellow">
-						{line}
-					</Text>
-				))}
-			</Box>
-		</Box>
-	);
-}
-
-function Picker({screen}: Readonly<{screen: PageScreen}>): React.ReactElement {
-	const section = topics[screen.topic]!.sections[screen.section]!;
-	return (
-		<Box flexDirection="column">
-			<Text bold>Copy which snippet?</Text>
-			<Box flexDirection="column" marginTop={1}>
-				{codeBlocks(section).map((block, position) => (
-					<Text
-						key={block.label}
-						color={position === screen.picker ? 'cyan' : undefined}
-					>
-						{position === screen.picker ? '›' : ' '} {block.label}
-					</Text>
-				))}
-			</Box>
-			<Hints text="↑/↓ choose · Enter copy · Esc cancel" />
-		</Box>
-	);
-}
-
-function Hints({text}: Readonly<{text: string}>): React.ReactElement {
-	return (
-		<Box marginTop={1}>
-			<Text dimColor>{text}</Text>
-		</Box>
+		<Lines
+			lines={documentationLines(kit, state, {caret, rows})}
+			theme={theme}
+			width={columns}
+			caret={caret}
+		/>
 	);
 }
 

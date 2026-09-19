@@ -65,6 +65,8 @@ export function parseArguments(
 		// from an explicit `--no-server`.
 		booleanDefault: undefined,
 		allowUnknownFlags: false,
-		flags: flagDefinitions,
+		// Help is drawn by trunk itself, so a terminal gets the styled screen.
+		autoHelp: false,
+		flags: {...flagDefinitions, help: {type: 'boolean', alias: 'h'}},
 	});
 }
