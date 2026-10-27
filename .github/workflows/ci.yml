@@ -26,7 +26,7 @@ jobs:
         with:
           bun-version: 1.4.0
 
-      # The terminal tests run the built CLI under Node, which needs node:ffi.
+      # The tests run the built CLI under Node, which needs node:ffi.
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
