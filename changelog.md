@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-`trunk-cli` is now language-agnostic. It configures the worktree experience and no longer models a project's stack. This release is breaking; it is expected to ship as 0.2.0.
+`trunk-cli` is now language-agnostic. It configures the worktree experience and no longer models a project's stack. This release is breaking.
 
 ### Added
 
