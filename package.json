@@ -1,6 +1,6 @@
 {
 	"name": "@cod3vil/trunk",
-	"version": "0.3.0",
+	"version": "0.4.1",
 	"description": "Set up a Git repository for Worktrunk: a bare layout and a shared, language-agnostic worktree config with a tmux workspace per worktree.",
 	"repository": {
 		"type": "git",
@@ -23,7 +23,7 @@
 	},
 	"type": "module",
 	"engines": {
-		"node": ">=20"
+		"node": ">=26.12.0"
 	},
 	"scripts": {
 		"build": "rm -rf dist && tsc",
@@ -40,9 +40,10 @@
 		"access": "public"
 	},
 	"dependencies": {
-		"ink": "^4.1.0",
+		"@opentui/core": "0.7.0",
+		"@opentui/react": "0.7.0",
 		"meow": "^11.0.0",
-		"react": "^18.2.0"
+		"react": "^19.2.0"
 	},
 	"devDependencies": {
 		"@iarna/toml": "^2.2.5",
@@ -50,12 +51,11 @@
 		"@types/bun": "^1.4.2",
 		"@types/iarna__toml": "^2.0.5",
 		"@types/node": "^20.0.0",
-		"@types/react": "^18.0.32",
+		"@types/react": "^19.2.0",
 		"@vdemedes/prettier-config": "^2.0.1",
 		"eslint-config-xo-react": "^0.27.0",
 		"eslint-plugin-react": "^7.32.2",
 		"eslint-plugin-react-hooks": "^4.6.0",
-		"ink-testing-library": "^4.0.0",
 		"np": "^12.1.1",
 		"prettier": "^2.8.7",
 		"typescript": "^5.0.3",
@@ -65,7 +65,19 @@
 		"extends": "xo-react",
 		"prettier": true,
 		"rules": {
-			"react/prop-types": "off"
+			"react/prop-types": "off",
+			"react/no-unknown-property": [
+				"error",
+				{
+					"ignore": [
+						"flexDirection",
+						"wrapMode",
+						"fg",
+						"bg",
+						"attributes"
+					]
+				}
+			]
 		}
 	},
 	"prettier": "@vdemedes/prettier-config",

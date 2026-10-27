@@ -220,6 +220,8 @@ export async function runInteractiveSetup(
 		project: plan.project,
 		rootName,
 		destination: displayPath(plan.projectDirectory),
+		source: plan.command === 'clone' ? plan.remote?.url : undefined,
+		identifier: plan.remote?.identifier,
 		defaultBranch: plan.defaultBranch,
 		probedDefaultBranch: () => probed,
 		direct: flags.direct ?? false,
@@ -258,8 +260,9 @@ export async function runInteractiveSetup(
 	try {
 		return await runSession(context, session, plan, request);
 	} finally {
-		await session.close();
-		for (const [kind, line] of buffered) {
+		// After a finished run the screen shows the next steps instead of this log.
+		const summarised = await session.close();
+		for (const [kind, line] of summarised ? [] : buffered) {
 			base.report(kind, line);
 		}
 	}
@@ -453,7 +456,9 @@ async function runSession(
 		});
 
 		return await finish(context, session, plan, settings, {
-			title: `${request.rootName} is ready`,
+			title: `${request.command === 'clone' ? 'Cloned' : 'Created'} ${
+				request.rootName
+			}`,
 			worktree,
 			branch,
 			defaultWorktree,

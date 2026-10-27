@@ -24,9 +24,7 @@ import {
 } from '../source/ui/screens/callouts.js';
 import {
 	documentationKey,
-	documentationLines,
 	initialDocumentation,
-	readerHeight,
 } from '../source/ui/screens/docs.js';
 import {
 	buildOverwriteModel,
@@ -36,31 +34,29 @@ import {
 	overwriteLines,
 	scrollLimit,
 } from '../source/ui/screens/overwrite.js';
-import {reviewKey, reviewLines} from '../source/ui/screens/review.js';
 import {
 	askPublish,
 	endPublish,
 	initialRun,
 	runKey,
-	runningLines,
 	startPublish,
 	updatePublish,
 	updateStep,
 	type RunState,
 } from '../source/ui/screens/running.js';
-import {
-	focusableFields,
-	generatedSize,
-	initialSetup,
-	setupKey,
-	setupLines,
-} from '../source/ui/screens/setup.js';
+import {doneLines, outcomeOf} from '../source/ui/screens/done.js';
 import {welcomeLines} from '../source/ui/screens/welcome.js';
 
 const text = (line: Line): string =>
 	line.segs.map(segment => segment.t).join('');
 const screenText = (lines: readonly Line[]): string =>
 	lines.map(line => text(line)).join('\n');
+
+/** What a printed screen draws: its body, and whatever is printed below the frame. */
+const asLines = (parts: {
+	body: readonly Line[];
+	after?: readonly Line[];
+}): Line[] => [...parts.body, ...(parts.after ?? [])];
 
 const values: SetupValues = {
 	prefix: 'acme',
@@ -95,7 +91,7 @@ function request(overrides: Partial<ConfigureRequest> = {}): ConfigureRequest {
 const finish: FinishRequest = {
 	command: 'init',
 	project: 'acme/admin',
-	title: 'acme-admin is ready',
+	title: 'Cloned acme-admin',
 	next: [
 		{command: 'cd ~/Projects/acme-admin/chore-trunk-setup'},
 		{command: 'wt config approvals add', note: 'review the hooks once'},
@@ -122,44 +118,9 @@ const failure: FailureRequest = {
 
 /** Every screen at every size the UI supports, keyed by a name for failures. */
 function screens(kit: Kit, rows: number): Array<[string, Line[]]> {
-	const now = 5000;
-	let run: RunState = initialRun(
-		[
-			{id: 'clone', label: 'Clone repository', detail: 'file:///a/b.git'},
-			{
-				id: 'commit',
-				label: 'Commit on chore/trunk-setup',
-				detail: 'Add worktree automation',
-			},
-		],
-		'init',
-		'acme/admin',
-	);
-	run = updateStep(run, 'clone', 'active', 1000);
 	const existing = '# mine\n[post-start]\nedit = "true"\n';
 	return [
-		['welcome', welcomeLines(kit, '0.1.1')],
-		[
-			'setup',
-			setupLines(kit, request(), initialSetup(request()), {caret: true, rows}),
-		],
-		[
-			'review',
-			reviewLines(kit, request(), request().toSettings(values), {sel: 0}, rows),
-		],
-		['running', runningLines(kit, run, now, rows)],
-		[
-			'result',
-			runningLines(
-				kit,
-				{
-					...run,
-					finish: {request: finish, sel: 1, outcome: [], answered: false},
-				},
-				now,
-				rows,
-			),
-		],
+		['welcome', asLines(welcomeLines(kit))],
 		[
 			'overwrite',
 			overwriteLines(
@@ -181,21 +142,22 @@ function screens(kit: Kit, rows: number): Array<[string, Line[]]> {
 		],
 		['failure', failureLines(kit, failure, {sel: 0}, rows)],
 		[
-			'docs',
-			documentationLines(kit, initialDocumentation, {caret: true, rows}),
+			'missing tools',
+			asLines(missingToolLines(kit, ['git', 'wt'], 'trunk-cli init')),
 		],
-		['missing tools', missingToolLines(kit, ['git', 'wt'], 'trunk-cli init')],
 		[
 			'normal clone',
-			normalCloneLines(kit, {
-				name: 'acme-admin',
-				url: 'https://example.com/acme/admin.git',
-				unsaved: ['3 uncommitted files'],
-			}),
+			asLines(
+				normalCloneLines(kit, {
+					name: 'acme-admin',
+					url: 'https://example.com/acme/admin.git',
+					unsaved: ['3 uncommitted files'],
+				}),
+			),
 		],
 		[
 			'empty repository',
-			emptyRepositoryLines(kit, 'acme-admin', 'trunk-cli init'),
+			asLines(emptyRepositoryLines(kit, 'acme-admin', 'trunk-cli init')),
 		],
 	];
 }
@@ -239,161 +201,10 @@ describe('every screen fits the terminal', () => {
 		const kit = createKit(unicodeGlyphs, 80);
 
 		for (const [screen, lines] of screens(kit, 24)) {
-			if (
-				[
-					'setup',
-					'review',
-					'running',
-					'result',
-					'overwrite',
-					'failure',
-					'docs',
-				].includes(screen)
-			) {
+			if (['overwrite', 'failure', 'docs'].includes(screen)) {
 				expect(lines.length, screen).toBeLessThan(24);
 			}
 		}
-	});
-});
-
-describe('setup screen', () => {
-	test('shows the five choices and a preview that follows them', () => {
-		const wide = createKit(unicodeGlyphs, 104);
-		const start = initialSetup(request());
-		const screen = screenText(
-			setupLines(wide, request(), start, {caret: true, rows: 40}),
-		);
-
-		expect(screen).toContain('Configure worktree automation');
-		for (const label of [
-			'Session prefix',
-			'tmux workspace',
-			'Copy ignored files',
-			'wt mc alias',
-		]) {
-			expect(screen).toContain(label);
-		}
-
-		expect(screen).toContain('Preview');
-		expect(screen).toContain('.config/wt.toml');
-
-		const off = {...start, values: {...values, tmux: false, mcAlias: false}};
-		const plain = screenText(
-			setupLines(wide, request(), off, {caret: true, rows: 40}),
-		);
-		expect(plain).not.toContain('open the tmux workspace');
-	});
-
-	test('folds the preview under 100 columns', () => {
-		const narrow = createKit(unicodeGlyphs, 80);
-		const screen = screenText(
-			setupLines(narrow, request(), initialSetup(request()), {
-				caret: true,
-				rows: 40,
-			}),
-		);
-
-		expect(screen).toContain('Configure worktree automation');
-		expect(screen).toContain('Preview');
-	});
-
-	test('typing edits the prefix, and Enter on an invalid one goes nowhere', () => {
-		const r = request();
-		let state = initialSetup(r);
-		for (const key of ['backspace', 'backspace', 'backspace', 'backspace']) {
-			state = setupKey(r, state, key).state;
-		}
-
-		expect(state.values.prefix).toBe('');
-		expect(setupKey(r, state, 'enter').done).toBe(false);
-		expect(setupKey(r, state, 'enter').state.field).toBe(0);
-
-		for (const key of ['w', 'e', 'b']) {
-			state = setupKey(r, state, key).state;
-		}
-
-		expect(state.values.prefix).toBe('web');
-		expect(setupKey(r, state, 'enter').state.field).toBe(1);
-	});
-
-	test('turning tmux off turns the agents off with it', () => {
-		const r = request({values: {...values, agents: ['claude']}});
-		let {state} = setupKey(r, initialSetup(r), 'down');
-		expect(focusableFields(r, state.values)[state.field]).toBe('tmux');
-
-		state = setupKey(r, state, 'space').state;
-		expect(state.values.tmux).toBe(false);
-		expect(state.values.agents).toEqual([]);
-	});
-
-	test('a field a flag already settled is not asked again', () => {
-		const r = request({fromFlags: {prefix: '--prefix', tmux: '--tmux'}});
-
-		expect(focusableFields(r, values)).not.toContain('prefix');
-		expect(focusableFields(r, values)).not.toContain('tmux');
-	});
-
-	test('Enter on the last field finishes the form', () => {
-		const r = request();
-		const fields = focusableFields(r, values);
-		let state = initialSetup(r);
-		for (let index = 0; index < fields.length - 1; index += 1) {
-			state = setupKey(r, state, 'enter').state;
-		}
-
-		const last = setupKey(r, state, 'enter');
-		expect(last.done).toBe(true);
-	});
-
-	test('reports how big the generated file is, from the real generator', () => {
-		const on = generatedSize(request(), values);
-		const off = generatedSize(request(), {
-			...values,
-			tmux: false,
-			mcAlias: false,
-		});
-
-		expect(on?.lines).toBeGreaterThan(off?.lines ?? 0);
-		expect(
-			generatedSize(request(), {...values, prefix: 'not valid!'}),
-		).toBeUndefined();
-	});
-});
-
-describe('review screen', () => {
-	const kit = createKit(unicodeGlyphs, 104);
-	const settings = request().toSettings(values);
-
-	test('lists the choices and shows where the file will land', () => {
-		const screen = screenText(
-			reviewLines(kit, request(), settings, {sel: 0}, 40),
-		);
-
-		expect(screen).toContain('Ready to set up acme-admin');
-		expect(screen).toContain('Your choices');
-		expect(screen).toContain('acme_<branch>');
-		expect(screen).toContain('chore-trunk-setup/');
-		expect(screen).toContain('Create setup branch');
-	});
-
-	test('a direct commit says so and has no setup branch', () => {
-		const screen = screenText(
-			reviewLines(kit, request({direct: true}), settings, {sel: 0}, 40),
-		);
-
-		expect(screen).toContain('Write and commit');
-		expect(screen).not.toContain('chore-trunk-setup/');
-	});
-
-	test('arrows cycle the actions, b and Esc go back, Enter picks', () => {
-		expect(reviewKey({sel: 0}, 'enter').action).toBe('create');
-		expect(reviewKey({sel: 0}, 'right').state.sel).toBe(1);
-		expect(reviewKey({sel: 0}, 'left').state.sel).toBe(2);
-		expect(reviewKey({sel: 1}, 'enter').action).toBe('back');
-		expect(reviewKey({sel: 2}, 'enter').action).toBe('cancel');
-		expect(reviewKey({sel: 0}, 'b').action).toBe('back');
-		expect(reviewKey({sel: 0}, 'esc').action).toBe('back');
-		expect(reviewKey({sel: 0}, 'x').action).toBeUndefined();
 	});
 });
 
@@ -424,50 +235,6 @@ describe('running screen and result card', () => {
 		state = updateStep(state, 'commit', 'active', 3000);
 		state = updateStep(state, 'commit', 'active', 9000);
 		expect(state.steps[1]?.startedAt).toBe(9000);
-	});
-
-	test('shows each step with its detail and duration', () => {
-		let state = initialRun(definitions, 'init', 'acme/admin');
-		state = updateStep(state, 'clone', 'active', 1000);
-		state = updateStep(state, 'clone', 'done', 2500);
-		const screen = screenText(runningLines(kit, state, 3000, 40));
-
-		expect(screen).toContain('Clone repository');
-		expect(screen).toContain('file:///a/b.git');
-		expect(screen).toContain('1.5s');
-		expect(screen).toContain('Ctrl+C');
-	});
-
-	test('the push question starts on Not now and only Enter answers it', () => {
-		let state: RunState = {
-			...initialRun([], 'init', 'acme/admin'),
-			finish: {request: finish, sel: 1, outcome: [], answered: false},
-		};
-		const screen = screenText(runningLines(kit, state, 0, 40));
-		expect(screen).toContain('acme-admin is ready');
-		expect(screen).toContain('cd ~/Projects/acme-admin/chore-trunk-setup');
-		expect(screen).toContain('wt config approvals add');
-		expect(screen).toContain('Not now');
-
-		expect(runKey(state, 'enter').answer).toBe('skip');
-		state = runKey(state, 'left').state;
-		expect(runKey(state, 'enter').answer).toBe('push');
-		expect(runKey(state, 'x').answer).toBeUndefined();
-
-		// Once answered, further keys do nothing.
-		const answered = runKey(state, 'enter').state;
-		expect(runKey(answered, 'enter').answer).toBeUndefined();
-	});
-
-	test('a closed frame drops its key bar, and a cancelling run says it will stop', () => {
-		const base = initialRun(definitions, 'init', 'acme/admin');
-
-		expect(
-			screenText(runningLines(kit, {...base, cancelling: true}, 0, 40)),
-		).toContain('Stopping after this step');
-		expect(
-			screenText(runningLines(kit, {...base, closed: true}, 0, 40)),
-		).not.toContain('Ctrl+C');
 	});
 });
 
@@ -519,32 +286,12 @@ describe('existing-config screen', () => {
 
 describe('docs screen', () => {
 	const kit = createKit(unicodeGlyphs, 104);
-	const view = {kit, rows: 36};
-
-	test('a wide terminal shows the sidebar beside the page, a narrow one folds it', () => {
-		const wide = screenText(
-			documentationLines(kit, initialDocumentation, {caret: true, rows: 36}),
-		);
-		expect(wide).toContain('Config Basics');
-		expect(wide).toContain('Hook lifecycle');
-		expect(wide).toContain('1 of 13');
-
-		const narrow = screenText(
-			documentationLines(createKit(unicodeGlyphs, 80), initialDocumentation, {
-				caret: true,
-				rows: 36,
-			}),
-		);
-		expect(narrow).not.toContain('Hook lifecycle');
-		expect(narrow).toContain('1 of 13');
-	});
+	const view = {kit, width: 80, height: 28};
 
 	test('the side arrows step through every section and stop at the ends', () => {
 		let state = initialDocumentation;
 		state = documentationKey(state, 'right', view).state;
-		expect(
-			screenText(documentationLines(kit, state, {caret: true, rows: 36})),
-		).toContain('2 of 13');
+		expect(state).toMatchObject({topic: 0, section: 1});
 
 		expect(documentationKey(initialDocumentation, 'left', view).state).toEqual(
 			initialDocumentation,
@@ -554,9 +301,8 @@ describe('docs screen', () => {
 			state = documentationKey(state, 'right', view).state;
 		}
 
-		expect(
-			screenText(documentationLines(kit, state, {caret: true, rows: 36})),
-		).toContain('13 of 13');
+		// The last of the thirteen sections: the fifth of the second topic.
+		expect(state).toMatchObject({topic: 1, section: 4});
 	});
 
 	test('q quits, and c on a page with several snippets asks which to copy', () => {
@@ -624,23 +370,25 @@ describe('failure and refusal cards', () => {
 	});
 
 	test('a missing tool names it, links the fix and shows the command to re-run', () => {
-		const screen = screenText(
-			missingToolLines(kit, ['wt'], 'trunk-cli clone x'),
-		);
+		const parts = missingToolLines(kit, ['wt'], 'trunk-cli clone x');
+		const screen = screenText(parts.body);
 
 		expect(screen).toContain('Worktrunk');
 		expect(screen).toContain('https://worktrunk.dev');
 		expect(screen).toContain('trunk-cli clone x');
-		expect(screen).toContain('exit 3');
+		expect(parts.exit).toBe(3);
+		expect(parts.foot).toBe('Nothing was created.');
 	});
 
 	test('a normal clone is left alone and the steps to move it across are listed', () => {
 		const screen = screenText(
-			normalCloneLines(kit, {
-				name: 'acme-admin',
-				url: 'https://example.com/a.git',
-				unsaved: [],
-			}),
+			asLines(
+				normalCloneLines(kit, {
+					name: 'acme-admin',
+					url: 'https://example.com/a.git',
+					unsaved: [],
+				}),
+			),
 		);
 
 		expect(screen).toContain('acme-admin is a normal clone');
@@ -653,10 +401,10 @@ describe('failure and refusal cards', () => {
 describe('welcome screen', () => {
 	test('leads with the three commands, then an example and the options', () => {
 		const screen = screenText(
-			welcomeLines(createKit(unicodeGlyphs, 104), '0.1.1'),
+			asLines(welcomeLines(createKit(unicodeGlyphs, 104))),
 		);
 
-		expect(screen).toContain('0.1.1');
+		expect(screen).toContain('Set up a repository for parallel work.');
 		for (const command of ['clone', 'init', 'docs']) {
 			expect(screen).toContain(command);
 		}
@@ -677,24 +425,6 @@ const framed = new Set([
 ]);
 
 describe('the key bar is pinned to the bottom', () => {
-	for (const rows of [24, 30, 50]) {
-		test(`every framed screen fills ${
-			rows - 1
-		} of ${rows} rows and ends on its key bar`, () => {
-			const kit = createKit(unicodeGlyphs, 104);
-
-			for (const [screen, lines] of screens(kit, rows)) {
-				if (!framed.has(screen)) {
-					continue;
-				}
-
-				expect(lines, `${screen} at ${rows} rows`).toHaveLength(rows - 1);
-				expect(lines.at(-2) && text(lines.at(-2)!), screen).toMatch(/^─+$/);
-				expect(text(lines.at(-1)!).trim(), screen).not.toBe('');
-			}
-		});
-	}
-
 	test('the key bar is on the same row from screen to screen', () => {
 		const kit = createKit(unicodeGlyphs, 104);
 		const rows = screens(kit, 30)
@@ -726,45 +456,6 @@ describe('a short terminal never hides a question', () => {
 		'validate',
 		'commit',
 	].map(id => ({id, label: `Step ${id}`, detail: 'ok'}));
-
-	test('at 80 by 24 the result card still asks whether to push', () => {
-		let state = initialRun(steps, 'clone', 'acme/admin');
-		for (const step of steps) {
-			state = updateStep(state, step.id, 'active', 0);
-			state = updateStep(state, step.id, 'done', 100);
-		}
-
-		state = {
-			...state,
-			finish: {request: long, sel: 1, outcome: [], answered: false},
-		};
-		const screen = screenText(runningLines(kit, state, 0, 24));
-
-		expect(screen).toContain('Push chore/trunk-setup and open a pull request?');
-		expect(screen).toContain('Push chore/trunk-setup to origin');
-		expect(screen).toContain('Not now');
-		expect(screen).toContain('acme-admin is ready');
-		// The steps gave way, to a single line, before the question did.
-		expect(screen).toContain('6 steps done');
-	});
-
-	test('with room to spare the steps are all listed', () => {
-		let state = initialRun(steps, 'clone', 'acme/admin');
-		for (const step of steps) {
-			state = updateStep(state, step.id, 'done', 100);
-		}
-
-		state = {
-			...state,
-			finish: {request: long, sel: 1, outcome: [], answered: false},
-		};
-		const screen = screenText(
-			runningLines(createKit(unicodeGlyphs, 104), state, 0, 40),
-		);
-
-		expect(screen).toContain('Step validate');
-		expect(screen).not.toContain('6 steps done');
-	});
 
 	test('the failure question, and the diff question, survive 24 rows', () => {
 		const many = {
@@ -816,66 +507,11 @@ describe('cards stop at 76 columns', () => {
 			.filter(row => row.startsWith('  ╭'))
 			.map(row => row.trimEnd().length - 2);
 	}
-
-	test('the choices card and the result card', () => {
-		const review = reviewLines(
-			kit,
-			request(),
-			request().toSettings(values),
-			{sel: 0},
-			30,
-		);
-		let state = initialRun([], 'init', 'acme/admin');
-		state = {
-			...state,
-			finish: {request: finish, sel: 1, outcome: [], answered: false},
-		};
-
-		expect(boxWidths(review)).toEqual([76]);
-		expect(boxWidths(runningLines(kit, state, 0, 30))).toEqual([76]);
-	});
-
-	test('a narrow terminal shrinks them to fit instead', () => {
-		const narrow = createKit(unicodeGlyphs, 80);
-		const review = reviewLines(
-			narrow,
-			request(),
-			request().toSettings(values),
-			{sel: 0},
-			30,
-		);
-
-		expect(boxWidths(review)).toEqual([76]);
-		expect(
-			Math.max(...review.map(line => text(line).length)),
-		).toBeLessThanOrEqual(80);
-	});
 });
 
 describe('next steps keep their notes', () => {
 	const kit = createKit(unicodeGlyphs, 104);
 	const deep = `cd ~/${'nested/'.repeat(12)}acme-admin/chore-trunk-setup`;
-
-	test('even when the path is far longer than the card', () => {
-		let state = initialRun([], 'init', 'acme/admin');
-		state = {
-			...state,
-			finish: {
-				request: {...finish, next: [{command: deep}, ...finish.next.slice(1)]},
-				sel: 1,
-				outcome: [],
-				answered: false,
-			},
-		};
-		const screen = screenText(runningLines(kit, state, 0, 30));
-
-		expect(screen).toContain('review the hooks once');
-		// The path was shortened from its front, so the project's name is intact.
-		expect(screen).toContain('acme-admin/chore-trunk-setup');
-		for (const row of screen.split('\n')) {
-			expect([...row].length).toBeLessThanOrEqual(104);
-		}
-	});
 });
 
 describe('commands are never cut off', () => {
@@ -883,7 +519,9 @@ describe('commands are never cut off', () => {
 	const url = `https://example.com/${'organisation/'.repeat(5)}storefront.git`;
 
 	test('a normal clone with a long URL shows the whole command below its card', () => {
-		const lines = normalCloneLines(kit, {name: 'storefront', url, unsaved: []});
+		const lines = asLines(
+			normalCloneLines(kit, {name: 'storefront', url, unsaved: []}),
+		);
 		const command = `trunk-cli clone ${url} storefront-wt`;
 		const soft = lines
 			.filter(line => line.soft === true)
@@ -895,11 +533,13 @@ describe('commands are never cut off', () => {
 	});
 
 	test('a short URL stays inside the card, as designed', () => {
-		const lines = normalCloneLines(kit, {
-			name: 'storefront',
-			url: 'git@github.com:acme/storefront.git',
-			unsaved: [],
-		});
+		const lines = asLines(
+			normalCloneLines(kit, {
+				name: 'storefront',
+				url: 'git@github.com:acme/storefront.git',
+				unsaved: [],
+			}),
+		);
 
 		expect(lines.some(line => line.soft === true)).toBe(false);
 		expect(screenText(lines)).toContain(
@@ -909,8 +549,8 @@ describe('commands are never cut off', () => {
 
 	test('the same holds for the missing-tool and empty-repository re-run commands', () => {
 		const rerun = `trunk-cli clone ${url} some-directory`;
-		const missing = missingToolLines(kit, ['wt'], rerun);
-		const empty = emptyRepositoryLines(kit, 'storefront', rerun);
+		const missing = asLines(missingToolLines(kit, ['wt'], rerun));
+		const empty = asLines(emptyRepositoryLines(kit, 'storefront', rerun));
 
 		for (const lines of [missing, empty]) {
 			expect(
@@ -943,12 +583,12 @@ describe('welcome', () => {
 	const kit = createKit(unicodeGlyphs, 104);
 
 	test('plain trunk keeps the options to one dim line and says how to skip the questions', () => {
-		const screen = screenText(welcomeLines(kit, '0.3.0', 'summary'));
+		const screen = screenText(asLines(welcomeLines(kit, 'summary')));
 
 		expect(screen).toContain(
 			'--yes · --prefix · --agents · --tmux · --copy · --mc · --direct',
 		);
-		expect(screen).toContain(
+		expect(welcomeLines(kit, 'summary').foot).toBe(
 			'Nothing is written until you review it. Add --yes to skip every question.',
 		);
 		expect(screen).not.toContain('tmux session prefix');
@@ -958,7 +598,7 @@ describe('welcome', () => {
 	});
 
 	test('trunk-cli --help lists what every option means', () => {
-		const screen = screenText(welcomeLines(kit, '0.3.0', 'full'));
+		const screen = screenText(asLines(welcomeLines(kit, 'full')));
 
 		for (const meaning of [
 			'accept the defaults, no questions',
@@ -972,8 +612,8 @@ describe('welcome', () => {
 	});
 
 	test('the summary is the default', () => {
-		expect(screenText(welcomeLines(kit, '0.3.0'))).toBe(
-			screenText(welcomeLines(kit, '0.3.0', 'summary')),
+		expect(screenText(asLines(welcomeLines(kit)))).toBe(
+			screenText(asLines(welcomeLines(kit, 'summary'))),
 		);
 	});
 });
@@ -981,71 +621,6 @@ describe('welcome', () => {
 describe('clicks reach the screens', () => {
 	const kit = createKit(unicodeGlyphs, 104);
 	const wide = request({values: {...values, agents: []}});
-
-	test('a field row in the setup form carries the click that opens it', () => {
-		const lines = setupLines(kit, wide, initialSetup(wide), {
-			caret: true,
-			rows: 40,
-		});
-		const row = lines.find(line => text(line).includes('◇ tmux workspace'));
-
-		expect(row?.segs.some(segment => segment.k === 'setup:1')).toBe(true);
-		// The preview panel beside it is not part of the click.
-		expect(row?.segs.at(-1)?.k).toBeUndefined();
-	});
-
-	test('on, off, agent chips and rows change the answers', () => {
-		let state = initialSetup(wide);
-		state = setupKey(wide, state, 'setup:1').state;
-		expect(focusableFields(wide, state.values)[state.field]).toBe('tmux');
-
-		state = setupKey(wide, state, 'off').state;
-		expect(state.values.tmux).toBe(false);
-		state = setupKey(wide, state, 'on').state;
-		expect(state.values.tmux).toBe(true);
-
-		state = setupKey(wide, state, 'setup:2').state;
-		expect(focusableFields(wide, state.values)[state.field]).toBe('agents');
-		state = setupKey(wide, state, 'agent:1').state;
-		expect(state.values.agents).toEqual(['codex']);
-		expect(state.cursor).toBe(1);
-		state = setupKey(wide, state, 'agent:1').state;
-		expect(state.values.agents).toEqual([]);
-	});
-
-	test('every key cap on the setup key bar sends a key, except typing', () => {
-		const lines = setupLines(kit, wide, initialSetup(wide), {
-			caret: true,
-			rows: 30,
-		});
-		const bar = lines.at(-1)!;
-		const keys = bar.segs
-			.filter(segment => segment.k !== undefined)
-			.map(segment => segment.k);
-
-		expect(keys).toEqual(['down', 'enter']);
-	});
-
-	test('the review actions are buttons', () => {
-		const review = reviewLines(
-			kit,
-			request(),
-			request().toSettings(values),
-			{sel: 0},
-			30,
-		);
-		const keys = review
-			.flatMap(line => line.segs.map(segment => segment.k))
-			.filter(Boolean);
-
-		for (const key of ['go', 'back', 'cancel', 'enter', 'b']) {
-			expect(keys, key).toContain(key);
-		}
-
-		expect(reviewKey({sel: 1}, 'go')).toMatchObject({action: 'create'});
-		expect(reviewKey({sel: 0}, 'cancel')).toMatchObject({action: 'cancel'});
-		expect(reviewKey({sel: 0}, 'back')).toMatchObject({action: 'back'});
-	});
 
 	test('the push, keep and roll back buttons answer at once', () => {
 		let state: RunState = {
@@ -1062,53 +637,6 @@ describe('clicks reach the screens', () => {
 		expect(failureKey(failure, {sel: 1}, 'keep').answer).toBe('keep');
 		expect(overwriteKey(initialOverwrite, 'replace').answer).toBe('replace');
 		expect(overwriteKey(initialOverwrite, 'keep').answer).toBe('keep');
-	});
-
-	test('the docs sidebar, search results and snippet picker are clickable', () => {
-		const lines = documentationLines(kit, initialDocumentation, {
-			caret: true,
-			rows: 36,
-		});
-		const view = {kit, rows: 36};
-		const hook = lines.find(line => text(line).includes('Hook lifecycle'));
-		expect(hook?.segs.some(segment => segment.k === 'docs-s:0:1')).toBe(true);
-
-		const moved = documentationKey(
-			initialDocumentation,
-			'docs-s:1:2',
-			view,
-		).state;
-		expect([moved.topic, moved.section]).toEqual([1, 2]);
-
-		let {state} = documentationKey(initialDocumentation, '/', view);
-		for (const key of 'tmux') {
-			state = documentationKey(state, key, view).state;
-		}
-
-		const results = documentationLines(kit, state, {caret: true, rows: 36});
-		expect(results.some(line => line.row === 'docs-r:1')).toBe(true);
-		const opened = documentationKey(state, 'docs-r:1', view).state;
-		expect(opened.search).toBeUndefined();
-
-		let picker = initialDocumentation;
-		for (let index = 0; index < 13; index++) {
-			const next = documentationKey(picker, 'c', view);
-			if (next.state.picker !== undefined) {
-				const chosen = documentationKey(next.state, 'picker:1', view);
-				expect(chosen.effect?.kind).toBe('copy');
-				return;
-			}
-
-			picker = documentationKey(picker, 'right', view).state;
-		}
-
-		throw new Error('no page has two snippets');
-	});
-
-	test('the docs reader uses the whole height of the terminal', () => {
-		expect(readerHeight(30)).toBe(24);
-		expect(readerHeight(50)).toBe(44);
-		expect(readerHeight(10)).toBe(6);
 	});
 });
 
@@ -1137,55 +665,22 @@ describe('the existing-config diff', () => {
 	});
 });
 
-describe('a stopped run', () => {
-	test('says what was rolled back under the steps', () => {
-		const kit = createKit(unicodeGlyphs, 104);
-		let state = initialRun(
-			[
-				{
-					id: 'validate',
-					label: 'Validate with Worktrunk',
-					detail: 'wt config show',
-				},
-			],
-			'clone',
-			'acme/admin',
-		);
-		state = updateStep(state, 'validate', 'failed', 100);
-		state = {
-			...state,
-			outcome: [
-				{ok: true, text: 'Removed the chore-trunk-setup worktree and branch.'},
-				{ok: false, text: 'Could not remove the folder.'},
-			],
-		};
-		const screen = screenText(runningLines(kit, state, 0, 30));
-
-		expect(screen).toContain('Stopped');
-		expect(screen).toContain('✗ Validate with Worktrunk');
-		expect(screen).toContain(
-			'✓ Removed the chore-trunk-setup worktree and branch.',
-		);
-		expect(screen).toContain('✗ Could not remove the folder.');
-	});
-});
-
 describe('wording follows the proposal', () => {
 	const kit = createKit(unicodeGlyphs, 104);
 
 	test('a missing wt says what Trunk does through it, and a missing git the same for git', () => {
 		expect(
-			screenText(missingToolLines(kit, ['wt'], 'trunk-cli clone x')),
+			screenText(asLines(missingToolLines(kit, ['wt'], 'trunk-cli clone x'))),
 		).toContain(
-			'Trunk creates worktrees through the `wt` command, and it was not found on your',
+			'Trunk needs `wt` to create worktrees. It was not found on your PATH.',
 		);
 		expect(
-			screenText(missingToolLines(kit, ['git'], 'trunk-cli clone x')),
-		).toContain(
-			'Trunk reads and clones repositories through the `git` command',
-		);
+			screenText(asLines(missingToolLines(kit, ['git'], 'trunk-cli clone x'))),
+		).toContain('Trunk needs `git` to read and clone repositories.');
 		expect(
-			screenText(missingToolLines(kit, ['git', 'wt'], 'trunk-cli clone x')),
+			screenText(
+				asLines(missingToolLines(kit, ['git', 'wt'], 'trunk-cli clone x')),
+			),
 		).toContain(
 			'Trunk needs `git` and `wt` on your PATH, and neither was found.',
 		);
@@ -1193,15 +688,19 @@ describe('wording follows the proposal', () => {
 
 	test('a normal clone names the branch to copy into when it knows it', () => {
 		const named = screenText(
-			normalCloneLines(kit, {
-				name: 'storefront',
-				url: 'u',
-				unsaved: [],
-				branch: 'main',
-			}),
+			asLines(
+				normalCloneLines(kit, {
+					name: 'storefront',
+					url: 'u',
+					unsaved: [],
+					branch: 'main',
+				}),
+			),
 		);
 		const unnamed = screenText(
-			normalCloneLines(kit, {name: 'storefront', url: 'u', unsaved: []}),
+			asLines(
+				normalCloneLines(kit, {name: 'storefront', url: 'u', unsaved: []}),
+			),
 		);
 
 		expect(named).toContain(
@@ -1238,311 +737,6 @@ describe('wording follows the proposal', () => {
 	});
 });
 
-describe('the 80-column form', () => {
-	test('folds the preview to one line that names the aliases, as the proposal does', () => {
-		const narrow = createKit(unicodeGlyphs, 80);
-		const screen = screenText(
-			setupLines(narrow, request(), initialSetup(request()), {
-				caret: true,
-				rows: 30,
-			}),
-		);
-
-		expect(screen).toContain('acme_<branch> · 3 hooks · wt up, wt mc');
-	});
-
-	test('leaves an alias out when its switch is off', () => {
-		const narrow = createKit(unicodeGlyphs, 80);
-		const state = {
-			...initialSetup(request()),
-			values: {...values, mcAlias: false},
-		};
-		const screen = screenText(
-			setupLines(narrow, request(), state, {caret: true, rows: 30}),
-		);
-
-		expect(screen).toContain('acme_<branch> · 3 hooks · wt up');
-		expect(screen).not.toContain('wt up, wt mc');
-	});
-});
-
-describe('the agents picker', () => {
-	/** The form with every agent installed, or only the given ones. */
-	const withAgents = (installed: readonly string[] = agentIds) =>
-		request({
-			installedAgents: agentIds.filter(id => installed.includes(id)),
-			missingAgents: agentIds.filter(id => !installed.includes(id)),
-			values: {...values, agents: []},
-		});
-	/** Opens the agents field: prefix, then tmux, then agents. */
-	const open = (
-		r: ReturnType<typeof request>,
-		keys: readonly string[] = [],
-	) => {
-		let state = initialSetup(r);
-		for (const key of ['down', 'down', ...keys]) {
-			state = setupKey(r, state, key).state;
-		}
-
-		return state;
-	};
-
-	const screenOfForm = (
-		r: ReturnType<typeof request>,
-		state: ReturnType<typeof initialSetup>,
-		columns = 104,
-		rows = 30,
-		glyphs = unicodeGlyphs,
-	) => setupLines(createKit(glyphs, columns), r, state, {caret: true, rows});
-
-	test('lists every known agent, one per row, so none is ever cut off', () => {
-		const r = withAgents();
-		const screen = screenText(screenOfForm(r, open(r)));
-
-		for (const name of agentIds) {
-			expect(screen, name).toMatch(new RegExp(`[◼◻] +${name}\\b`));
-		}
-
-		// Six rows of agents, and nothing wider than the column they sit in.
-		for (const row of screen.split('\n').filter(row => row.includes('│ '))) {
-			expect(row.length).toBeLessThanOrEqual(104);
-		}
-	});
-
-	test('a picked agent is a filled box and the others are empty ones', () => {
-		const r = withAgents();
-		const state = open(r, ['space']);
-		const screen = screenText(screenOfForm(r, state));
-
-		expect(screen).toMatch(/◼ +claude/);
-		expect(screen).toMatch(/◻ +codex/);
-		expect(screen).toContain('1 of 4 selected');
-		// The preview follows, under the tmux hooks.
-		expect(screen).toMatch(/├─ Agents {2}claude/);
-	});
-
-	test('the cursor row is tinted to the edge of its column, and only that row', () => {
-		const r = withAgents();
-		const lines = screenOfForm(r, open(r, ['down']));
-		const tinted = lines.filter(line =>
-			line.segs.some(segment => segment.c.includes('tint')),
-		);
-
-		expect(tinted).toHaveLength(1);
-		expect(text(tinted[0]!)).toContain('codex');
-		expect(text(tinted[0]!)).toContain('▸');
-		// Every part of the row's own column, padding included, carries the tint;
-		// the preview panel beside it does not.
-		let column = 0;
-		const inColumn: boolean[] = [];
-		for (const segment of tinted[0]!.segs) {
-			const start = column;
-			column += [...segment.t].length;
-			if (segment.t !== '' && start >= 5 && column <= 54) {
-				inColumn.push(segment.c.includes('tint'));
-			}
-		}
-
-		expect(inColumn.length).toBeGreaterThan(3);
-		expect(inColumn.every(Boolean)).toBe(true);
-	});
-
-	test('agents that are not installed stay listed, dim, and the cursor skips them', () => {
-		const r = withAgents(['claude', 'codex', 'pi']);
-		let state = open(r);
-		const screen = screenText(screenOfForm(r, state));
-
-		expect(screen).toMatch(/– +opencode +not installed/);
-		expect(screen).toMatch(/– +copilot +not installed/);
-		expect(screen).toMatch(/– +antigravity +not installed/);
-
-		// From codex, down lands on pi, over the three that are missing.
-		state = setupKey(r, state, 'down').state;
-		state = setupKey(r, state, 'down').state;
-		expect(r.installedAgents[state.cursor]).toBe('pi');
-		expect(screenText(screenOfForm(r, state))).toMatch(/▸ +[◻◼] +pi/);
-	});
-
-	test('Space picks the agent under the cursor, in the installed order, whichever came first', () => {
-		const r = withAgents();
-		let state = open(r, ['down', 'space', 'up', 'space']);
-
-		expect(state.values.agents).toEqual(['claude', 'codex']);
-		state = setupKey(r, state, 'space').state;
-		expect(state.values.agents).toEqual(['codex']);
-	});
-
-	test('a fifth pick is refused with the reason, and the next key clears it', () => {
-		const r = withAgents();
-		let state = open(r, [
-			'space',
-			'down',
-			'space',
-			'down',
-			'space',
-			'down',
-			'space',
-			'down',
-			'space',
-		]);
-
-		expect(state.values.agents).toHaveLength(4);
-		expect(state.notice).toBe('4 is the most. Turn one off first.');
-		const screen = screenText(screenOfForm(r, state));
-		expect(screen).toContain('4 is the most. Turn one off first.');
-		// The rows that cannot be picked say so.
-		expect(screen).toMatch(/antigravity +limit reached/);
-
-		state = setupKey(r, state, 'up').state;
-		expect(state.notice).toBeUndefined();
-		expect(screenText(screenOfForm(r, state))).toContain(
-			'turn one off to pick another',
-		);
-	});
-
-	test('up and down cross into the neighbouring field at either end of the list', () => {
-		const r = withAgents();
-		const fields = focusableFields(r, values);
-		const agents = fields.indexOf('agents');
-		let state = open(r);
-		expect(state.field).toBe(agents);
-
-		state = setupKey(r, state, 'up').state;
-		expect(state.field).toBe(agents - 1);
-
-		state = open(r);
-		// Down through every agent, then out of the list.
-		for (let index = 0; index < agentIds.length - 1; index++) {
-			state = setupKey(r, state, 'down').state;
-			expect(state.field).toBe(agents);
-		}
-
-		state = setupKey(r, state, 'down').state;
-		expect(state.field).toBe(agents + 1);
-	});
-
-	test('Enter moves on, and left and right no longer do anything in the list', () => {
-		const r = withAgents();
-		const state = open(r, ['space']);
-
-		expect(setupKey(r, state, 'left').state.values.agents).toEqual(['claude']);
-		expect(setupKey(r, state, 'right').state.values.agents).toEqual(['claude']);
-		expect(setupKey(r, state, 'enter').state.field).toBe(state.field + 1);
-	});
-
-	test('clicking an agent picks it, and clicking one that is missing says so', () => {
-		const r = withAgents(['claude', 'codex', 'pi']);
-		let state = open(r);
-
-		state = setupKey(r, state, `agent:${agentIds.indexOf('pi')}`).state;
-		expect(state.values.agents).toEqual(['pi']);
-		expect(r.installedAgents[state.cursor]).toBe('pi');
-
-		state = setupKey(r, state, `agent:${agentIds.indexOf('copilot')}`).state;
-		expect(state.notice).toBe('copilot is not installed on this machine.');
-		expect(state.values.agents).toEqual(['pi']);
-	});
-
-	test('every row of the list carries its click, missing agents included', () => {
-		const r = withAgents(['claude', 'codex', 'pi']);
-		const lines = screenOfForm(r, open(r));
-		const keys = new Set(
-			lines
-				.flatMap(line => line.segs.map(segment => segment.k))
-				.filter(Boolean),
-		);
-
-		for (const name of agentIds) {
-			expect(keys.has(`agent:${agentIds.indexOf(name)}`), name).toBe(true);
-		}
-	});
-
-	test('a short terminal shows a window that follows the cursor and counts what is out of view', () => {
-		const r = withAgents();
-		let state = open(r);
-		const at24 = (s: typeof state) => screenText(screenOfForm(r, s, 80, 24));
-
-		expect(at24(state)).toMatch(/claude/);
-		expect(at24(state)).toMatch(/▾ \d more/);
-		expect(at24(state)).not.toMatch(/▴/);
-
-		for (let index = 0; index < 5; index++) {
-			state = setupKey(r, state, 'down').state;
-		}
-
-		expect(at24(state)).toMatch(/▴ \d more/);
-		expect(at24(state)).toMatch(/▸ +[◻◼] +pi/);
-		// The window and the rest of the form fit, and the key bar is on the last row.
-		const lines = screenOfForm(r, state, 80, 24);
-		expect(lines).toHaveLength(23);
-		expect(text(lines.at(-1)!)).toContain('move');
-	});
-
-	test('all six fit at 104 by 30 and at 80 by 30, and the form is as tall as it should be', () => {
-		const r = withAgents();
-		for (const columns of [80, 104]) {
-			const lines = screenOfForm(r, open(r), columns, 30);
-			const screen = screenText(lines);
-
-			expect(screen, `${columns} columns`).not.toMatch(/▾ \d more/);
-			expect(lines).toHaveLength(29);
-			for (const line of lines) {
-				expect([...text(line)].length).toBeLessThanOrEqual(columns);
-			}
-		}
-	});
-
-	test('in ASCII the boxes are [x] and [ ] and the cursor is >', () => {
-		const r = withAgents();
-		const state = open(r, ['space', 'down']);
-		const screen = screenText(screenOfForm(r, state, 104, 30, asciiGlyphs));
-
-		expect(screen).toMatch(/\[x] +claude/);
-		expect(screen).toMatch(/> +\[ ] +codex/);
-		expect(screen).toMatch(/\[ ] +pi/);
-		for (const line of screen.split('\n')) {
-			expect(line).toMatch(/^[ -~]*$/);
-		}
-	});
-
-	test('the preview wraps four long names under the first instead of overflowing', () => {
-		const r = withAgents();
-		const state = open(r, [
-			'space',
-			'down',
-			'space',
-			'down',
-			'space',
-			'down',
-			'space',
-		]);
-		const screen = screenText(screenOfForm(r, state));
-
-		expect(screen).toMatch(/Agents {2}claude, codex, opencode,/);
-		expect(screen).toMatch(/│ +copilot/);
-	});
-
-	test('the one-line preview at 80 columns counts the agents', () => {
-		const r = withAgents();
-		const state = open(r, ['space', 'down', 'space']);
-
-		expect(screenText(screenOfForm(r, state, 80, 30))).toContain(
-			'acme_<branch> · 3 hooks · 2 agents · wt up, wt mc',
-		);
-	});
-
-	test('the key bar names the keys that work in the list', () => {
-		const r = withAgents();
-		const bar = screenOfForm(r, open(r)).at(-1)!;
-
-		expect(text(bar)).toMatch(/↑↓ +move +Space +toggle +⏎ +next/);
-		expect(bar.segs.filter(s => s.k !== undefined).map(s => s.k)).toEqual([
-			'space',
-			'enter',
-		]);
-	});
-});
-
 describe('pushing the setup branch', () => {
 	const kit = createKit(unicodeGlyphs, 104);
 	const destination = 'github.com:acme/storefront';
@@ -1558,92 +752,6 @@ describe('pushing the setup branch', () => {
 	});
 	const started = (withPullRequest = true): RunState =>
 		startPublish(answered(), {...request, withPullRequest});
-	const at = (state: RunState, now: number, rows = 30, columns = 104) =>
-		screenText(
-			runningLines(createKit(unicodeGlyphs, columns), state, now, rows),
-		);
-
-	test('the question is replaced by two named steps, the first waiting to start', () => {
-		const screen = at(started(), 0);
-
-		expect(screen).toContain('Publishing chore/trunk-setup');
-		expect(screen).toMatch(
-			/○ Push to origin +chore\/trunk-setup → github\.com:acme\/storefront/,
-		);
-		expect(screen).toMatch(/○ Open pull request +gh pr create --fill/);
-		expect(screen).not.toContain('open a pull request?');
-		expect(screen).toContain('Ctrl+C');
-	});
-
-	test('the push turns and counts up while it runs, and the pull request waits', () => {
-		const state = updatePublish(started(), 'push', 'active', 1000);
-
-		const early = at(state, 1000 + 1400);
-		expect(early).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Push to origin.*1\.4s/);
-		expect(early).toMatch(/○ Open pull request/);
-		// The spinner moves between frames.
-		expect(at(state, 1000 + 1400)).not.toBe(at(state, 1000 + 1480));
-	});
-
-	test('a push still going after ten seconds says so, and how to stop waiting', () => {
-		const state = updatePublish(started(), 'push', 'active', 0);
-
-		expect(at(state, 9900)).not.toContain('Still waiting');
-		expect(at(state, 12_400)).toContain(
-			'Still waiting for github.com (12s). Ctrl+C stops waiting.',
-		);
-	});
-
-	test('a good push and pull request end with both ticked and the way to open it', () => {
-		let state = updatePublish(started(), 'push', 'active', 0);
-		state = updatePublish(state, 'push', 'done', 2600);
-		state = updatePublish(state, 'pr', 'active', 2600);
-		state = updatePublish(
-			state,
-			'pr',
-			'done',
-			4000,
-			'#12  github.com/acme/storefront/pull/12',
-		);
-		state = endPublish(state, [
-			{
-				ok: true,
-				plain: true,
-				text: 'Open it with  ',
-				command: 'gh pr view --web',
-			},
-		]);
-		const screen = at(state, 5000);
-
-		expect(screen).toContain('Published chore/trunk-setup');
-		expect(screen).toMatch(/✓ Push to origin.*2\.6s/);
-		expect(screen).toMatch(
-			/✓ Open pull request +#12 +github\.com\/acme\/storefront\/pull\/12 +1\.4s/,
-		);
-		expect(screen).toContain('Open it with  gh pr view --web');
-		// Nothing turns any more, and the key bar offers only to close.
-		expect(screen).toContain('Ctrl+C  close');
-	});
-
-	test('without a pull request there is one step, and the compare link follows', () => {
-		let state = startPublish(answered(), {...request, withPullRequest: false});
-		state = updatePublish(state, 'push', 'done', 1000);
-		state = endPublish(state, [
-			{
-				ok: true,
-				plain: true,
-				text: 'Open a pull request  ',
-				link: 'https://github.com/acme/storefront/compare/chore%2Ftrunk-setup?expand=1',
-			},
-		]);
-		const screen = at(state, 2000);
-
-		expect(screen).not.toContain('Open pull request');
-		expect(screen).toContain('Published chore/trunk-setup');
-		expect(screen).toContain(
-			'https://github.com/acme/storefront/compare/chore%2Ftrunk-setup?expand=1',
-		);
-	});
 
 	describe('when the push fails', () => {
 		const problem = {
@@ -1664,24 +772,6 @@ describe('pushing the setup branch', () => {
 			return askPublish(state, problem);
 		};
 
-		test('the step is crossed, the next one is skipped, and a card says what to do', () => {
-			const screen = at(failed(), 3000);
-
-			expect(screen).toContain('Publishing chore/trunk-setup stopped');
-			expect(screen).toMatch(/✗ Push to origin +did not go through +2\.0s/);
-			expect(screen).toMatch(/— Open pull request +skipped/);
-			expect(screen).toContain('✗ Push failed');
-			expect(screen).toContain('To github.com:acme/storefront.git');
-			expect(screen).toContain('permission denied');
-			expect(screen).toContain(
-				'Fix   Check that you can write to acme/storefront, then try again.',
-			);
-			expect(screen).toContain('Then  git push -u origin chore/trunk-setup');
-			expect(screen).toContain('Try again, or leave it local?');
-			expect(screen).toMatch(/Retry +Not now +Nothing was changed on origin\./);
-			expect(screen).toMatch(/←→ +choose +⏎ +confirm/);
-		});
-
 		test('Retry is selected first, arrows change it, Enter and the buttons answer', () => {
 			const state = failed();
 
@@ -1692,56 +782,6 @@ describe('pushing the setup branch', () => {
 			expect(runKey(state, 'later').answer).toBe('later');
 			expect(runKey(state, 'retry').answer).toBe('retry');
 			expect(runKey(state, 'x').answer).toBeUndefined();
-		});
-
-		test('the buttons are clickable and the card is drawn with the selected one in front', () => {
-			const lines = runningLines(kit, failed(), 3000, 30);
-			const keys = lines.flatMap(line => line.segs.map(segment => segment.k));
-
-			expect(keys).toContain('retry');
-			expect(keys).toContain('later');
-			expect(keys).toContain('enter');
-		});
-
-		test('retrying clears the card and starts the step again', () => {
-			const state = updatePublish(failed(), 'push', 'active', 5000);
-
-			expect(state.publish?.problem).toBeUndefined();
-			expect(at(state, 5500)).not.toContain('Push failed');
-			expect(at(state, 5500)).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Push to origin.*0\.5s/);
-		});
-
-		test('leaving it local ends with how to push later', () => {
-			const state = endPublish(failed(), [
-				{ok: true, text: 'Kept it local.'},
-				{
-					ok: true,
-					plain: true,
-					text: 'When you are ready: ',
-					command: 'git push -u origin chore/trunk-setup',
-				},
-			]);
-			const screen = at(state, 6000);
-
-			expect(screen).toContain('✓ Kept it local.');
-			expect(screen).toContain(
-				'When you are ready: git push -u origin chore/trunk-setup',
-			);
-			expect(screen).not.toContain('Try again');
-			expect(screen).toContain('Ctrl+C  close');
-		});
-
-		test('the question survives a 24-row terminal, and so does the card that goes with it', () => {
-			const screen = at(failed(), 3000, 24, 80);
-
-			expect(screen).toContain('Try again, or leave it local?');
-			expect(screen).toContain('Retry');
-			expect(screen).toContain(
-				'Fix   Check that you can write to acme/storefront, then try again.',
-			);
-			expect(
-				runningLines(createKit(unicodeGlyphs, 80), failed(), 3000, 24),
-			).toHaveLength(23);
 		});
 	});
 
@@ -1760,116 +800,54 @@ describe('pushing the setup branch', () => {
 			state = updatePublish(state, 'pr', 'warned', 3800);
 			return askPublish(state, {...problem, link});
 		};
+	});
+});
 
-		test('the push stays ticked, the problem is amber, and the title says what did happen', () => {
-			const screen = at(warned(), 4000);
-
-			expect(screen).toContain('Pushed chore/trunk-setup');
-			expect(screen).not.toContain('stopped');
-			expect(screen).toMatch(/✓ Push to origin/);
-			expect(screen).toMatch(/▲ Open pull request +no pull request/);
-			expect(screen).toContain('▲ Pushed, but no pull request');
-			expect(screen).toContain('Then  gh auth login');
-			expect(screen).toContain('Try opening it again?');
-		});
-
-		test('the link is inside the card when it fits', () => {
-			const screen = at(warned('https://example.com/short'), 4000);
-
-			expect(screen).toContain('Or    open it yourself:');
-			expect(screen).toContain('https://example.com/short');
-			expect(screen).not.toContain('In full, to copy');
-		});
-
-		test('a link too long for the card goes below it, whole, where it can be copied', () => {
-			const long = `https://github.com/an-organisation-with-a-long-name/a-repository-with-an-equally-long-name/compare/chore%2Ftrunk-setup?expand=1`;
-			const lines = runningLines(kit, warned(long), 4000, 40);
-
-			expect(screenText(lines)).toContain('open it yourself, link below');
-			const soft = lines
-				.filter(line => line.soft === true)
-				.map(line => text(line).trim());
-			expect(soft).toEqual([long]);
-		});
+describe('the summary left after a finished run', () => {
+	const kit = createKit(unicodeGlyphs, 104);
+	const finished = (): RunState => ({
+		...initialRun([], 'init', 'acme/admin'),
+		finish: {
+			request: finish,
+			sel: 0,
+			outcome: [{ok: true, text: 'Kept it local.'}],
+			answered: true,
+		},
 	});
 
-	describe('when Ctrl+C stops it', () => {
-		test('the button says it is stopping until the command has gone', () => {
-			const state = {
-				...updatePublish(started(), 'push', 'active', 0),
-			};
-			const stopping: RunState = {
-				...state,
-				publish: {...state.publish!, stopping: true},
-			};
+	test('names the result, numbers the next steps and keeps the notes', () => {
+		const lines = doneLines(kit, finish, outcomeOf(finished()));
+		const shown = screenText(lines);
 
-			expect(at(stopping, 1000)).toContain('Stopping…');
-			expect(at(state, 1000)).not.toContain('Stopping…');
-		});
-
-		test('the step reads cancelled, the next one skipped, and the way to finish is on screen', () => {
-			let state = updatePublish(started(), 'push', 'active', 0);
-			state = updatePublish(state, 'push', 'cancelled', 1800);
-			state = endPublish(state, [
-				{
-					ok: false,
-					tone: 'warning',
-					text: 'Stopped waiting. Check with git status -sb, or run it later:',
-				},
-				{
-					ok: true,
-					plain: true,
-					text: '',
-					command: 'git push -u origin chore/trunk-setup',
-				},
-			]);
-			const screen = at(state, 3000);
-
-			expect(screen).toContain('Publishing chore/trunk-setup stopped');
-			expect(screen).toMatch(/— Push to origin +cancelled +1\.8s/);
-			expect(screen).toMatch(/— Open pull request +skipped/);
-			expect(screen).toContain(
-				'▲ Stopped waiting. Check with git status -sb, or run it later:',
-			);
-			expect(screen).toContain('git push -u origin chore/trunk-setup');
-		});
-
-		test('while it runs, the key bar offers Ctrl+C as something to click', () => {
-			const lines = runningLines(
-				kit,
-				updatePublish(started(), 'push', 'active', 0),
-				500,
-				30,
-			);
-			const bar = lines.at(-1)!;
-
-			expect(text(bar)).toContain('Ctrl+C');
-			expect(bar.segs.some(segment => segment.k === 'ctrl-c')).toBe(true);
-		});
+		expect(shown).toContain('✓ Cloned acme-admin');
+		expect(shown).toContain('Kept it local.');
+		expect(shown).toContain('Next steps');
+		expect(shown).toMatch(/1\s+cd ~\/Projects\/acme-admin\/chore-trunk-setup/);
+		// The note lines up after the command that has one, not after the long `cd`.
+		expect(shown).toMatch(
+			/2\s+wt config approvals add {3}review the hooks once/,
+		);
+		expect(shown).toContain(
+			'▲ tmux is not installed, so the workspace was left out.',
+		);
+		// A command is copied by hand, so it is never cut to fit.
+		expect(lines.filter(line => line.soft)).toHaveLength(2);
 	});
 
-	test('every publish state fits 80 and 104 columns, and is exactly as tall as the terminal allows', () => {
-		const states: RunState[] = [
-			started(),
-			updatePublish(started(), 'push', 'active', 0),
-			endPublish(updatePublish(started(), 'push', 'done', 900), []),
-		];
-		for (const columns of [80, 104]) {
-			for (const rows of [24, 30]) {
-				for (const state of states) {
-					const lines = runningLines(
-						createKit(unicodeGlyphs, columns),
-						state,
-						12_000,
-						rows,
-					);
+	test('adds what the publish did, one line per step, then what to do next', () => {
+		let state = startPublish(finished(), {
+			branch: 'chore/trunk-setup',
+			destination: 'github.com:acme/admin',
+			withPullRequest: true,
+		});
+		state = updatePublish(state, 'push', 'done', 2400);
+		state = updatePublish(state, 'pr', 'warned', 3800);
 
-					expect(lines).toHaveLength(rows - 1);
-					for (const line of lines) {
-						expect([...text(line)].length).toBeLessThanOrEqual(columns);
-					}
-				}
-			}
-		}
+		const items = outcomeOf(state);
+		expect(items[0]!.text).toBe('Kept it local.');
+		expect(items[1]).toMatchObject({ok: true});
+		expect(items[1]!.text).toStartWith('Push to origin');
+		expect(items[2]).toMatchObject({ok: true, tone: 'warning'});
+		expect(items[2]!.text).toStartWith('Open pull request');
 	});
 });

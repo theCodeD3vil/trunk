@@ -1,7 +1,7 @@
 /**
  * What the setup commands need from an interactive terminal UI, and nothing
  * about how it is drawn. `clone` and `init` describe their work to a Session and
- * await its answers; the Ink implementation lives under `ui/` and is only ever
+ * await its answers; the terminal implementation lives under `ui/` and is only ever
  * loaded through `importInteractive`. A method that asks the user returns
  * `undefined` when they cancel, which the caller turns into an aborted run.
  */
@@ -17,6 +17,10 @@ export type ConfigureRequest = Readonly<{
 	rootName: string;
 	/** Where the project lives, for display. */
 	destination: string;
+	/** The URL or path as it was given, for the command the review shows. */
+	source?: string;
+	/** `host/owner/repo` when there is a remote, shown beside the project name. */
+	identifier?: string;
 	/** Known for `init`; a clone only learns it after cloning. */
 	defaultBranch?: string;
 	/**
@@ -157,7 +161,8 @@ export type Session = Readonly<{
 	fail: (request: FailureRequest) => Promise<'keep' | 'rollback' | undefined>;
 	/** True once the user pressed Ctrl+C; the run should stop at its next step. */
 	aborted: () => boolean;
-	close: () => Promise<void>;
+	/** Ends the session; true when it also cleared the screen and printed what to do next. */
+	close: () => Promise<boolean>;
 }>;
 
 /** A refusal to start: shown as a card in a terminal, and as plain lines otherwise. */

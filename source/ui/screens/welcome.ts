@@ -2,6 +2,8 @@
  * The screen for `trunk-cli` and `trunk-cli --help` in a terminal: the three commands
  * first, an example to copy, and the options as a reference rather than the
  * headline. It is printed once and left in the scrollback, so it has no keys.
+ * These are the lines for the body of the shell's printed sheet; the version
+ * and the frame are the sheet's.
  */
 import {margin, type Kit, type Line} from '../kit/lines.js';
 
@@ -32,17 +34,11 @@ export type WelcomeDetail = 'summary' | 'full';
 
 export function welcomeLines(
 	kit: Kit,
-	version: string,
 	detail: WelcomeDetail = 'summary',
-): Line[] {
-	const {g, line, cols, justify, box, indent, clip} = kit;
-	const contentWidth = cols - margin * 2;
-	const lines: Line[] = [
-		justify(
-			line(' ', [' trunk ', 'pill'], ' ', [version, 'c-dim']),
-			line(['worktree setup for Git ', 'c-dim']),
-			cols,
-		),
+): {body: Line[]; foot: string} {
+	const {g, line, cols, clip} = kit;
+	const heading = (text: string): Line => line('  ', [text, 'c-faint']);
+	const body: Line[] = [
 		line(),
 		line('  ', ['Set up a repository for parallel work.', 'b']),
 		line('  ', [
@@ -50,8 +46,7 @@ export function welcomeLines(
 			'c-dim',
 		]),
 		line(),
-		line('  ', ['Commands', 'c-acc b']),
-		line('  ', [g.h.repeat(contentWidth), 'c-faint']),
+		heading('COMMANDS'),
 		...commands.map(([name, arguments_, text]) =>
 			line(
 				'  ',
@@ -62,42 +57,32 @@ export function welcomeLines(
 			),
 		),
 		line(),
-		...indent(
-			box(
-				[
-					line(
-						[`${g.prompt} `, 'c-acc'],
-						['trunk-cli clone git@github.com:acme/storefront.git', 'b'],
-					),
-				],
-				Math.min(contentWidth, 64),
-				{
-					title: 'Try it',
-					titleStyle: 'c-acc b',
-				},
-			),
-			margin,
+		heading('TRY IT'),
+		line(
+			'  ',
+			'  ',
+			[`${g.prompt} `, 'c-acc'],
+			['trunk-cli clone git@github.com:acme/storefront.git', 'b'],
 		),
 		line(),
-		line('  ', ['Options for clone and init', 'c-acc b']),
+		heading('OPTIONS FOR CLONE AND INIT'),
 		...(detail === 'full'
 			? options.map(([flag, text]) =>
 					line('  ', '  ', [flag.padEnd(20), 'c-fg'], [text, 'c-dim']),
 			  )
 			: [
 					clip(
-						line('  ', [
+						line('  ', '  ', [
 							options.map(([flag]) => flag.split(' ')[0]!).join(` ${g.mid} `),
 							'c-dim',
 						]),
-						contentWidth + margin,
+						cols - margin,
 					),
 			  ]),
-		...(detail === 'full' ? [line()] : []),
-		line('  ', [
-			'Nothing is written until you review it. Add --yes to skip every question.',
-			'c-dim',
-		]),
+		line(),
 	];
-	return lines;
+	return {
+		body,
+		foot: 'Nothing is written until you review it. Add --yes to skip every question.',
+	};
 }

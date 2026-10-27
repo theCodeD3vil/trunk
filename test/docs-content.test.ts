@@ -195,9 +195,9 @@ describe('Trunk itself stays stack-neutral', () => {
 			'core/resolve.ts',
 			'core/settings.ts',
 			'ui/session.tsx',
-			'ui/screens/setup.ts',
-			'ui/screens/review.ts',
 			'ui/screens/running.ts',
+			'ui/shell/wizard.ts',
+			'ui/shell/preview.ts',
 		]) {
 			// eslint-disable-next-line no-await-in-loop
 			const contents = await readFile(join(sourceRoot, file), 'utf8');

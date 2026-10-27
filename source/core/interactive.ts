@@ -1,25 +1,16 @@
 /**
- * Loading the terminal UI without letting the environment silence it.
+ * Loading the terminal UI, and what a terminal can show.
  *
- * Ink decides once, when its module is first evaluated, whether it is running
- * in CI, and in CI it draws nothing until the program exits. The check reads
- * variables such as `CI` and any hosting vendor's marker (`VERCEL`, for
- * example), which plenty of developers have exported in their shell profile. The
- * result is a blank terminal until Ctrl+C, when the final frame appears and the
- * program is already gone.
+ * The UI draws through OpenTUI, whose native core Node loads with `node:ffi`.
+ * Node marks that module experimental and prints a warning the first time it
+ * loads, which would land on the user's screen beside the UI on every run.
+ * Every module that imports the UI is therefore loaded through this wrapper,
+ * never with a static import, which also keeps scripts and `--yes` runs from
+ * loading native code at all.
  *
- * Trunk only mounts a UI after confirming stdin is a real terminal that can
- * read keys, so CI detection has nothing to offer it. Ink itself honours
- * `CI=false` as an override, but only if that is set while it loads, hence this
- * wrapper: every module that imports Ink must be loaded through it, never with
- * a static import.
- *
- * The override has a side effect that must be undone. Ink's colour library
- * reads the same variable when it loads and treats the mere presence of `CI`,
- * whatever its value, as a terminal without colour, so every screen would be
- * drawn in plain text. The colour level is therefore worked out here, from the
- * real environment, and handed to the library through `FORCE_COLOR` for the
- * duration of the import.
+ * OpenTUI's React layer also reads `DEV` as it loads, and with `DEV=true` it
+ * connects to React DevTools over a WebSocket. A `DEV` in the user's shell is
+ * about their own project, never trunk, so it is hidden for the import.
  */
 import process from 'node:process';
 
@@ -57,39 +48,32 @@ export function colourLevel(
 	return depth >= 4 ? 1 : 0;
 }
 
+const ffiWarning = 'FFI is an experimental feature';
+
 /**
- * Runs an import with CI detection switched off and the colour level pinned,
- * then puts the environment back so git, wt and gh still see exactly what the
- * user exported.
+ * Silences Node's one experimental-FFI warning, and only that one, then runs
+ * the import with `DEV` hidden. The filter stays: Node prints the warning after
+ * the import settles, and it is the only warning OpenTUI causes.
  */
 export async function importInteractive<T>(
 	load: () => Promise<T>,
-	stream: ColourStream = process.stdout,
 	environment: NodeJS.ProcessEnv = process.env,
 ): Promise<T> {
-	const originalCi = environment['CI'];
-	const originalColour = environment['FORCE_COLOR'];
-	// Someone who set FORCE_COLOR meant it; only fill in when they did not.
-	const level =
-		originalColour === undefined ? colourLevel(stream, environment) : 0;
-	environment['CI'] = 'false';
-	if (level > 0) {
-		environment['FORCE_COLOR'] = String(level);
-	}
+	const {emitWarning} = process;
+	process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
+		const message = typeof warning === 'string' ? warning : warning.message;
+		if (!message.startsWith(ffiWarning)) {
+			Reflect.apply(emitWarning, process, [warning, ...rest]);
+		}
+	}) as typeof process.emitWarning;
 
+	const development = environment['DEV'];
+	delete environment['DEV'];
 	try {
 		return await load();
 	} finally {
-		if (originalCi === undefined) {
-			delete environment['CI'];
-		} else {
-			environment['CI'] = originalCi;
-		}
-
-		if (originalColour === undefined) {
-			delete environment['FORCE_COLOR'];
-		} else {
-			environment['FORCE_COLOR'] = originalColour;
+		if (development !== undefined) {
+			environment['DEV'] = development;
 		}
 	}
 }

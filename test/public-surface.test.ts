@@ -32,7 +32,7 @@ const stackWords = /\b(npm|pnpm|yarn|caddy|brew|localhost|hash_port)\b/i;
 
 /** The README without its upgrade notes, which name what was removed. */
 function withoutUpgrading(readme: string): string {
-	return readme.replace(/## Upgrading From[\s\S]*?(?=\n## )/, '');
+	return readme.replaceAll(/## Upgrading From[\s\S]*?(?=\n## )/g, '');
 }
 
 describe('commands', () => {
@@ -155,7 +155,7 @@ describe('scope', () => {
 });
 
 describe('packaging and release', () => {
-	test('the package ships only dist and runs on Node 20 or newer', async () => {
+	test('the package ships only dist and runs on Node 26.12 or newer', async () => {
 		const packageJson = JSON.parse(await read('package.json')) as {
 			files: string[];
 			bin: Record<string, string>;
@@ -166,8 +166,8 @@ describe('packaging and release', () => {
 
 		expect(packageJson.files).toEqual(['dist']);
 		expect(packageJson.bin).toEqual({'trunk-cli': 'dist/cli.js'});
-		expect(packageJson.engines.node).toBe('>=20');
-		expect(await read('readme.md')).toMatch(/Node\.js\s*\|\s*20 or newer/);
+		expect(packageJson.engines.node).toBe('>=26.12.0');
+		expect(await read('readme.md')).toMatch(/Node\.js\s*\|\s*26\.12 or newer/);
 		// Releases stay manual and on main.
 		expect(packageJson.scripts['release']).toBe('np');
 		expect(packageJson.np.branch).toBe('main');
@@ -215,7 +215,7 @@ describe('packaging and release', () => {
 		].flatMap(match => match[1]!.trim().split(/\s+/));
 		expect(new Set(installs)).toEqual(new Set(['shellcheck', 'tmux']));
 		expect(workflow).toContain('worktrunk-installer.sh');
-		// Both supported Node lines are exercised.
-		expect(workflow).toMatch(/node:\s*\n\s*- 20\s*\n\s*- 22/);
+		// The oldest supported Node and the newest 26 release are both exercised.
+		expect(workflow).toMatch(/node:\s*\n\s*- 26\.12\.0\s*\n\s*- 26\n/);
 	});
 });

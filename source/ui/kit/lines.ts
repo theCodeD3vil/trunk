@@ -1,7 +1,7 @@
 /**
  * The layout toolkit behind every screen. A screen is a list of `Line`s, each a
  * list of styled segments, built by pure functions from state, a width and a
- * glyph set. Nothing here touches Ink or the terminal, so each screen can be
+ * glyph set. Nothing here touches the renderer or the terminal, so each screen can be
  * checked by reading its lines, and one renderer draws them all.
  *
  * Styles are class names such as `c-acc b` or `pill`; the renderer maps them to
@@ -11,7 +11,14 @@
 import type {Glyphs} from './glyphs.js';
 
 /** A run of text with a style, and optionally the key a click on it presses. */
-export type Seg = Readonly<{t: string; c: string; k?: string}>;
+export type Seg = Readonly<{
+	t: string;
+	c: string;
+	k?: string;
+	/** An exact colour for this run, for a fade or a tint that no class name can say. */
+	fg?: string;
+	bg?: string;
+}>;
 type Tuple = readonly [text: string, style?: string, key?: string];
 export type Part = string | Tuple | Seg;
 
@@ -281,8 +288,7 @@ export function createKit(g: Glyphs, cols: number) {
 	/**
 	 * Body, a rule and the key bar. With `maxRows` (the terminal's height) the
 	 * frame is exactly one row shorter: the key bar sits at the bottom on every
-	 * screen, and the free row keeps Ink from clearing the whole screen, which it
-	 * does for a frame as tall as the terminal. The `tail`, usually a question,
+	 * screen, with one free row below it. The `tail`, usually a question,
 	 * follows the body and is never the part that gets trimmed.
 	 */
 	function frame(

@@ -33,7 +33,7 @@ const cli = parseArguments();
 
 /**
  * The terminal UI exists only where there is a terminal to draw on, and is
- * loaded on first use so that scripts and `--yes` runs never import Ink.
+ * loaded on first use so that scripts and `--yes` runs never load the terminal UI.
  */
 let terminalUi: Promise<TerminalUi> | undefined;
 const openTerminalUi: TerminalUiFactory | undefined = process.stdout.isTTY

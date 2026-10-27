@@ -20,14 +20,14 @@ The installed command is `trunk-cli`, not `trunk`, so it never shadows the Rust/
 
 ## Prerequisites
 
-| Tool                                              | Requirement                                                    |
-| ------------------------------------------------- | -------------------------------------------------------------- |
-| Node.js                                           | 20 or newer                                                    |
-| Git                                               | Required                                                       |
-| Worktrunk (`wt`)                                  | Required; generated templates are tested with v0.77.0          |
-| tmux                                              | Optional; creates one workspace per worktree                   |
-| GitHub CLI (`gh`)                                 | Optional; opens the pull request for the setup branch          |
-| claude, codex, opencode, copilot, antigravity, pi | Optional; offered and started in tmux only when installed here |
+| Tool                                              | Requirement                                                           |
+| ------------------------------------------------- | --------------------------------------------------------------------- |
+| Node.js                                           | 26.12 or newer; the terminal UI loads its renderer through `node:ffi` |
+| Git                                               | Required                                                              |
+| Worktrunk (`wt`)                                  | Required; generated templates are tested with v0.77.0                 |
+| tmux                                              | Optional; creates one workspace per worktree                          |
+| GitHub CLI (`gh`)                                 | Optional; opens the pull request for the setup branch                 |
+| claude, codex, opencode, copilot, antigravity, pi | Optional; offered and started in tmux only when installed here        |
 
 macOS and Linux are supported, including Linux under WSL. Native Windows is not supported.
 
@@ -79,13 +79,13 @@ Browse the offline documentation:
 trunk-cli docs
 ```
 
-`trunk-cli docs` opens an interactive terminal browser with two topics, Config Basics and Node. The topics and their pages are listed in a sidebar; the left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits. `trunk` on its own shows a short welcome; `trunk-cli --help` lists every option with its meaning. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
+`trunk-cli docs` opens an interactive terminal browser with two topics, Config Basics and Node. The browser is a screen of the same shell as the setup form: the topics and their pages are listed in a rail beside the page, which fills the window. The left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits and clears the screen. Below 100 columns the rail folds away and the arrows still step through the pages. `trunk-cli` on its own shows a short welcome; `trunk-cli --help` lists every option with its meaning. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
 
 ## The Terminal Screens
 
 In a terminal, `clone` and `init` are one continuous screen rather than a series of prompts:
 
-1. A short form for whatever you did not pass as a flag. A preview beside it shows exactly the hooks your answers will produce, and updates as you type. The agents are a list with a checkbox each: every known agent is shown, the ones not installed are dim and skipped by the cursor, and at four the rest say why they cannot be picked.
+1. A setup shell for whatever you did not pass as a flag: a step rail on the left, one question at a time on the right, and beside it a live preview of `.config/wt.toml` that lights the lines your answer changes. The agents are a list with a checkbox each: every known agent is shown, the ones not installed are dim and skipped by the cursor, and at four the rest say why they cannot be picked.
 2. A review of what will be written and where. Nothing is created until you confirm it, and you can go back and edit.
 3. The named steps running, each with its own detail and time.
 4. A result card with the next commands to run, and the one question about pushing.
@@ -96,20 +96,22 @@ If `.config/wt.toml` already exists, the run pauses on a numbered diff. Keeping 
 
 Every screen ends with a key bar of the keys that work on it, and it stays on the last row of the terminal. Key caps, buttons, sidebar entries, form rows and search results also respond to a click, and the mouse wheel scrolls the docs and the diff. Text you paste, or a key you hold down, reaches the screen key by key. Hold Shift (Option in Terminal.app and iTerm2) to select text, or set `TRUNK_MOUSE=0` to leave the mouse to your terminal.
 
-The screens use up to 104 columns. At 100 columns or more the form and the docs show two panes; below that they fold to one. On a short terminal, such as 80 by 24, the result card folds its step list to one line so the question is never pushed off the screen. They follow your terminal:
+In the setup form, `p` opens the preview full size (`Ctrl+P` on the session-prefix step, where `p` is a letter), and so does a click on its header. Arrows, `Space` and `b` scroll it; `p` or Esc closes it. When `clone` or `init` finishes, the screen is cleared and the result, the next steps and any notes are printed, so your prompt sits right under them. Your earlier scrollback is kept. Failures, cancelled runs and `--yes` leave the screen as it was.
 
-| Variable                      | Effect                                                                      |
-| ----------------------------- | --------------------------------------------------------------------------- |
-| `NO_COLOR`                    | Draw with bold, dim, and underline only, no colour                          |
-| `TRUNK_MOUSE=0`               | Do not ask the terminal to report the mouse; keys only                      |
-| `TRUNK_ASCII=1`               | Use plain ASCII instead of box-drawing characters, as a Linux console needs |
-| `TRUNK_THEME=light` or `dark` | Pick the palette; otherwise `COLORFGBG` decides, and dark is the default    |
+The setup shell and the docs browser fill the window, and a window below 64 by 14 shows a note to enlarge it instead of a broken layout. The welcome and the refusals are printed once, in the same frame, up to 104 columns wide. Every screen paints its own black background, whatever your terminal's. On a short terminal, such as 80 by 24, the result card folds its step list to one line so the question is never pushed off the screen. The screens follow your terminal:
+
+| Variable         | Effect                                                                      |
+| ---------------- | --------------------------------------------------------------------------- |
+| `NO_COLOR`       | Draw with bold, dim, and underline only, no colour                          |
+| `TRUNK_MOUSE=0`  | Do not ask the terminal to report the mouse; keys only                      |
+| `TRUNK_ASCII=1`  | Use plain ASCII instead of box-drawing characters, as a Linux console needs |
+| `TRUNK_MOTION=0` | Draw every screen still: no easing, pops, or shakes on picking and moving   |
 
 Trunk switches to ASCII by itself on `TERM=linux`, `TERM=dumb`, and a locale that is not UTF-8. Without a terminal, or with `--yes`, none of this is used and the output is plain lines.
 
 ## Options
 
-`clone` and `init` share these options. Without `--yes` they open a short form for whatever you did not pass.
+`clone` and `init` share these options. Without `--yes` they open the setup shell for whatever you did not pass.
 
 | Option                 | Effect                                                                                             | Default                    |
 | ---------------------- | -------------------------------------------------------------------------------------------------- | -------------------------- |
@@ -152,6 +154,16 @@ The fragments are added to the generated file; they do not replace it, and `trun
 - It does not create projects, scaffold files, or create GitHub repositories.
 - It does not write global Worktrunk configuration or approve hooks for you.
 - It does not rewrite an existing `.config/wt.toml` without showing a diff and asking, and it does not convert an ordinary clone in place.
+
+## Upgrading From 0.4.x
+
+Releases through 0.4.x installed a command called `trunk`, ran on Node.js 20 or newer, and had a light palette. The next release changes what you can notice:
+
+- The command is `trunk-cli`. Update scripts and shell aliases that call `trunk`.
+- Node.js 26.12 or newer is required.
+- The screens are always dark. The light palette and `TRUNK_THEME` are gone, and setting the variable does nothing.
+
+An existing `.config/wt.toml` keeps working with Worktrunk unchanged. To pick up hooks that still find their tmux session after you rename it, run `trunk-cli init` and confirm the diff.
 
 ## Upgrading From 0.1.x
 

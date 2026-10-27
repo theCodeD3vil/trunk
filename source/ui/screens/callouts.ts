@@ -4,7 +4,13 @@
  * same whichever way it happens and the next command is always visible.
  */
 import type {FailureRequest} from '../../core/session.js';
-import {margin, type Kit, type Line, type Part} from '../kit/lines.js';
+import {
+	margin,
+	type KeyHint,
+	type Kit,
+	type Line,
+	type Part,
+} from '../kit/lines.js';
 
 function cardWidth(kit: Kit): number {
 	return Math.min(kit.cols - margin * 2, 84);
@@ -73,7 +79,48 @@ function card(
 	];
 }
 
-/** Why the tool matters, in the words of the proposal: what Trunk does through it. */
+/** What a refusal says, in parts: the sheet draws the body in its frame, the foot along the bottom, and what comes after below it. */
+export type RefusalParts = Readonly<{
+	body: Line[];
+	foot: string;
+	exit: number;
+	/** Commands that did not fit a row, whole, where they can be copied. */
+	after: Line[];
+}>;
+
+/** The text width of a refusal's body. */
+const textWidth = (kit: Kit): number => Math.max(20, kit.cols - margin * 2);
+
+function refusal(
+	kit: Kit,
+	tone: 'c-err' | 'c-warn',
+	title: string,
+	lines: readonly Line[],
+	foot: string,
+	exit: number,
+	overflow: readonly string[],
+): RefusalParts {
+	const {line} = kit;
+	return {
+		body: kit.indent(
+			[line(), line([title, `${tone} b`]), line(), ...lines, line()],
+			margin,
+		),
+		foot,
+		exit,
+		after:
+			overflow.length > 0
+				? [
+						line(),
+						line('  ', ['In full, to copy', 'c-acc b']),
+						...overflow.map(command => kit.soft(line('  ', [command, 'b']))),
+						line(),
+				  ]
+				: [],
+	};
+}
+
+/** Why the tool matters: what Trunk does through it. */
 function missingReason(missing: readonly string[]): string {
 	if (missing.length > 1) {
 		return `Trunk needs ${missing
@@ -82,24 +129,24 @@ function missingReason(missing: readonly string[]): string {
 	}
 
 	return missing[0] === 'git'
-		? 'Trunk reads and clones repositories through the `git` command, and it was not found on your PATH.'
-		: `Trunk creates worktrees through the \`${
+		? 'Trunk needs `git` to read and clone repositories. It was not found on your PATH.'
+		: `Trunk needs \`${
 				missing[0] ?? 'wt'
-		  }\` command, and it was not found on your PATH.`;
+		  }\` to create worktrees. It was not found on your PATH.`;
 }
 
 export function missingToolLines(
 	kit: Kit,
 	missing: readonly string[],
 	command: string,
-): Line[] {
+): RefusalParts {
 	const {g, line} = kit;
 	const names = missing.map(name =>
 		name === 'wt' ? 'Worktrunk' : name === 'git' ? 'Git' : name,
 	);
-	const width = cardWidth(kit) - 4;
+	const width = textWidth(kit);
 	const overflow: Overflow = [];
-	return card(
+	return refusal(
 		kit,
 		'c-err',
 		`${g.cross} ${names.join(' and ')} ${
@@ -136,9 +183,12 @@ export type NormalCloneInput = Readonly<{
 	branch?: string;
 }>;
 
-export function normalCloneLines(kit: Kit, input: NormalCloneInput): Line[] {
+export function normalCloneLines(
+	kit: Kit,
+	input: NormalCloneInput,
+): RefusalParts {
 	const {g, line} = kit;
-	const width = cardWidth(kit) - 4;
+	const width = textWidth(kit);
 	const overflow: Overflow = [];
 	const unsaved =
 		input.unsaved.length > 0
@@ -146,7 +196,7 @@ export function normalCloneLines(kit: Kit, input: NormalCloneInput): Line[] {
 					' and ',
 			  )}, so it left everything alone.`
 			: ' It left everything alone.';
-	return card(
+	return refusal(
 		kit,
 		'c-warn',
 		`${g.warn} ${input.name} is a normal clone`,
@@ -160,32 +210,32 @@ export function normalCloneLines(kit: Kit, input: NormalCloneInput): Line[] {
 			line(['To move it across', 'c-acc b']),
 			commandRow(
 				kit,
-				[[' 1  ', 'c-dim']],
+				[[' 1 ', 'c-dim']],
 				`trunk-cli clone ${input.url} ${input.name}-wt`,
 				width,
 				overflow,
 				`clone it as ${input.name}-wt, command in full below`,
 			),
 			line(
-				[' 2  ', 'c-dim'],
+				[' 2 ', 'c-dim'],
 				`copy any local-only files into ${input.name}-wt/${
 					input.branch ?? '<default branch>'
 				}/`,
 			),
 			line(
-				[' 3  ', 'c-dim'],
+				[' 3 ', 'c-dim'],
 				`check nothing uncommitted or unpushed is left in ${input.name}`,
 			),
 			commandRow(
 				kit,
-				[[' 4  ', 'c-dim']],
+				[[' 4 ', 'c-dim']],
 				`rm -rf ${input.name} && mv ${input.name}-wt ${input.name}`,
 				width,
 				overflow,
-				'swap the folders, command in full below',
+				'swap folders, command in full below',
 			),
 		],
-		'Nothing was changed.',
+		'Nothing changed.',
 		3,
 		overflow,
 	);
@@ -195,17 +245,18 @@ export function emptyRepositoryLines(
 	kit: Kit,
 	name: string,
 	rerun: string,
-): Line[] {
+): RefusalParts {
 	const {g, line} = kit;
+	const width = textWidth(kit);
 	const overflow: Overflow = [];
-	return card(
+	return refusal(
 		kit,
 		'c-err',
 		`${g.cross} ${name} is an empty repository`,
 		[
 			...kit.wrapLines(
 				'There is no commit to check out, and Trunk never creates history for you.',
-				cardWidth(kit) - 4,
+				width,
 				'c-fg',
 			),
 			line(),
@@ -217,7 +268,7 @@ export function emptyRepositoryLines(
 				kit,
 				[['Then  ', 'c-acc b']],
 				rerun,
-				cardWidth(kit) - 4,
+				width,
 				overflow,
 				'run it again, in full below',
 			),
@@ -263,13 +314,19 @@ export function failureKey(
 	return {state};
 }
 
+/** The screen without its frame: the card, the question that is never trimmed, and the keys. */
+export type FailureParts = Readonly<{
+	body: Line[];
+	tail: Line[];
+	hints: KeyHint[];
+}>;
+
 /** The interrupted-run card: the reason, what exists now, and keep or roll back. */
-export function failureLines(
+export function failureParts(
 	kit: Kit,
 	request: FailureRequest,
 	state: FailureState,
-	rows: number,
-): Line[] {
+): FailureParts {
 	const {g, line} = kit;
 	const width = cardWidth(kit) - 4;
 	const detail = request.detail
@@ -362,25 +419,28 @@ export function failureLines(
 		);
 	}
 
-	return kit.frame(
-		[...kit.header([request.command, 'stopped'], request.project), ...body],
-		kit.keybar(
-			request.rollback
-				? [
-						[g.leftright, 'choose'],
-						[g.enter, 'confirm', 'enter'],
-				  ]
-				: [[g.enter, 'close', 'enter']],
-		),
-		{maxRows: rows, tail},
-	);
+	return {
+		body,
+		tail,
+		hints: request.rollback
+			? [
+					[g.leftright, 'choose'],
+					[g.enter, 'confirm', 'enter'],
+			  ]
+			: [[g.enter, 'close', 'enter']],
+	};
 }
 
-/** A refusal or error printed once and left in the scrollback. */
-export function staticFrame(
+export function failureLines(
 	kit: Kit,
-	crumbs: readonly string[],
-	body: readonly Line[],
+	request: FailureRequest,
+	state: FailureState,
+	rows: number,
 ): Line[] {
-	return [...kit.header(crumbs), ...body];
+	const {body, tail, hints} = failureParts(kit, request, state);
+	return kit.frame(
+		[...kit.header([request.command, 'stopped'], request.project), ...body],
+		kit.keybar(hints),
+		{maxRows: rows, tail},
+	);
 }

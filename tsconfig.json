@@ -2,10 +2,13 @@
 	"extends": "@sindresorhus/tsconfig",
 	"compilerOptions": {
 		"outDir": "dist",
-		// The base config targets Node 14; this package requires Node 20, so the
-		// newer standard library (Object.hasOwn, Array.at) is available.
+		// The base config targets Node 14; this package requires Node 26, so the
+		// newer standard library (Object.hasOwn, Array.at, findLast) is available.
 		"target": "ES2022",
-		"lib": ["DOM", "DOM.Iterable", "ES2022"]
+		"lib": ["DOM", "DOM.Iterable", "ES2023"],
+		// OpenTUI's runtime types its intrinsic elements: box, text and span.
+		"jsx": "react-jsx",
+		"jsxImportSource": "@opentui/react"
 	},
 	"include": ["source"]
 }

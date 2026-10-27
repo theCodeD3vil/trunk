@@ -51,6 +51,27 @@ export type Glyphs = Readonly<{
 	minus: string;
 	plus: string;
 	spin: readonly string[];
+	/** The shell's frame: tees where a rule meets a border, and the bars drawn at an edge. */
+	teeL: string;
+	teeD: string;
+	teeU: string;
+	capL: string;
+	capR: string;
+	hot: string;
+	dashH: string;
+	dashV: string;
+	node: Readonly<{todo: string; active: string; done: string; skipped: string}>;
+	radioOn: string;
+	radioOff: string;
+	/** The agents list's boxes, picked, empty and unavailable, each three cells wide. */
+	pickOn: string;
+	pickOff: string;
+	pickNo: string;
+	redo: string;
+	quoteL: string;
+	quoteR: string;
+	/** The space bar, for a key cap. */
+	space: string;
 }>;
 
 export const unicodeGlyphs: Glyphs = Object.freeze({
@@ -99,6 +120,24 @@ export const unicodeGlyphs: Glyphs = Object.freeze({
 	minus: '−',
 	plus: '+',
 	spin: Object.freeze(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']),
+	teeL: '┤',
+	teeD: '┬',
+	teeU: '┴',
+	capL: '▐',
+	capR: '▌',
+	hot: '▌',
+	dashH: '╌',
+	dashV: '┆',
+	node: Object.freeze({todo: '○', active: '◉', done: '●', skipped: '–'}),
+	radioOn: '●',
+	radioOff: '○',
+	pickOn: '[✓]',
+	pickOff: '[ ]',
+	pickNo: '[–]',
+	redo: '↻',
+	quoteL: '“',
+	quoteR: '”',
+	space: '␣',
 });
 
 export const asciiGlyphs: Glyphs = Object.freeze({
@@ -147,4 +186,22 @@ export const asciiGlyphs: Glyphs = Object.freeze({
 	minus: '-',
 	plus: '+',
 	spin: Object.freeze(['|', '/', '-', '\\']),
+	teeL: '+',
+	teeD: '+',
+	teeU: '+',
+	capL: '[',
+	capR: ']',
+	hot: '|',
+	dashH: '-',
+	dashV: ':',
+	node: Object.freeze({todo: 'o', active: '@', done: '*', skipped: '-'}),
+	radioOn: '*',
+	radioOff: 'o',
+	pickOn: '[x]',
+	pickOff: '[ ]',
+	pickNo: '[-]',
+	redo: '~',
+	quoteL: '"',
+	quoteR: '"',
+	space: 'spc',
 });

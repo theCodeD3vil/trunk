@@ -109,7 +109,7 @@ describe('packaged installation', () => {
 
 		// Both topics and every section are listed in the sidebar at once.
 		const screen = await waitForScreen(tmux!, 'Config Basics');
-		expect(screen).toContain('Node');
+		expect(screen).toContain('NODE');
 		expect(screen).toContain('Install dependencies');
 		expect(screen).toContain('Caddy routes');
 
@@ -117,7 +117,7 @@ describe('packaged installation', () => {
 		// second section and see the reader change.
 		await sendKeys(tmux!, ['Right']);
 		// The sidebar already lists 'Hook lifecycle', so wait on the counter instead.
-		const next = await waitForScreen(tmux!, '2 of 13');
+		const next = await waitForScreen(tmux!, '2/13');
 		expect(next).toContain('Hook lifecycle');
 
 		await sendKeys(tmux!, ['q']);

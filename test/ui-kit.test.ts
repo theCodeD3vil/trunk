@@ -7,14 +7,15 @@
  */
 import React from 'react';
 import {describe, expect, test} from 'bun:test';
-import {render} from 'ink-testing-library';
+import {createTestRenderer} from '@opentui/core/testing';
+import {createRoot, flushSync} from '@opentui/react';
 import {
 	asciiGlyphs,
 	unicodeGlyphs,
 	type Glyphs,
 } from '../source/ui/kit/glyphs.js';
 import {createKit, type Line} from '../source/ui/kit/lines.js';
-import {Lines, styleOf} from '../source/ui/kit/render.js';
+import {ansiLines, Lines, styleOf} from '../source/ui/kit/render.js';
 import {darkPalette, resolveTheme} from '../source/ui/kit/theme.js';
 
 /** An environment from name/value pairs, so the names can stay upper case. */
@@ -31,37 +32,33 @@ const labels = new Set([
 	'leftright',
 	'dots',
 	'enter',
+	'space',
 	'boxOn',
 	'boxOff',
 	'boxNo',
+	'pickOn',
+	'pickOff',
+	'pickNo',
 ]);
 
 function glyphValues(glyphs: Glyphs): string[] {
 	return Object.entries(glyphs)
 		.filter(([name]) => !labels.has(name))
 		.flatMap(([, value]) =>
-			Array.isArray(value) ? (value as string[]) : [value as string],
+			typeof value === 'string' ? [value] : Object.values(value),
 		);
 }
 
 describe('theme', () => {
-	test('defaults to the dark palette with colour and unicode glyphs', () => {
+	test('is always the dark palette, with colour and unicode glyphs', () => {
 		const theme = resolveTheme(env(['LANG', 'en_US.UTF-8']));
 
-		expect(theme.name).toBe('dark');
+		expect(theme.palette).toBe(darkPalette);
 		expect(theme.mono).toBe(false);
 		expect(theme.ascii).toBe(false);
 		expect(theme.glyphs).toBe(unicodeGlyphs);
-	});
-
-	test('TRUNK_THEME and COLORFGBG choose the light palette', () => {
-		expect(resolveTheme(env(['TRUNK_THEME', 'light'])).name).toBe('light');
-		expect(resolveTheme(env(['COLORFGBG', '0;15'])).name).toBe('light');
-		expect(resolveTheme(env(['COLORFGBG', '15;0'])).name).toBe('dark');
-		// An explicit choice beats the terminal's guess.
-		expect(
-			resolveTheme(env(['TRUNK_THEME', 'dark'], ['COLORFGBG', '0;15'])).name,
-		).toBe('dark');
+		// A light terminal does not change it: there is no light palette.
+		expect(resolveTheme(env(['COLORFGBG', '0;15'])).palette).toBe(darkPalette);
 	});
 
 	test('NO_COLOR removes colour only when it is set to something', () => {
@@ -259,34 +256,70 @@ describe('renderer', () => {
 		expect(styleOf('', theme, 'sel').bold).toBe(true);
 	});
 
-	test('draws every line, and NO_COLOR emphasis arrives as raw SGR', () => {
-		const kit = createKit(asciiGlyphs, 40);
-		const {lastFrame} = render(
-			React.createElement(Lines, {
-				lines: [kit.line(['bold', 'b'], ' plain'), kit.line(['dim', 'c-dim'])],
-				theme: resolveTheme(env(['NO_COLOR', '1'], ['TRUNK_ASCII', '1'])),
-				width: 40,
-			}),
-		);
-		const frame = lastFrame() ?? '';
+	/** The characters a Lines element draws, at a fixed size. */
+	async function frameOf(properties: Parameters<typeof Lines>[0]) {
+		const setup = await createTestRenderer({
+			width: properties.width,
+			height: properties.lines.length + 1,
+		});
+		try {
+			flushSync(() => {
+				createRoot(setup.renderer).render(
+					React.createElement(Lines, properties),
+				);
+			});
+			await setup.renderOnce();
+			return setup.captureCharFrame();
+		} finally {
+			setup.renderer.destroy();
+		}
+	}
 
-		expect(frame).toContain('\u001B[1mbold\u001B[22m plain');
-		expect(frame).toContain('\u001B[2mdim\u001B[22m');
+	test('draws every line, top to bottom', async () => {
+		const kit = createKit(asciiGlyphs, 40);
+		const frame = await frameOf({
+			lines: [kit.line(['bold', 'b'], ' plain'), kit.line(['dim', 'c-dim'])],
+			theme: resolveTheme(env(['TRUNK_ASCII', '1'])),
+			width: 40,
+		});
+
+		expect(frame).toMatch(/bold plain\s*\ndim/);
 	});
 
-	test('a blinking caret keeps its width while it is off', () => {
+	test('a blinking caret keeps its width while it is off', async () => {
 		const theme = resolveTheme(env());
 		const lines = [
 			createKit(unicodeGlyphs, 20).line('ab', ['▏', 'blink'], 'cd'),
 		];
-		const on = render(
-			React.createElement(Lines, {lines, theme, width: 20, caret: true}),
-		);
-		const off = render(
-			React.createElement(Lines, {lines, theme, width: 20, caret: false}),
-		);
 
-		expect(on.lastFrame()).toContain('ab▏cd');
-		expect(off.lastFrame()).toContain('ab cd');
+		expect(await frameOf({lines, theme, width: 20, caret: true})).toContain(
+			'ab▏cd',
+		);
+		expect(await frameOf({lines, theme, width: 20, caret: false})).toContain(
+			'ab cd',
+		);
+	});
+
+	test('a screen drawn once is SGR text: emphasis without colour under NO_COLOR', () => {
+		const kit = createKit(asciiGlyphs, 40);
+		const lines = [
+			kit.line(['bold', 'b'], ' plain'),
+			kit.line(['dim', 'c-dim']),
+		];
+		const mono = resolveTheme(env(['NO_COLOR', '1'], ['TRUNK_ASCII', '1']));
+
+		expect(ansiLines(lines, mono, 40, 3)).toBe(
+			'\u001B[1mbold\u001B[0m plain\n\u001B[2mdim\u001B[0m\n',
+		);
+	});
+
+	test('a screen drawn once matches the terminal: truecolor, 256 colours, or none', () => {
+		const lines = [createKit(asciiGlyphs, 10).line(['ok', 'c-ok'])];
+		const theme = resolveTheme(env());
+
+		// #8CD67A in full, then as cube entry 16 + 36*3 + 6*4 + 2.
+		expect(ansiLines(lines, theme, 10, 3)).toContain('38;2;140;214;122m');
+		expect(ansiLines(lines, theme, 10, 2)).toContain('38;5;150m');
+		expect(ansiLines(lines, theme, 10, 1)).toBe('ok\n');
 	});
 });
