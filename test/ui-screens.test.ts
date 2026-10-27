@@ -46,6 +46,7 @@ import {
 	updateStep,
 	type RunState,
 } from '../source/ui/screens/running.js';
+import {doneLines, outcomeOf} from '../source/ui/screens/done.js';
 import {welcomeLines} from '../source/ui/screens/welcome.js';
 
 const text = (line: Line): string =>
@@ -86,7 +87,7 @@ function request(overrides: Partial<ConfigureRequest> = {}): ConfigureRequest {
 const finish: FinishRequest = {
 	command: 'init',
 	project: 'acme/admin',
-	title: 'acme-admin is ready',
+	title: 'Cloned acme-admin',
 	next: [
 		{command: 'cd ~/Projects/acme-admin/chore-trunk-setup'},
 		{command: 'wt config approvals add', note: 'review the hooks once'},
@@ -852,5 +853,54 @@ describe('pushing the setup branch', () => {
 			state = updatePublish(state, 'pr', 'warned', 3800);
 			return askPublish(state, {...problem, link});
 		};
+	});
+});
+
+describe('the summary left after a finished run', () => {
+	const kit = createKit(unicodeGlyphs, 104);
+	const finished = (): RunState => ({
+		...initialRun([], 'init', 'acme/admin'),
+		finish: {
+			request: finish,
+			sel: 0,
+			outcome: [{ok: true, text: 'Kept it local.'}],
+			answered: true,
+		},
+	});
+
+	test('names the result, numbers the next steps and keeps the notes', () => {
+		const lines = doneLines(kit, finish, outcomeOf(finished()));
+		const shown = screenText(lines);
+
+		expect(shown).toContain('✓ Cloned acme-admin');
+		expect(shown).toContain('Kept it local.');
+		expect(shown).toContain('Next steps');
+		expect(shown).toMatch(/1\s+cd ~\/Projects\/acme-admin\/chore-trunk-setup/);
+		// The note lines up after the command that has one, not after the long `cd`.
+		expect(shown).toMatch(
+			/2\s+wt config approvals add {3}review the hooks once/,
+		);
+		expect(shown).toContain(
+			'▲ tmux is not installed, so the workspace was left out.',
+		);
+		// A command is copied by hand, so it is never cut to fit.
+		expect(lines.filter(line => line.soft)).toHaveLength(2);
+	});
+
+	test('adds what the publish did, one line per step, then what to do next', () => {
+		let state = startPublish(finished(), {
+			branch: 'chore/trunk-setup',
+			destination: 'github.com:acme/admin',
+			withPullRequest: true,
+		});
+		state = updatePublish(state, 'push', 'done', 2400);
+		state = updatePublish(state, 'pr', 'warned', 3800);
+
+		const items = outcomeOf(state);
+		expect(items[0]!.text).toBe('Kept it local.');
+		expect(items[1]).toMatchObject({ok: true});
+		expect(items[1]!.text).toStartWith('Push to origin');
+		expect(items[2]).toMatchObject({ok: true, tone: 'warning'});
+		expect(items[2]!.text).toStartWith('Open pull request');
 	});
 });

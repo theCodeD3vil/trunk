@@ -39,9 +39,10 @@ const csi = /\u001B\[([\d;?]*)[ -/]*([@-~])/y;
 const ss3 = /\u001BO([A-DHF])/y;
 /* eslint-enable no-control-regex */
 
-/** Control characters that are keys of their own: Ctrl+C, Ctrl+A and Ctrl+E, Backspace. */
+/** Control characters that are keys of their own: Ctrl+C, Ctrl+P, Ctrl+A and Ctrl+E, Backspace. */
 const controls = new Map([
 	[0x03, abortKey],
+	[0x10, 'ctrl-p'],
 	[0x01, 'home'],
 	[0x05, 'end'],
 	[0x7f, 'backspace'],

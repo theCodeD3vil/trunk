@@ -27,9 +27,6 @@ import {box, link, popped, shakeOf} from './widgets.js';
 
 export const lead = 1;
 
-/** The widest a panel gets, as in the design. */
-export const panelWidth = 70;
-
 export type Spacing = Readonly<{
 	/** A short terminal drops the blank rows and the help text. */
 	compact: boolean;
@@ -69,7 +66,7 @@ function drawPrefix(s: Surface, context: Context, top: number): number {
 	const text = wizard.values.prefix;
 	const check = validatePrefix(text);
 	const bad = !check.valid;
-	const width = Math.min(panelWidth, s.w - lead * 2);
+	const width = s.w - lead * 2;
 	const x = lead;
 	box(s, context, x, top, width, 3, {
 		edge: bad ? p.err : p.acc,
@@ -140,7 +137,7 @@ function drawChoices(
 		return top;
 	}
 
-	const total = Math.min(68, s.w - lead * 2);
+	const total = s.w - lead * 2;
 	const stacked = total < 56;
 	const each = stacked ? total : Math.floor((total - 2) / 2);
 	const options = [
@@ -195,16 +192,13 @@ function drawAgents(s: Surface, context: Context, top: number): number {
 		return top;
 	}
 
-	const width = Math.min(68, s.w - lead * 2);
+	const width = s.w - lead * 2;
 	const picked = wizard.values.agents;
 	const full = picked.length >= maximumAgents;
 	const count = `${picked.length} of ${maximumAgents} picked`;
-	s.put(
-		lead,
-		top,
-		cut('Installed on this machine', width - count.length - 2, g.ell),
-		{c: 'c-dim'},
-	);
+	s.put(lead, top, cut('Installed agents', width - count.length - 2, g.ell), {
+		c: 'c-dim',
+	});
 	const counted = popped(context, 'agents:count', p.acc);
 	s.put(lead + width - count.length, top, count, {c: 'c-dim'});
 	s.put(lead + width - count.length, top, String(picked.length), {
@@ -292,7 +286,7 @@ function drawReview(
 		return top;
 	}
 
-	const width = Math.min(68, s.w - lead * 2);
+	const width = s.w - lead * 2;
 	const fields = (
 		['prefix', 'tmux', 'agents', 'copyIgnored', 'mcAlias'] as const
 	).filter(field => availability(request, wizard.values, field) !== 'skipped');
@@ -352,7 +346,7 @@ function drawReview(
 	const lines = flow(units, inner);
 	const boxH = lines.length + 3;
 	box(s, context, lead, y, width, boxH, {edge: p.line, dashed: true});
-	s.put(lead + 2, y + 1, 'SAME THING, FROM A SCRIPT', {c: 'c-faint'});
+	s.put(lead + 2, y + 1, 'SAME AS A COMMAND', {c: 'c-faint'});
 	const copied =
 		ui.copied !== undefined && now - ui.copied.at < duration.copied;
 	const label = copied ? `copied ${g.tick}` : 'copy';
@@ -409,7 +403,7 @@ export function drawPanel(
 			title: stage === 'review' ? 'Review' : labels[stage],
 			help:
 				stage === 'review'
-					? 'Nothing happens until you create the project. Everything here is also a flag, so you can script it.'
+					? 'Nothing is written until you create the project. Each choice is also a flag.'
 					: help[stage],
 		},
 		space,

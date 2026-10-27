@@ -10,6 +10,7 @@ import {performance} from 'node:perf_hooks';
 import process from 'node:process';
 import React, {useEffect, useRef, useSyncExternalStore} from 'react';
 import {flushSync, useTerminalDimensions} from '@opentui/react';
+import {colourLevel} from '../core/interactive.js';
 import {trunkVersion} from '../core/version.js';
 import type {
 	FailureRequest,
@@ -23,10 +24,12 @@ import type {
 import type {Settings} from '../core/settings.js';
 import {copyToClipboard} from '../docs/clipboard.js';
 import {abortKey} from './keys.js';
-import {Lines, mount} from './kit/render.js';
+import {createKit} from './kit/lines.js';
+import {ansiLines, Lines, mount} from './kit/render.js';
 import {resolveTheme} from './kit/theme.js';
 import {useKeys, type Point} from './use-keys.js';
 import {failureKey, type FailureState} from './screens/callouts.js';
+import {doneLines, outcomeOf} from './screens/done.js';
 import {
 	buildOverwriteModel,
 	initialOverwrite,
@@ -120,6 +123,23 @@ function SessionApp({
 		<Lines lines={lines} theme={frame.theme} width={terminal.width || 80} />
 	);
 }
+
+/** Clears the visible screen and puts the cursor at the top; the scrollback is left alone. */
+const clearScreen = '\u001B[2J\u001B[H';
+
+/** The width the last lines are drawn to: the window's, up to a readable line. */
+const columns = (): number => Math.min(process.stdout.columns || 80, 104);
+
+/** Writes to a stream and waits until it has been flushed. */
+const writeAll = async (
+	stream: NodeJS.WriteStream,
+	text: string,
+): Promise<void> =>
+	new Promise(resolve => {
+		stream.write(text, () => {
+			resolve();
+		});
+	});
 
 /** Mounts the app and returns the imperative Session the setup code drives. */
 export async function openSession(): Promise<Session> {
@@ -418,6 +438,25 @@ export async function openSession(): Promise<Session> {
 
 		async close() {
 			onKey = () => undefined;
+			// A finished run clears the screen and leaves the next steps, not the UI it ran in.
+			if (run?.finish !== undefined && !aborted) {
+				await app.unmount();
+				await writeAll(
+					process.stdout,
+					`${clearScreen}${ansiLines(
+						doneLines(
+							createKit(controller.theme.glyphs, columns()),
+							run.finish.request,
+							outcomeOf(run),
+						),
+						controller.theme,
+						columns(),
+						colourLevel(process.stdout),
+					)}`,
+				);
+				return true;
+			}
+
 			if (run?.cancelling === true) {
 				run = {...run, cancelling: false};
 				showRun();
@@ -431,6 +470,7 @@ export async function openSession(): Promise<Session> {
 			});
 
 			await app.unmount();
+			return false;
 		},
 	};
 }

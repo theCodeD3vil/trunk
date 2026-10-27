@@ -9,15 +9,17 @@
 import type {Surface} from './canvas.js';
 import {duration, mix} from './motion.js';
 import {highlight} from './preview.js';
-import {centre, cut} from './text.js';
+import {centre, cut, wrap} from './text.js';
 import type {Context} from './types.js';
+
+/** Columns of padding either side of a toast's text. */
+const toastPadX = 2;
 
 /** Columns from the app's left border to the divider between rail and stage. */
 export const sideWidth = 30;
 
 export type Geo = Readonly<{
-	/** Where the app's left edge falls in the terminal, and its size. */
-	ox: number;
+	/** The app's size, which is the window's. */
 	cols: number;
 	rows: number;
 	/** The rows between the rule under the top bar and the one over the keys. */
@@ -28,11 +30,10 @@ export type Geo = Readonly<{
 	mainW: number;
 }>;
 
-/** The app is at most 104 columns wide and centred, as the design has it. */
+/** The app fills the window; the sidebar keeps its width and the stage takes the rest. */
 export function geometry(width: number, rows: number): Geo {
-	const cols = Math.min(width, 104);
+	const cols = width;
 	return {
-		ox: Math.floor((width - cols) / 2),
 		cols,
 		rows,
 		bodyY: 2,
@@ -122,6 +123,8 @@ export type Cap = Readonly<{
 	/** The keys that press it; a click on it sends the first. */
 	keys: readonly string[];
 	off?: boolean;
+	/** Left out when the bar is too narrow for every cap. */
+	optional?: boolean;
 }>;
 
 /** The key bar: a cap per key, which brightens under the pointer, and a status on the right. */
@@ -132,8 +135,12 @@ export function drawKeys(
 	right: string,
 ): void {
 	const {p} = context;
+	const widthOf = (cap: Cap): number =>
+		Math.max(3, [...cap.glyph].length + 2) + 1 + [...cap.label].length + 3;
+	const room = s.w - 4 - (right === '' ? 0 : [...right].length + 2);
+	const fits = caps.reduce((sum, cap) => sum + widthOf(cap), 0) <= room;
 	let x = 2;
-	for (const cap of caps) {
+	for (const cap of fits ? caps : caps.filter(entry => !entry.optional)) {
 		const key = cap.keys[0]!;
 		const off = cap.off === true;
 		const hover = off ? 0 : context.hover(key);
@@ -158,31 +165,32 @@ export function drawKeys(
 	}
 }
 
-/** The line that floats above the key bar for a moment after something happens. */
+/** A padded note at the top right, over the corner of the stage, for a moment after something happens. */
 export function drawToast(s: Surface, context: Context, geo: Geo): void {
-	const {p, g, now, ui} = context;
+	const {p, now, ui} = context;
 	const {toast} = ui;
-	if (toast === undefined) {
-		return;
-	}
-
-	if (now - toast.at >= duration.toastHold) {
+	if (toast === undefined || now - toast.at >= duration.toastHold) {
 		return;
 	}
 
 	const warn = toast.tone === 'warn';
-	const text = ` ${cut(toast.text, Math.max(8, geo.cols - 12), g.ell)} `;
-	const width = [...text].length;
-	const x = Math.floor((geo.cols - width) / 2);
-	const y = geo.rows - 3;
-	const edge = warn ? p.warn : p.line;
-	s.put(x - 1, y, g.capL, {c: 'c-faint', fg: edge});
-	s.put(x, y, text, {
-		c: warn ? 'chip c-warn' : 'chip',
-		fg: warn ? p.warn : p.fg,
-		bg: p.sel,
-	});
-	s.put(x + width, y, g.capR, {c: 'c-faint', fg: edge});
+	const lines = wrap(toast.text, Math.max(8, Math.min(44, geo.cols - 16)));
+	const inner = Math.max(...lines.map(line => [...line].length));
+	const width = inner + toastPadX * 2;
+	const x = geo.cols - 2 - width;
+	const y = geo.bodyY;
+	const style = {c: warn ? 'chip c-warn' : 'chip', bg: p.sel};
+	const blank = ' '.repeat(width);
+	s.put(x, y, blank, style);
+	for (const [index, line] of lines.entries()) {
+		s.put(x, y + 1 + index, blank, style);
+		s.put(x + toastPadX, y + 1 + index, line, {
+			...style,
+			fg: warn ? p.warn : p.fg,
+		});
+	}
+
+	s.put(x, y + 1 + lines.length, blank, style);
 }
 
 /** A colour for a run of the file: a comment, a table, a key, a string, or plain. */
@@ -216,11 +224,18 @@ export function drawPreview(
 	s: Surface,
 	context: Context,
 	height: number,
+	zoomed?: {top: number; note: string},
 ): void {
 	const {p, g, ui} = context;
+	const window = zoomed ?? {top: ui.top, note: 'highlighted: set by this step'};
 	const title = '.CONFIG/WT.TOML';
-	const note = 'lit where your choice lands';
-	s.put(3, 0, title, {c: 'c-faint'});
+	const {note} = window;
+	s.hit(0, 0, s.w, 1, 'preview');
+	s.put(3, 0, title, {
+		c: 'c-faint',
+		fg: mix(p.faint, p.fg, context.hover('preview')),
+		k: 'preview',
+	});
 	// On a narrow stage the note would run into the title, so it goes.
 	if (3 + title.length + 2 + note.length <= s.w - 3) {
 		s.put(s.w - 3 - note.length, 0, note, {c: 'c-dim'});
@@ -229,7 +244,7 @@ export function drawPreview(
 	const colours = highlight(ui.rows.map(row => row.text));
 	const right = s.w - 3;
 	let y = 1;
-	for (let index = ui.top; index < ui.rows.length && y <= height; index++) {
+	for (let index = window.top; index < ui.rows.length && y <= height; index++) {
 		const row = ui.rows[index]!;
 		const base = row.hot ? p.sel : p.bg;
 		if (row.hot) {

@@ -161,13 +161,13 @@ describe('interactive screens appear live even when the environment looks like C
 			}
 		}
 
-		expect(review).toContain('SAME THING, FROM A SCRIPT');
+		expect(review).toContain('SAME AS A COMMAND');
 		expect(review).toContain('trunk-cli init');
 		await send(tmux, 'flow', 'Enter');
 
 		// The result card, with the push question on its safe answer.
 		const result = await waitForScreen(tmux, 'flow', 'Not now');
-		expect(result).toContain('is ready');
+		expect(result).toContain('Created');
 		expect(result).toContain('cd ');
 		await send(tmux, 'flow', 'Enter');
 		await waitForExit(tmux, 'flow');
@@ -481,7 +481,7 @@ describe('interactive screens appear live even when the environment looks like C
 		}
 
 		await send(tmux, 'short', 'Enter');
-		const result = await waitForScreen(tmux, 'short', 'is ready');
+		const result = await waitForScreen(tmux, 'short', 'Created');
 		expect(result).toContain('Push chore/trunk-setup and open a pull');
 		expect(result).toContain('request?');
 		expect(result).toContain('Not now');
@@ -618,7 +618,7 @@ describe('interactive screens appear live even when the environment looks like C
 		const refused = await waitForScreen(
 			tmux,
 			'agents',
-			'Limit reached: pick up to 4 agents.',
+			'You can pick up to 4 agents.',
 		);
 		expect(refused).toMatch(/\[ ] +antigravity/);
 
@@ -655,11 +655,7 @@ describe('interactive screens appear live even when the environment looks like C
 		await waitForScreen(tmux, 'window', 'STEP 1 OF');
 		await send(tmux, 'window', 'Enter');
 		await send(tmux, 'window', 'Enter');
-		const top = await waitForScreen(
-			tmux,
-			'window',
-			'Installed on this machine',
-		);
+		const top = await waitForScreen(tmux, 'window', 'Installed agents');
 
 		for (const name of ['claude', 'pi']) {
 			expect(top, name).toMatch(new RegExp(`\\[[ –✓]\\] +${name}\\b`));
@@ -774,12 +770,9 @@ describe('interactive screens appear live even when the environment looks like C
 		expect(running).not.toContain('open a pull request?');
 		expect(running).toMatch(/\^C\s+cancel/);
 
-		const done = await waitForScreen(
-			tmux,
-			'push',
-			'Published chore/trunk-setup',
-		);
-		await waitForScreen(tmux, 'push', 'TRUNK-HAS-EXITED');
+		// The finished run clears the screen and leaves the summary.
+		const done = await waitForScreen(tmux, 'push', 'TRUNK-HAS-EXITED');
+		expect(done).not.toContain('Publishing chore/trunk-setup');
 		expect(done).toMatch(/✓\s+Push to origin/);
 		expect(done).toMatch(
 			/✓\s+Open pull request\s+#12\s+github\.com\/acme\/storefr/,
@@ -842,11 +835,8 @@ describe('interactive screens appear live even when the environment looks like C
 		await delay(500);
 		await send(tmux, 'stop', 'C-c');
 
-		const stopped = await waitForScreen(tmux, 'stop', 'Stopped waiting.');
-		await waitForScreen(tmux, 'stop', 'TRUNK-HAS-EXITED');
-		expect(stopped).toContain('Publishing chore/trunk-setup stopped');
-		expect(stopped).toMatch(/—\s+Push to origin\s+cancelled/);
-		expect(stopped).toMatch(/—\s+Open pull request\s+skipped/);
+		const stopped = await waitForScreen(tmux, 'stop', 'TRUNK-HAS-EXITED');
+		expect(stopped).toContain('Stopped waiting.');
 		expect(stopped).toContain('git status -sb');
 		expect(stopped).toContain('git push -u origin chore/trunk-setup');
 		const branches = await runCommand('git', [
@@ -884,7 +874,7 @@ describe('interactive screens appear live even when the environment looks like C
 			'Try again, or leave it local?',
 		);
 		expect(card).toContain('Publishing chore/trunk-setup stopped');
-		expect(card).toMatch(/✗\s+Push to origin\s+did not go through/);
+		expect(card).toMatch(/✗\s+Push to origin\s+failed/);
 		expect(card).toContain('✗ Push failed');
 		expect(card).toContain('remote rejected');
 		expect(card).not.toContain('failed to push some refs');
@@ -900,11 +890,7 @@ describe('interactive screens appear live even when the environment looks like C
 
 		const retry = locate(card, 'Retry');
 		await sendLiteral(tmux, 'retry', click(retry.column + 1, retry.row));
-		const done = await waitForScreen(
-			tmux,
-			'retry',
-			'Published chore/trunk-setup',
-		);
+		const done = await waitForScreen(tmux, 'retry', 'TRUNK-HAS-EXITED');
 		expect(done).toMatch(/✓\s+Push to origin/);
 		const branches = await runCommand('git', [
 			'-C',

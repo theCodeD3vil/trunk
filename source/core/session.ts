@@ -161,7 +161,8 @@ export type Session = Readonly<{
 	fail: (request: FailureRequest) => Promise<'keep' | 'rollback' | undefined>;
 	/** True once the user pressed Ctrl+C; the run should stop at its next step. */
 	aborted: () => boolean;
-	close: () => Promise<void>;
+	/** Ends the session; true when it also cleared the screen and printed what to do next. */
+	close: () => Promise<boolean>;
 }>;
 
 /** A refusal to start: shown as a card in a terminal, and as plain lines otherwise. */

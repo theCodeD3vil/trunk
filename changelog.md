@@ -8,6 +8,8 @@
 
 - Pushing the setup branch shows its progress. The question becomes two named steps, _Push to origin_ and _Open pull request_, each with a spinner and a clock. A failed push gets a card with git's own words, one line on how to fix it, and the command to run afterwards, with Retry first. If the push worked and the pull request did not, the push stays ticked and Retry repeats only the pull request. After ten seconds a slow push says it is still waiting.
 - A redesigned setup shell for `clone` and `init`: a step rail on the left, one question at a time on the right, and a live preview of `.config/wt.toml` that lights the lines your choice changes. Review, apply, publish and the failure and overwrite cards are drawn inside the same frame. It paints its own black background across the whole window, whatever the terminal's. Only choosing and moving about are animated: a pick settles and pops, the agents cursor travels, and a wrong pick on the agents list shakes; `TRUNK_MOTION=0` turns that off. Hover needs a terminal that reports mouse motion; `TRUNK_MOUSE=0` turns the mouse off. A window below 64 by 14 shows a note to enlarge it instead of a broken layout.
+- `p`, `Ctrl+P` or a click on its header opens the live preview full size in the setup shell. Arrows, `Space` and `b` scroll it; `p` or Esc closes it. On the session-prefix step `p` is a letter, so use `Ctrl+P` there.
+- When `clone` or `init` finishes, the screen is cleared and the result, the next steps and any notes are printed, so your prompt sits right under them. Your earlier scrollback is kept. Failures, cancelled runs and `--yes` leave the screen as it was.
 - Ctrl+C during a push or pull request stops that command and prints how to finish by hand.
 - `trunk-cli docs`, an offline interactive documentation browser bundled with the package. It has two topics, Config Basics and Node, with live search, scrolling, and copyable snippets. Without a terminal that can read keys it exits with status 2.
 - `trunk-cli init` support for a bare-layout project that has no origin remote. The project directory's name seeds the suggested prefix, and the local merge command is printed instead of a pull request.
@@ -30,6 +32,9 @@
 
 ### Changed
 
+- The setup shell fills the whole window instead of stopping at 104 columns, so the main panel gets the extra width. The step list keeps its width.
+- The setup shell uses plainer wording for help text, toasts and the result. A wrong session prefix now shows a toast instead of shaking the field. Toasts are a padded block at the top right.
+- The step list no longer draws a green bar beside the active step.
 - **Breaking:** `trunk-cli` now needs Node.js 26.12 or newer. The terminal UI draws with OpenTUI instead of Ink, and OpenTUI's native renderer loads through `node:ffi`, which Node 26.12 provides without a flag. Screens, keys and mouse behave as before; the screens now start at the top of the terminal, and the earlier output stays in the scrollback above them.
 - **Breaking:** the installed command is now `trunk-cli`. `trunk` collided with the Rust/Wasm `trunk` bundler and the Trunk.io CLI, both of which install a `trunk` binary. The package name is unchanged, so `bun add --global @cod3vil/trunk` installs `trunk-cli`. There is no `trunk` alias, because it would keep the collision; update scripts and shell aliases that call `trunk`. Tool names in prose and the `chore/trunk-setup` branch are unchanged.
 - Every screen is now as tall as the terminal minus one row, so the key bar is always on the last row instead of floating under the content. The choices card and the result card stop at 76 columns.

@@ -55,7 +55,6 @@ export type Glyphs = Readonly<{
 	teeL: string;
 	teeD: string;
 	teeU: string;
-	marker: string;
 	capL: string;
 	capR: string;
 	hot: string;
@@ -124,7 +123,6 @@ export const unicodeGlyphs: Glyphs = Object.freeze({
 	teeL: '┤',
 	teeD: '┬',
 	teeU: '┴',
-	marker: '▍',
 	capL: '▐',
 	capR: '▌',
 	hot: '▌',
@@ -191,7 +189,6 @@ export const asciiGlyphs: Glyphs = Object.freeze({
 	teeL: '+',
 	teeD: '+',
 	teeU: '+',
-	marker: '|',
 	capL: '[',
 	capR: ']',
 	hot: '|',

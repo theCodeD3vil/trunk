@@ -16,6 +16,7 @@ import {along, duration} from './motion.js';
 import {buildPreview, followTop, settle} from './preview.js';
 import {runOf} from './rail.js';
 import type {Frame, Screen, Ui} from './types.js';
+import {geometry} from './chrome.js';
 import {layoutOf} from './view.js';
 import {
 	initialWizard,
@@ -57,6 +58,8 @@ export function createController(options: ControllerOptions) {
 		fx: {},
 		rows: [],
 		top: 0,
+		zoom: false,
+		zoomTop: 0,
 		motion: options.motion,
 	};
 
@@ -150,6 +153,64 @@ export function createController(options: ControllerOptions) {
 		patch({top: followTop(ui.rows, ui.top, height)});
 	};
 
+	/** How many lines of the file the zoomed preview shows: the stage's rows less its header. */
+	const zoomRows = (): number =>
+		Math.max(1, geometry(size.cols, size.rows).bodyH - 1);
+
+	const scrollTo = (top: number): void => {
+		patch({
+			zoomTop: Math.max(0, Math.min(top, ui.rows.length - zoomRows())),
+		});
+	};
+
+	/** Keys while the preview fills the stage: it scrolls, and `p` or Esc puts it back. */
+	const zoomKey = (name: string): void => {
+		const page = Math.max(1, zoomRows() - 1);
+		switch (name) {
+			case 'p':
+			case 'ctrl-p':
+			case 'preview':
+			case 'esc': {
+				patch({zoom: false});
+				break;
+			}
+
+			case 'up': {
+				scrollTo(ui.zoomTop - 1);
+				break;
+			}
+
+			case 'down': {
+				scrollTo(ui.zoomTop + 1);
+				break;
+			}
+
+			case 'b': {
+				scrollTo(ui.zoomTop - page);
+				break;
+			}
+
+			case 'space': {
+				scrollTo(ui.zoomTop + page);
+				break;
+			}
+
+			case 'home': {
+				scrollTo(0);
+				break;
+			}
+
+			case 'end': {
+				scrollTo(ui.rows.length);
+				break;
+			}
+
+			default: {
+				break;
+			}
+		}
+	};
+
 	const commit = (changes: Partial<Snapshot>, now: number): void => {
 		const before = snapshot();
 		screen = changes.screen ?? screen;
@@ -230,6 +291,7 @@ export function createController(options: ControllerOptions) {
 				motion: false,
 				fx: {},
 				toast: undefined,
+				zoom: false,
 				copied: undefined,
 				hover: undefined,
 				hoverPrev: undefined,
@@ -238,12 +300,14 @@ export function createController(options: ControllerOptions) {
 
 		/** Shows a screen other than the form. */
 		show(next: Screen, now: number): void {
+			patch({zoom: false});
 			commit({screen: next}, now);
 		},
 
 		/** Opens the form for these questions. */
 		configure(next: ConfigureRequest, now: number): void {
 			const first = initialWizard(next);
+			patch({zoom: false});
 			commit({screen: {kind: 'wizard'}, request: next, wizard: first}, now);
 			// A first picture of the file, with nothing animating.
 			const preview = buildPreview(next, first.values, first.stage);
@@ -258,6 +322,23 @@ export function createController(options: ControllerOptions) {
 				request === undefined ||
 				wizard === undefined
 			) {
+				return undefined;
+			}
+
+			if (ui.zoom) {
+				zoomKey(name);
+				return undefined;
+			}
+
+			// On the prefix step `p` is a letter, so only Ctrl+P opens the preview there.
+			if (
+				name === 'preview' ||
+				name === 'ctrl-p' ||
+				(name === 'p' && wizard.stage !== 'prefix')
+			) {
+				const first = ui.rows.findIndex(row => row.hot);
+				patch({zoom: true});
+				scrollTo(first - 2);
 				return undefined;
 			}
 

@@ -171,7 +171,8 @@ const cap = (
 	label: string,
 	keys: readonly string[],
 	off = false,
-): Cap => ({glyph, label, keys, off});
+	optional = false,
+): Cap => ({glyph, label, keys, off, optional});
 
 /** The key bar for the open screen: its caps, and the word at the right. */
 function keyBar(
@@ -199,30 +200,53 @@ function keyBar(
 				return {caps: [], right: ''};
 			}
 
+			if (frame.ui.zoom) {
+				return {
+					caps: [
+						cap(g.updown, 'scroll', ['up', 'down']),
+						cap(g.space, 'page', ['space']),
+						cap('p', 'close', ['preview']),
+						cap('esc', 'close', ['esc'], false, true),
+					],
+					right: 'preview',
+				};
+			}
+
 			const open = openStages(request, wizard.values);
 			const first = open.indexOf(wizard.stage) <= 0;
 			const back = cap('esc', 'back', ['esc'], first);
 			const {stage} = wizard;
+			// On the prefix step `p` is a letter, so the preview is Ctrl+P there.
+			const preview = cap(
+				stage === 'prefix' ? '^P' : 'p',
+				'preview',
+				['preview'],
+				false,
+				true,
+			);
 			const caps =
 				stage === 'prefix'
-					? [cap(g.enter, 'continue', ['enter']), back]
+					? [cap(g.enter, 'continue', ['enter']), preview, back]
 					: stage === 'agents'
 					? [
 							cap(g.updown, 'move', ['up', 'down']),
 							cap(g.space, 'pick', ['space']),
 							cap(g.enter, 'continue', ['enter']),
+							preview,
 							back,
 					  ]
 					: stage === 'review'
 					? [
 							cap(g.enter, 'create project', ['enter']),
 							cap('c', 'copy command', ['c']),
+							preview,
 							back,
 					  ]
 					: [
 							cap(g.leftright, 'choose', ['left', 'right']),
 							cap(g.space, 'toggle', ['space']),
 							cap(g.enter, 'continue', ['enter']),
+							preview,
 							back,
 					  ];
 			const steps = open.filter(entry => entry !== 'review');
@@ -289,14 +313,17 @@ export function frameLines(frame: Frame): Line[] {
 	const layout = layoutOf(frame);
 	const {geo} = layout;
 	const canvas = createCanvas(frame.cols, frame.rows);
-	const app = canvas.surface.view(geo.ox, 0, geo.cols, geo.rows);
+	const app = canvas.surface.view(0, 0, geo.cols, geo.rows);
 	if (!layout.fits) {
 		tooSmall(app, context);
 		return canvas.lines();
 	}
 
+	const zoomed = frame.ui.zoom && screen.kind === 'wizard';
 	const previewY =
-		layout.previewLines === 0 ? undefined : geo.bodyY + layout.stageRows;
+		zoomed || layout.previewLines === 0
+			? undefined
+			: geo.bodyY + layout.stageRows;
 	drawFrame(app, context, geo, previewY);
 	drawTopBar(app.view(0, 0, geo.cols, 1), context);
 
@@ -304,11 +331,27 @@ export function frameLines(frame: Frame): Line[] {
 	const side = app.view(1, geo.bodyY, sideWidth - 1, geo.bodyH);
 	drawRail(side, context, railModel(frame.request, frame.wizard, screen));
 
-	const main = app.view(geo.mainX, geo.bodyY, geo.mainW, layout.stageRows);
-	const overflow = Math.max(0, layout.height - (layout.stageRows - 1));
-	main.blit(layout.stage.surface, stageInset, 1 - overflow);
+	if (zoomed) {
+		// The preview takes the whole stage, a window onto the file you scroll.
+		const lines = Math.max(1, geo.bodyH - 1);
+		const total = frame.ui.rows.length;
+		const top = Math.max(0, Math.min(frame.ui.zoomTop, total - lines));
+		drawPreview(
+			app.view(geo.mainX, geo.bodyY, geo.mainW, geo.bodyH),
+			context,
+			lines,
+			{
+				top,
+				note: `${top + 1}-${Math.min(total, top + lines)} of ${total}`,
+			},
+		);
+	} else {
+		const main = app.view(geo.mainX, geo.bodyY, geo.mainW, layout.stageRows);
+		const overflow = Math.max(0, layout.height - (layout.stageRows - 1));
+		main.blit(layout.stage.surface, stageInset, 1 - overflow);
+	}
 
-	if (layout.previewLines > 0) {
+	if (!zoomed && layout.previewLines > 0) {
 		drawPreview(
 			app.view(
 				geo.mainX,

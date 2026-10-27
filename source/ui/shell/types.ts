@@ -49,6 +49,9 @@ export type Ui = Readonly<{
 	/** The preview's rows and the first one in view. */
 	rows: readonly Row[];
 	top: number;
+	/** The preview fills the stage, and the first row of it in view. */
+	zoom: boolean;
+	zoomTop: number;
 	/** Whether effects run at all; without them every frame is the settled one. */
 	motion: boolean;
 }>;

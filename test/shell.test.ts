@@ -173,7 +173,7 @@ describe('the form', () => {
 		expect(off.events).toEqual([
 			{
 				kind: 'toast',
-				text: 'Agents were cleared: they need the tmux workspace.',
+				text: 'Agents cleared. They need tmux.',
 			},
 		]);
 
@@ -397,7 +397,7 @@ describe('text', () => {
 const finish: FinishRequest = {
 	command: 'clone',
 	project: 'acme/storefront',
-	title: 'acme-admin is ready',
+	title: 'Cloned acme-admin',
 	next: [
 		{command: 'cd ~/Projects/acme-admin/chore-trunk-setup'},
 		{command: 'wt config approvals add', note: 'review the hooks once'},
@@ -590,6 +590,85 @@ describe('the frame', () => {
 	});
 });
 
+describe('the zoomed preview', () => {
+	/** A form on its second step, drawn once so the stage has a size. */
+	const second = (): Shell => {
+		const {controller} = shell();
+		controller.configure(request(), 0);
+		controller.key('enter', 0);
+		draw(controller, 0, 100, 28);
+		return controller;
+	};
+
+	test('P opens it, arrows and pages scroll it, and Esc closes it where it was', () => {
+		const controller = second();
+		const stage = controller.frame(0).wizard?.stage;
+		controller.key('p', 0);
+		expect(controller.frame(0).ui.zoom).toBe(true);
+		expect(plain(draw(controller, 0, 100, 28))).toMatch(/\d+-\d+ of \d+/);
+
+		controller.key('end', 0);
+		expect(controller.frame(0).ui.zoomTop).toBeGreaterThan(0);
+		controller.key('home', 0);
+		expect(controller.frame(0).ui.zoomTop).toBe(0);
+		controller.key('space', 0);
+		expect(controller.frame(0).ui.zoomTop).toBeGreaterThan(0);
+		controller.key('b', 0);
+		expect(controller.frame(0).ui.zoomTop).toBe(0);
+
+		// Esc closes the preview, not the step.
+		controller.key('esc', 0);
+		expect(controller.frame(0).ui.zoom).toBe(false);
+		expect(controller.frame(0).wizard?.stage).toBe(stage);
+	});
+
+	test('a click on its header opens it and P closes it', () => {
+		const controller = second();
+		controller.key('preview', 0);
+		expect(controller.frame(0).ui.zoom).toBe(true);
+		controller.key('p', 0);
+		expect(controller.frame(0).ui.zoom).toBe(false);
+	});
+
+	test('on the prefix step P is a letter, so only Ctrl+P opens it', () => {
+		const {controller} = shell();
+		controller.configure(request(), 0);
+		controller.key('p', 0);
+		expect(controller.frame(0).ui.zoom).toBe(false);
+		expect(controller.frame(0).wizard?.values.prefix).toEndWith('p');
+		controller.key('ctrl-p', 0);
+		expect(controller.frame(0).ui.zoom).toBe(true);
+	});
+
+	test('the key bar offers it, and drops it first when the window is narrow', () => {
+		const controller = second();
+		const bar = (cols: number, rows: number): string =>
+			plain(draw(controller, 0, cols, rows)).split('\n').at(-1)!;
+		expect(bar(140, 36)).toContain('preview');
+		expect(bar(80, 24)).not.toContain('preview');
+		expect(bar(80, 24)).toContain('continue');
+	});
+});
+
+describe('the toast', () => {
+	test('sits at the top right, padded, and goes after a moment', () => {
+		const {controller} = shell();
+		controller.configure(request(), 0);
+		for (let index = 0; index < 4; index++) {
+			controller.key('backspace', 10);
+		}
+
+		controller.key('enter', 20);
+		const row = draw(controller, 30)
+			.map(line => text(line))
+			.find(line => line.includes('Fix the session prefix first.'))!;
+		expect(row.indexOf('Fix the session prefix first.')).toBeGreaterThan(60);
+		expect(plain(draw(controller, 30_000))).not.toContain(
+			'Fix the session prefix first.',
+		);
+	});
+});
+
 describe('the run and the publish steps', () => {
 	const destination = 'github.com:acme/storefront';
 	const asked = {
@@ -710,7 +789,7 @@ describe('the run and the publish steps', () => {
 			const screen = screenAt(failed(), 9000);
 
 			expect(screen).toContain('Publishing chore/trunk-setup stopped');
-			expect(screen).toMatch(/✗\s+Push to origin\s+did not go through\s+2\.0s/);
+			expect(screen).toMatch(/✗\s+Push to origin\s+failed\s+2\.0s/);
 			expect(screen).toMatch(/—\s+Open pull request\s+skipped/);
 			expect(screen).toContain('✗ Push failed');
 			expect(screen).toContain('To github.com:acme/storefront.git');

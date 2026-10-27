@@ -16,7 +16,7 @@ import {
 } from '../screens/running.js';
 import {createKit, type Kit} from '../kit/lines.js';
 import type {Surface} from './canvas.js';
-import {lead, heading, panelWidth, type Spacing} from './panels.js';
+import {lead, heading, type Spacing} from './panels.js';
 import {duration, mix} from './motion.js';
 import {cut, wrap} from './text.js';
 import type {Context, Screen} from './types.js';
@@ -183,7 +183,7 @@ function publishItem(
 				...base,
 				tone: 'failed',
 				glyph: g.cross,
-				detail: 'did not go through',
+				detail: 'failed',
 				clock: seconds(spent),
 			};
 		}
@@ -430,7 +430,7 @@ export function drawRun(
 	level: 0 | 1 | 2 | 3,
 ): number {
 	const {p, g, frame} = context;
-	const width = Math.min(panelWidth, s.w - lead * 2);
+	const width = s.w - lead * 2;
 	const kit = kitFor(context, width);
 	const failed = run.steps.some(step => step.status === 'failed');
 	const complete =
@@ -458,8 +458,8 @@ export function drawRun(
 				: published
 				? 'Setup branch pushed.'
 				: complete
-				? 'Everything is in place.'
-				: 'Stops cleanly between steps. Nothing is half-written.',
+				? 'All steps finished.'
+				: 'Ctrl+C stops after the current step.',
 		},
 		{compact: level > 0} satisfies Spacing,
 	);
@@ -585,7 +585,7 @@ export function drawOverwrite(
 	screen: Extract<Screen, {kind: 'overwrite'}>,
 	room: number,
 ): {height: number; hints: ReturnType<typeof overwriteParts>['hints']} {
-	const width = Math.min(panelWidth, s.w - lead * 2);
+	const width = s.w - lead * 2;
 	const kit = kitFor(context, width);
 	s.put(lead, 0, 'EXISTING CONFIG', {c: 'c-acc', fg: context.p.acc});
 	// The diff shows what the room allows; 14 rows are everything else on the old screen.
@@ -608,7 +608,7 @@ export function drawFailure(
 	context: Context,
 	screen: Extract<Screen, {kind: 'failure'}>,
 ): {height: number; hints: ReturnType<typeof failureParts>['hints']} {
-	const width = Math.min(panelWidth, s.w - lead * 2);
+	const width = s.w - lead * 2;
 	const kit = kitFor(context, width);
 	s.put(lead, 0, 'STOPPED', {c: 'c-err', fg: context.p.err});
 	const parts = failureParts(kit, screen.request, screen.state);
@@ -626,8 +626,8 @@ export function drawIdle(s: Surface, context: Context): number {
 		context,
 		{
 			eyebrow: 'Starting',
-			title: 'Getting ready',
-			help: 'Looking at the repository and the tools on this machine.',
+			title: 'Starting',
+			help: 'Checking the repository and your tools.',
 		},
 		{compact: false},
 	);

@@ -223,8 +223,7 @@ export function railLayout(
 	return {steps, headings};
 }
 
-// Columns inside the sidebar: the marker hugs its edge, the rest sits two in.
-const markerX = 0;
+// Columns inside the sidebar.
 const headX = 2;
 const nodeX = 3;
 const nameX = 5;
@@ -327,15 +326,6 @@ export function drawRail(s: Surface, context: Context, model: RailModel): void {
 			for (let row = 1; row < stepH; row++) {
 				s.put(nodeX, y + row, g.rail, {c: 'c-faint', fg: connector});
 			}
-		}
-	}
-
-	// The marker sits against the open step.
-	const open = layout.steps[model.active];
-	if (open !== undefined) {
-		// The name and its answer; the gap under them is not part of the step.
-		for (let row = 0; row < Math.min(stepH, 2); row++) {
-			s.put(markerX, open + row, g.marker, {c: 'c-acc', fg: p.acc});
 		}
 	}
 }

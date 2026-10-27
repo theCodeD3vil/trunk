@@ -260,8 +260,9 @@ export async function runInteractiveSetup(
 	try {
 		return await runSession(context, session, plan, request);
 	} finally {
-		await session.close();
-		for (const [kind, line] of buffered) {
+		// After a finished run the screen shows the next steps instead of this log.
+		const summarised = await session.close();
+		for (const [kind, line] of summarised ? [] : buffered) {
 			base.report(kind, line);
 		}
 	}
@@ -455,7 +456,9 @@ async function runSession(
 		});
 
 		return await finish(context, session, plan, settings, {
-			title: `${request.rootName} is ready`,
+			title: `${request.command === 'clone' ? 'Cloned' : 'Created'} ${
+				request.rootName
+			}`,
 			worktree,
 			branch,
 			defaultWorktree,

@@ -124,6 +124,7 @@ function fakeSession(answers: Answers = {}) {
 		aborted: () => false,
 		async close() {
 			record.closed = true;
+			return false;
 		},
 	};
 	const terminal: TerminalUi = {

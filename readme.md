@@ -96,7 +96,9 @@ If `.config/wt.toml` already exists, the run pauses on a numbered diff. Keeping 
 
 Every screen ends with a key bar of the keys that work on it, and it stays on the last row of the terminal. Key caps, buttons, sidebar entries, form rows and search results also respond to a click, and the mouse wheel scrolls the docs and the diff. Text you paste, or a key you hold down, reaches the screen key by key. Hold Shift (Option in Terminal.app and iTerm2) to select text, or set `TRUNK_MOUSE=0` to leave the mouse to your terminal.
 
-The screens use up to 104 columns. At 100 columns or more the form and the docs show two panes; below that they fold to one. On a short terminal, such as 80 by 24, the result card folds its step list to one line so the question is never pushed off the screen. They follow your terminal:
+In the setup form, `p` opens the preview full size (`Ctrl+P` on the session-prefix step, where `p` is a letter), and so does a click on its header. Arrows, `Space` and `b` scroll it; `p` or Esc closes it. When `clone` or `init` finishes, the screen is cleared and the result, the next steps and any notes are printed, so your prompt sits right under them. Your earlier scrollback is kept. Failures, cancelled runs and `--yes` leave the screen as it was.
+
+The setup shell fills the window. The other screens use up to 104 columns. At 100 columns or more the form and the docs show two panes; below that they fold to one. On a short terminal, such as 80 by 24, the result card folds its step list to one line so the question is never pushed off the screen. They follow your terminal:
 
 | Variable         | Effect                                                                      |
 | ---------------- | --------------------------------------------------------------------------- |

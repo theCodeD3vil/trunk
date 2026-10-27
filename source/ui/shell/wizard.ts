@@ -32,12 +32,13 @@ export const labels: Readonly<Record<SetupField, string>> = {
 
 export const help: Readonly<Record<SetupField, string>> = {
 	prefix:
-		'Sessions are named prefix_branch. Keep it unique across your repositories.',
-	tmux: 'An Editor window and a two-pane Terminal window for every worktree.',
-	agents: `Pick up to ${maximumAgents}. Each starts in its own pane of an Agents window.`,
+		'Names tmux sessions prefix_branch. It must be unique across your repositories.',
+	tmux: 'Opens each worktree in a tmux session with an Editor and a Terminal window.',
+	agents: `Pick up to ${maximumAgents}. Each gets a pane in an Agents window.`,
 	copyIgnored:
-		'Runs wt step copy-ignored first, so caches arrive before the session opens.',
-	mcAlias: 'wt mc merges with a commit message you write in $EDITOR.',
+		'Copies git-ignored files, such as caches and local config, into new worktrees.',
+	mcAlias:
+		'Adds wt mc, which merges with a commit message you write in $EDITOR.',
 };
 
 /** What each of the two answers to a yes-or-no question means. */
@@ -45,17 +46,14 @@ export const answers: Readonly<
 	Record<Exclude<SetupField, 'prefix' | 'agents'>, readonly [string, string]>
 > = {
 	tmux: [
-		'An Editor window and a two-pane Terminal window for every worktree.',
-		'No session. Worktrees open as plain directories.',
+		'Each worktree gets a tmux session with an Editor and a Terminal window.',
+		'No tmux session. Worktrees are plain directories.',
 	],
 	copyIgnored: [
-		'Caches and local config arrive in every new worktree before the session opens.',
-		'Worktrees start clean. Nothing is copied.',
+		'Copy git-ignored files into each new worktree.',
+		'Copy nothing. New worktrees start clean.',
 	],
-	mcAlias: [
-		'Merge with a commit message you write in your editor.',
-		'No alias. Use wt merge directly.',
-	],
+	mcAlias: ['Add the alias.', 'No alias. Use wt merge.'],
 };
 
 /** `open` is asked, `fixed` was settled by a flag, `skipped` has nothing to ask. */
@@ -294,7 +292,7 @@ export function wizardKey(
 					rail,
 					request.installedAgents.length === 0
 						? 'No agents are installed on this machine.'
-						: 'Agents need the tmux workspace. Turn it on first.',
+						: 'Agents need tmux. Turn it on first.',
 					'warn',
 				);
 			}
@@ -311,7 +309,7 @@ export function wizardKey(
 		}
 
 		if (stageOrder.indexOf(target) > wizard.furthest) {
-			return shake(rail, 'Finish the steps before this one first.', 'warn');
+			return shake(rail, 'Finish the earlier steps first.', 'warn');
 		}
 
 		if (target !== open[0] && !validatePrefix(values.prefix).valid) {
@@ -401,7 +399,7 @@ export function wizardKey(
 			if (values.agents.length >= maximumAgents) {
 				return shake(
 					row,
-					`Limit reached: pick up to ${maximumAgents} agents.`,
+					`You can pick up to ${maximumAgents} agents.`,
 					'warn',
 				);
 			}
@@ -463,7 +461,7 @@ export function wizardKey(
 	if (field === 'tmux' && !to && values.agents.length > 0) {
 		events.push({
 			kind: 'toast',
-			text: 'Agents were cleared: they need the tmux workspace.',
+			text: 'Agents cleared. They need tmux.',
 		});
 	}
 
