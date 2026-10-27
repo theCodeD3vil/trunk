@@ -32,7 +32,7 @@ const stackWords = /\b(npm|pnpm|yarn|caddy|brew|localhost|hash_port)\b/i;
 
 /** The README without its upgrade notes, which name what was removed. */
 function withoutUpgrading(readme: string): string {
-	return readme.replace(/## Upgrading From[\s\S]*?(?=\n## )/, '');
+	return readme.replaceAll(/## Upgrading From[\s\S]*?(?=\n## )/g, '');
 }
 
 describe('commands', () => {
