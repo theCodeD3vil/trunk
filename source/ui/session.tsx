@@ -1,5 +1,5 @@
 /**
- * The interactive setup session: one Ink app that stays mounted for the whole
+ * The interactive setup session: one React app that stays mounted for the whole
  * of `clone` or `init`, so the questions, the review, the run and the result are
  * a single continuous screen. The setup code talks to it through the plain
  * `Session` interface; this file turns each call into a screen and each answer
@@ -14,7 +14,7 @@ import React, {
 	useState,
 	useSyncExternalStore,
 } from 'react';
-import {render, useStdout} from 'ink';
+import {flushSync, useTerminalDimensions} from '@opentui/react';
 import type {
 	ConfigureRequest,
 	FailureRequest,
@@ -28,7 +28,7 @@ import type {
 import type {Settings} from '../core/settings.js';
 import {abortKey} from './keys.js';
 import {createKit, type Line} from './kit/lines.js';
-import {Lines} from './kit/render.js';
+import {Lines, mount} from './kit/render.js';
 import {resolveTheme, type Theme} from './kit/theme.js';
 import {useKeys} from './use-keys.js';
 import {
@@ -118,14 +118,14 @@ type AppProperties = Readonly<{
 	onKey: (name: string) => void;
 }>;
 
-function SessionApp({store, theme, onKey}: AppProperties): React.ReactElement {
+function SessionApp({store, theme, onKey}: AppProperties): React.ReactNode {
 	const screen = useSyncExternalStore(store.subscribe, store.get);
-	const {stdout} = useStdout();
+	const terminal = useTerminalDimensions();
 	// Bumping a counter is the cheapest way to ask React for another frame.
 	const [, redraw] = useReducer((count: number) => count + 1, 0);
 	const [caret, setCaret] = useState(true);
-	const columns = Math.min(stdout.columns || 80, maximumColumns);
-	const rows = stdout.rows || 40;
+	const columns = Math.min(terminal.width || 80, maximumColumns);
+	const rows = terminal.height || 40;
 
 	const spinning =
 		screen.kind === 'run' &&
@@ -156,16 +156,6 @@ function SessionApp({store, theme, onKey}: AppProperties): React.ReactElement {
 			clearInterval(timer);
 		};
 	}, [typing]);
-	useEffect(() => {
-		const onResize = () => {
-			redraw();
-		};
-
-		stdout.on('resize', onResize);
-		return () => {
-			stdout.off('resize', onResize);
-		};
-	}, [stdout]);
 
 	const kit = createKit(theme.glyphs, columns);
 	let lines: readonly Line[] = [];
@@ -253,9 +243,7 @@ export async function openSession(): Promise<Session> {
 		// once if it is already being stopped.
 		if (publishing !== undefined) {
 			if (publishing.signal.aborted) {
-				app.unmount();
-				// eslint-disable-next-line unicorn/no-process-exit
-				process.exit(130);
+				void quitNow();
 			}
 
 			publishing.abort();
@@ -270,10 +258,8 @@ export async function openSession(): Promise<Session> {
 		// Nothing is being asked, so work is running: stop after the step, and
 		// quit at once on a second press.
 		if (aborted) {
-			app.unmount();
 			// A second Ctrl+C means "now": nothing is left to unwind gracefully.
-			// eslint-disable-next-line unicorn/no-process-exit
-			process.exit(130);
+			void quitNow();
 		}
 
 		aborted = true;
@@ -283,11 +269,15 @@ export async function openSession(): Promise<Session> {
 		}
 	};
 
-	const app = render(
+	/** Restores the terminal, then exits as an interrupted command does. */
+	const quitNow = async () => {
+		await app.unmount();
+		// eslint-disable-next-line unicorn/no-process-exit
+		process.exit(130);
+	};
+
+	const app = await mount(
 		<SessionApp store={store} theme={theme} onKey={dispatch} />,
-		{
-			exitOnCtrlC: false,
-		},
 	);
 
 	/** Shows a screen and waits for `onKey` to produce an answer. */
@@ -526,13 +516,11 @@ export async function openSession(): Promise<Session> {
 			// Redraw once without the key bar: this frame stays in the scrollback.
 			if (run !== undefined) {
 				run = {...run, closed: true, cancelling: false};
-				showRun();
+				// Committed now, so the renderer draws it before it is torn down.
+				flushSync(showRun);
 			}
 
-			// The exit promise must exist before unmounting, or it never settles.
-			const exited = app.waitUntilExit();
-			app.unmount();
-			await exited;
+			await app.unmount();
 		},
 	};
 }

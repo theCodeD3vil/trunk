@@ -21,10 +21,10 @@ export function guardPlatform(
 }
 
 /**
- * Whether trunk can show an interactive form. Ink puts the terminal into raw
- * mode to read keys, which needs more than a TTY: a process whose stdin is a
- * pipe, or a terminal that does not support it, throws on mount. Checking first
- * means the user gets the re-run command instead of a React stack trace.
+ * Whether trunk can show an interactive form. The renderer puts the terminal into raw
+ * mode to read keys, which needs more than a TTY: with stdin a pipe it would
+ * draw and then wait forever for keys that never come. Checking first means the
+ * user gets the re-run command instead of a hung screen.
  */
 export function supportsInteractiveInput(
 	stdin: NodeJS.ReadStream = process.stdin,

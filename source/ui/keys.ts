@@ -3,9 +3,9 @@
  * handlers understand, and the parser that turns what a terminal sends into
  * them.
  *
- * Ink reports a burst of bytes as a single key press, so a paste, or a key held
- * down while the screen redraws, arrives as one string that no handler
- * recognises. Parsing the bytes here lets each key in the burst count.
+ * A paste, or a key held down while the screen redraws, can arrive as one
+ * string that no handler recognises. Parsing the bytes here lets each key in
+ * the burst count.
  */
 
 export const abortKey = 'ctrl-c';

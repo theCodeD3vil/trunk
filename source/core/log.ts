@@ -2,7 +2,7 @@
  * Plain-text progress reporting. Human-readable step lines go to stderr and
  * machine-readable results to stdout, so a caller can pipe trunk's output
  * somewhere useful while the person still sees what happened. It deliberately
- * avoids Ink: `--yes` runs never mount a UI.
+ * avoids the terminal UI: `--yes` runs never mount a UI.
  */
 import process from 'node:process';
 import {exitCodes, type Outcome} from './result.js';

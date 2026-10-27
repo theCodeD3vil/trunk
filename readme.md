@@ -22,7 +22,7 @@ The installed command is `trunk-cli`, not `trunk`, so it never shadows the Rust/
 
 | Tool                                              | Requirement                                                    |
 | ------------------------------------------------- | -------------------------------------------------------------- |
-| Node.js                                           | 20 or newer                                                    |
+| Node.js                                           | 26.12 or newer                                                 |
 | Git                                               | Required                                                       |
 | Worktrunk (`wt`)                                  | Required; generated templates are tested with v0.77.0          |
 | tmux                                              | Optional; creates one workspace per worktree                   |

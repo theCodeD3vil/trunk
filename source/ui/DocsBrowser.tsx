@@ -6,12 +6,12 @@
  * presses and clipboard results into state.
  */
 import React, {useEffect, useRef, useState} from 'react';
-import {render, useApp, useStdout} from 'ink';
+import {useTerminalDimensions} from '@opentui/react';
 import {supportsInteractiveInput} from '../core/platform.js';
 import {copyToClipboard, type CopyFunction} from '../docs/clipboard.js';
 import {abortKey} from './keys.js';
 import {createKit, type Line} from './kit/lines.js';
-import {Lines} from './kit/render.js';
+import {Lines, mount} from './kit/render.js';
 import {resolveTheme, type Theme} from './kit/theme.js';
 import {useKeys} from './use-keys.js';
 import {
@@ -41,9 +41,8 @@ export default function DocumentationBrowser({
 	theme = resolveTheme(),
 	copy = copyToClipboard,
 	onExit,
-}: DocumentationBrowserProperties): React.ReactElement {
-	const {exit} = useApp();
-	const {stdout} = useStdout();
+}: DocumentationBrowserProperties): React.ReactNode {
+	const terminal = useTerminalDimensions();
 	const [state, setState] = useState<DocumentationState>(initialDocumentation);
 	// Several keys can arrive in one read, and React applies their state updates
 	// later, so the newest state is kept here for the next key to start from.
@@ -56,10 +55,10 @@ export default function DocumentationBrowser({
 	const [caret, setCaret] = useState(true);
 	const closed = useRef(false);
 	const columns = Math.min(
-		size?.columns ?? (stdout.columns || 80),
+		size?.columns ?? (terminal.width || 80),
 		maximumColumns,
 	);
-	const rows = size?.rows ?? (stdout.rows || 40);
+	const rows = size?.rows ?? (terminal.height || 40);
 	const kit = createKit(theme.glyphs, columns);
 	const searching = state.search !== undefined;
 
@@ -67,7 +66,6 @@ export default function DocumentationBrowser({
 		if (!closed.current) {
 			closed.current = true;
 			onExit?.();
-			exit();
 		}
 	};
 
@@ -129,12 +127,16 @@ export async function runDocumentationBrowser(): Promise<DocumentationBrowserOut
 	}
 
 	try {
-		const app = render(<DocumentationBrowser />, {exitOnCtrlC: false});
-		await app.waitUntilExit();
-		app.cleanup();
+		let close: () => void = () => undefined;
+		const closed = new Promise<void>(resolve => {
+			close = resolve;
+		});
+		const app = await mount(<DocumentationBrowser onExit={close} />);
+		await closed;
+		await app.unmount();
 	} catch (error: unknown) {
-		// Ink throws from inside React when raw mode turns out to be unusable,
-		// which would otherwise reach the user as a component stack.
+		// The renderer throws when the terminal or its native library is unusable,
+		// which would otherwise reach the user as a stack trace.
 		return {
 			kind: 'unavailable',
 			reason: error instanceof Error ? error.message : String(error),

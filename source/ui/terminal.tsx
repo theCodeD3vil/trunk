@@ -5,11 +5,10 @@
  * scrollback.
  */
 import process from 'node:process';
-import React from 'react';
-import {render} from 'ink';
+import {colourLevel} from '../core/interactive.js';
 import type {Refusal, TerminalUi} from '../core/session.js';
 import {createKit, type Kit, type Line} from './kit/lines.js';
-import {Lines} from './kit/render.js';
+import {ansiLines} from './kit/render.js';
 import {resolveTheme} from './kit/theme.js';
 import {
 	emptyRepositoryLines,
@@ -29,22 +28,17 @@ async function print(
 ): Promise<void> {
 	const theme = resolveTheme();
 	const columns = Math.min(stream.columns || 80, maximumColumns);
-	const app = render(
-		<Lines
-			lines={build(createKit(theme.glyphs, columns))}
-			theme={theme}
-			width={columns}
-		/>,
-		{
-			stdout: stream,
-			exitOnCtrlC: false,
-			patchConsole: false,
-		},
+	const text = ansiLines(
+		build(createKit(theme.glyphs, columns)),
+		theme,
+		columns,
+		colourLevel(stream),
 	);
-	// The exit promise must exist before unmounting, or it never settles.
-	const exited = app.waitUntilExit();
-	app.unmount();
-	await exited;
+	await new Promise<void>(resolve => {
+		stream.write(text, () => {
+			resolve();
+		});
+	});
 }
 
 function refusalLines(kit: Kit, refusal: Refusal): Line[] {

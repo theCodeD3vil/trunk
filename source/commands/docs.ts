@@ -13,7 +13,7 @@ export type DocumentationDependencies = Readonly<{
 	browse?: () => Promise<DocumentationBrowserOutcome>;
 }>;
 
-/** Loads the browser lazily, so Ink is never imported before it is needed. */
+/** Loads the browser lazily, so the terminal UI is never loaded before it is needed. */
 async function browseInteractively(): Promise<DocumentationBrowserOutcome> {
 	const {runDocumentationBrowser} = await importInteractive(
 		async () => import('../ui/DocsBrowser.js'),

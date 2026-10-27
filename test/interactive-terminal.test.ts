@@ -240,7 +240,10 @@ describe('interactive screens appear live even when the environment looks like C
 		await waitForScreen(tmux, 'mono', 'Config Basics');
 		const styled = await screenOf(tmux, 'mono', true);
 
-		expect(styled).not.toContain('38;2;');
+		// OpenTUI clears the cells nothing is drawn in with a white foreground; they
+		// are blank, so a colour counts only when visible text follows it.
+		// eslint-disable-next-line no-control-regex
+		expect(styled).not.toMatch(/\u001B\[38;[25];[\d;]+m(?=[^\u001B\n]*\S)/);
 		expect(styled).not.toContain('48;2;');
 		expect(styled).toMatch(boldOn);
 
@@ -1067,6 +1070,11 @@ async function bareProject(root: string): Promise<string> {
 
 async function send(tmux: string, session: string, key: string): Promise<void> {
 	await runCommand(tmux, ['-L', socket, 'send-keys', '-t', session, key]);
+	if (key === 'Escape') {
+		// A key within 20 ms of Escape is read as Alt plus that key, as terminals
+		// mean it; a person is never that quick, so the next key waits.
+		await delay(60);
+	}
 }
 
 async function screenOf(

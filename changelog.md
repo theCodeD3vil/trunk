@@ -29,6 +29,7 @@
 
 ### Changed
 
+- **Breaking:** `trunk-cli` now needs Node.js 26.12 or newer. The terminal UI draws with OpenTUI instead of Ink, and OpenTUI's native renderer loads through `node:ffi`, which Node 26.12 provides without a flag. Screens, keys and mouse behave as before; the screens now start at the top of the terminal, and the earlier output stays in the scrollback above them.
 - **Breaking:** the installed command is now `trunk-cli`. `trunk` collided with the Rust/Wasm `trunk` bundler and the Trunk.io CLI, both of which install a `trunk` binary. The package name is unchanged, so `bun add --global @cod3vil/trunk` installs `trunk-cli`. There is no `trunk` alias, because it would keep the collision; update scripts and shell aliases that call `trunk`. Tool names in prose and the `chore/trunk-setup` branch are unchanged.
 - Every screen is now as tall as the terminal minus one row, so the key bar is always on the last row instead of floating under the content. The choices card and the result card stop at 76 columns.
 - Key caps, buttons, sidebar entries, form rows, search results and snippet rows respond to a click, and the mouse wheel scrolls. `TRUNK_MOUSE=0` turns mouse reporting off.

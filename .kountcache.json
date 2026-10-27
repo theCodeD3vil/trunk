@@ -1,0 +1,2164 @@
+{
+  "version": 1,
+  "entries": {
+    "/Users/michaelnji/Projects/trunk/development/.agents/skills/grill-me/SKILL.md": {
+      "mtimeMs": 1789664144469.603,
+      "size": 157,
+      "metrics": {
+        "TotalLines": 7,
+        "BlankLines": 1,
+        "CommentLines": 0,
+        "FileSize": 157,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 17,
+        "Complexity": 1
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.agents/skills/grill-me/agents/openai.yaml": {
+      "mtimeMs": 1789664144469.8215,
+      "size": 137,
+      "metrics": {
+        "TotalLines": 5,
+        "BlankLines": 0,
+        "CommentLines": 0,
+        "FileSize": 137,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 15,
+        "Complexity": 1
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.agents/skills/ink/SKILL.md": {
+      "mtimeMs": 1789663685176.115,
+      "size": 9934,
+      "metrics": {
+        "TotalLines": 275,
+        "BlankLines": 57,
+        "CommentLines": 0,
+        "FileSize": 9934,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 285,
+        "Complexity": 24
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.agents/skills/typescript-advanced-types/SKILL.md": {
+      "mtimeMs": 1789663685176.607,
+      "size": 8035,
+      "metrics": {
+        "TotalLines": 318,
+        "BlankLines": 83,
+        "CommentLines": 0,
+        "FileSize": 8035,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 328,
+        "Complexity": 7
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.agents/skills/typescript-advanced-types/references/details.md": {
+      "mtimeMs": 1789663685177.0964,
+      "size": 9027,
+      "metrics": {
+        "TotalLines": 404,
+        "BlankLines": 75,
+        "CommentLines": 0,
+        "FileSize": 9027,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 414,
+        "Complexity": 12
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.editorconfig": {
+      "mtimeMs": 1789663685177.7954,
+      "size": 175,
+      "metrics": {
+        "TotalLines": 12,
+        "BlankLines": 2,
+        "CommentLines": 0,
+        "FileSize": 175,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 22,
+        "Complexity": 1
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.gitattributes": {
+      "mtimeMs": 1789663685177.9807,
+      "size": 19,
+      "metrics": {
+        "TotalLines": 1,
+        "BlankLines": 0,
+        "CommentLines": 0,
+        "FileSize": 19,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 11,
+        "Complexity": 1
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.github/workflows/ci.yml": {
+      "mtimeMs": 1789766396884.124,
+      "size": 3625,
+      "metrics": {
+        "TotalLines": 120,
+        "BlankLines": 19,
+        "CommentLines": 9,
+        "FileSize": 3625,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 5,
+        "DependencyTracker": 0,
+        "TechDebt": 23,
+        "Complexity": 3
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.gitignore": {
+      "mtimeMs": 1789748083686.5417,
+      "size": 18,
+      "metrics": {
+        "TotalLines": 2,
+        "BlankLines": 0,
+        "CommentLines": 0,
+        "FileSize": 18,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 0,
+        "TechDebt": 42,
+        "Complexity": 1
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/.prettierignore": {
+      "mtimeMs": 1789672479607.5142,
+      "size": 44,
+      "metrics": {
+        "TotalLines": 5,
+        "BlankLines": 0,
+        "CommentLines": 0,
+        "FileSize": 44,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 25,
+        "Complexity": 1
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/LICENSE": {
+      "mtimeMs": 1789732061318.4758,
+      "size": 1069,
+      "metrics": {
+        "TotalLines": 21,
+        "BlankLines": 4,
+        "CommentLines": 0,
+        "FileSize": 1069,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 31,
+        "Complexity": 1
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/bun.lock": {
+      "mtimeMs": 1789764163063.3901,
+      "size": 197574,
+      "metrics": {
+        "TotalLines": 1784,
+        "BlankLines": 875,
+        "CommentLines": 0,
+        "FileSize": 197574,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 197574,
+        "DebtTracker": 0,
+        "CodeChurn": 6,
+        "DependencyTracker": 0,
+        "TechDebt": 1844,
+        "Complexity": 7
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/changelog.md": {
+      "mtimeMs": 1789850502231.8467,
+      "size": 9543,
+      "metrics": {
+        "TotalLines": 91,
+        "BlankLines": 22,
+        "CommentLines": 0,
+        "FileSize": 9543,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 6,
+        "DependencyTracker": 0,
+        "TechDebt": 151,
+        "Complexity": 18
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/docs/generated-config.md": {
+      "mtimeMs": 1789851349916.6907,
+      "size": 12003,
+      "metrics": {
+        "TotalLines": 263,
+        "BlankLines": 43,
+        "CommentLines": 0,
+        "FileSize": 12003,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 5,
+        "DependencyTracker": 0,
+        "TechDebt": 313,
+        "Complexity": 28
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/docs/releasing.md": {
+      "mtimeMs": 1789850272047.727,
+      "size": 4205,
+      "metrics": {
+        "TotalLines": 66,
+        "BlankLines": 21,
+        "CommentLines": 0,
+        "FileSize": 4205,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 86,
+        "Complexity": 7
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/package.json": {
+      "mtimeMs": 1789850265039.2097,
+      "size": 1705,
+      "metrics": {
+        "TotalLines": 76,
+        "BlankLines": 0,
+        "CommentLines": 0,
+        "FileSize": 1705,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 18,
+        "DependencyTracker": 0,
+        "TechDebt": 256,
+        "Complexity": 2
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/plans/README.md": {
+      "mtimeMs": 1789762221017.656,
+      "size": 3078,
+      "metrics": {
+        "TotalLines": 63,
+        "BlankLines": 13,
+        "CommentLines": 0,
+        "FileSize": 3078,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 93,
+        "Complexity": 2
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/plans/phase-1-generic-core.md": {
+      "mtimeMs": 1789762221019.1628,
+      "size": 4425,
+      "metrics": {
+        "TotalLines": 90,
+        "BlankLines": 16,
+        "CommentLines": 0,
+        "FileSize": 4425,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 100,
+        "Complexity": 8
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/plans/phase-2-docs-browser.md": {
+      "mtimeMs": 1789762221019.8025,
+      "size": 3470,
+      "metrics": {
+        "TotalLines": 78,
+        "BlankLines": 15,
+        "CommentLines": 0,
+        "FileSize": 3470,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 88,
+        "Complexity": 5
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/plans/phase-3-integration-release.md": {
+      "mtimeMs": 1789762221031.7297,
+      "size": 2642,
+      "metrics": {
+        "TotalLines": 54,
+        "BlankLines": 12,
+        "CommentLines": 0,
+        "FileSize": 2642,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 64,
+        "Complexity": 3
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/readme.md": {
+      "mtimeMs": 1789850502231.459,
+      "size": 13106,
+      "metrics": {
+        "TotalLines": 179,
+        "BlankLines": 63,
+        "CommentLines": 0,
+        "FileSize": 13106,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 10,
+        "DependencyTracker": 0,
+        "TechDebt": 279,
+        "Complexity": 15
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/scripts/smoke.sh": {
+      "mtimeMs": 1789850502232.5273,
+      "size": 7595,
+      "metrics": {
+        "TotalLines": 167,
+        "BlankLines": 19,
+        "CommentLines": 16,
+        "FileSize": 7595,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 21,
+        "Complexity": 14
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/skills-lock.json": {
+      "mtimeMs": 1789664144474.048,
+      "size": 792,
+      "metrics": {
+        "TotalLines": 23,
+        "BlankLines": 0,
+        "CommentLines": 0,
+        "FileSize": 792,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 43,
+        "Complexity": 1
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/cli.tsx": {
+      "mtimeMs": 1789850293892.5063,
+      "size": 4103,
+      "metrics": {
+        "TotalLines": 138,
+        "BlankLines": 14,
+        "CommentLines": 18,
+        "FileSize": 4103,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 12,
+        "DependencyTracker": 1,
+        "TechDebt": 20,
+        "Complexity": 17,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/commands/clone.tsx": {
+      "mtimeMs": 1789850272050.8015,
+      "size": 8579,
+      "metrics": {
+        "TotalLines": 312,
+        "BlankLines": 25,
+        "CommentLines": 130,
+        "FileSize": 8579,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 10,
+        "DependencyTracker": 1,
+        "TechDebt": 10,
+        "Complexity": 23,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/commands/docs.ts": {
+      "mtimeMs": 1789850272051.4153,
+      "size": 1565,
+      "metrics": {
+        "TotalLines": 38,
+        "BlankLines": 4,
+        "CommentLines": 8,
+        "FileSize": 1565,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 0,
+        "TechDebt": 4,
+        "Complexity": 5,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/commands/init.tsx": {
+      "mtimeMs": 1789850272052.1274,
+      "size": 13037,
+      "metrics": {
+        "TotalLines": 477,
+        "BlankLines": 42,
+        "CommentLines": 34,
+        "FileSize": 13037,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 9,
+        "DependencyTracker": 1,
+        "TechDebt": 80,
+        "Complexity": 62,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/agents.ts": {
+      "mtimeMs": 1789850272052.6978,
+      "size": 1277,
+      "metrics": {
+        "TotalLines": 39,
+        "BlankLines": 5,
+        "CommentLines": 18,
+        "FileSize": 1277,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 1,
+        "Complexity": 1,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/arguments.ts": {
+      "mtimeMs": 1789850293905.0798,
+      "size": 2227,
+      "metrics": {
+        "TotalLines": 72,
+        "BlankLines": 5,
+        "CommentLines": 12,
+        "FileSize": 2227,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 7,
+        "DependencyTracker": 2,
+        "TechDebt": 9,
+        "Complexity": 1,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/collect.ts": {
+      "mtimeMs": 1789850272053.7534,
+      "size": 1888,
+      "metrics": {
+        "TotalLines": 64,
+        "BlankLines": 6,
+        "CommentLines": 7,
+        "FileSize": 1888,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 7,
+        "Complexity": 7,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/diff.ts": {
+      "mtimeMs": 1789850272054.3823,
+      "size": 5519,
+      "metrics": {
+        "TotalLines": 215,
+        "BlankLines": 29,
+        "CommentLines": 25,
+        "FileSize": 5519,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 20,
+        "Complexity": 32,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/env.ts": {
+      "mtimeMs": 1789850272054.9753,
+      "size": 6913,
+      "metrics": {
+        "TotalLines": 238,
+        "BlankLines": 26,
+        "CommentLines": 30,
+        "FileSize": 6913,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 5,
+        "DependencyTracker": 4,
+        "TechDebt": 23,
+        "Complexity": 35,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/generate/aliases.ts": {
+      "mtimeMs": 1789850272055.515,
+      "size": 1203,
+      "metrics": {
+        "TotalLines": 31,
+        "BlankLines": 5,
+        "CommentLines": 7,
+        "FileSize": 1203,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 2,
+        "Complexity": 6,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/generate/header.ts": {
+      "mtimeMs": 1789850272056.0925,
+      "size": 2805,
+      "metrics": {
+        "TotalLines": 93,
+        "BlankLines": 11,
+        "CommentLines": 7,
+        "FileSize": 2805,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 0,
+        "TechDebt": 18,
+        "Complexity": 8,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/generate/index.ts": {
+      "mtimeMs": 1789850272056.6494,
+      "size": 2202,
+      "metrics": {
+        "TotalLines": 75,
+        "BlankLines": 11,
+        "CommentLines": 6,
+        "FileSize": 2202,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 13,
+        "Complexity": 8,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/generate/tmux.ts": {
+      "mtimeMs": 1789850272057.3323,
+      "size": 6317,
+      "metrics": {
+        "TotalLines": 186,
+        "BlankLines": 16,
+        "CommentLines": 31,
+        "FileSize": 6317,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 13,
+        "Complexity": 29,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/generate/toml.ts": {
+      "mtimeMs": 1789850272057.8496,
+      "size": 1739,
+      "metrics": {
+        "TotalLines": 65,
+        "BlankLines": 11,
+        "CommentLines": 7,
+        "FileSize": 1739,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 9,
+        "Complexity": 11,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/gh.ts": {
+      "mtimeMs": 1789850272058.4238,
+      "size": 2111,
+      "metrics": {
+        "TotalLines": 72,
+        "BlankLines": 7,
+        "CommentLines": 17,
+        "FileSize": 2111,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 5,
+        "DependencyTracker": 0,
+        "TechDebt": 5,
+        "Complexity": 13,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/git.ts": {
+      "mtimeMs": 1789850272059.1497,
+      "size": 11746,
+      "metrics": {
+        "TotalLines": 426,
+        "BlankLines": 40,
+        "CommentLines": 75,
+        "FileSize": 11746,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 8,
+        "DependencyTracker": 2,
+        "TechDebt": 29,
+        "Complexity": 52,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/interactive-flow.ts": {
+      "mtimeMs": 1789850272060.1177,
+      "size": 20569,
+      "metrics": {
+        "TotalLines": 808,
+        "BlankLines": 58,
+        "CommentLines": 46,
+        "FileSize": 20569,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 20569,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 4,
+        "TechDebt": 147,
+        "Complexity": 100,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/interactive.ts": {
+      "mtimeMs": 1789850272060.794,
+      "size": 3126,
+      "metrics": {
+        "TotalLines": 95,
+        "BlankLines": 9,
+        "CommentLines": 35,
+        "FileSize": 3126,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 1,
+        "TechDebt": 3,
+        "Complexity": 11,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/journal.ts": {
+      "mtimeMs": 1789850272061.4768,
+      "size": 5393,
+      "metrics": {
+        "TotalLines": 196,
+        "BlankLines": 22,
+        "CommentLines": 34,
+        "FileSize": 5393,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 6,
+        "DependencyTracker": 1,
+        "TechDebt": 15,
+        "Complexity": 16,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/log.ts": {
+      "mtimeMs": 1789850272062.1228,
+      "size": 1775,
+      "metrics": {
+        "TotalLines": 51,
+        "BlankLines": 8,
+        "CommentLines": 12,
+        "FileSize": 1775,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 1,
+        "TechDebt": 3,
+        "Complexity": 5,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/pipeline.ts": {
+      "mtimeMs": 1789850293883.5037,
+      "size": 22297,
+      "metrics": {
+        "TotalLines": 813,
+        "BlankLines": 71,
+        "CommentLines": 89,
+        "FileSize": 22297,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 22297,
+        "DebtTracker": 0,
+        "CodeChurn": 7,
+        "DependencyTracker": 2,
+        "TechDebt": 81,
+        "Complexity": 127,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/platform.ts": {
+      "mtimeMs": 1789850272063.781,
+      "size": 1132,
+      "metrics": {
+        "TotalLines": 33,
+        "BlankLines": 3,
+        "CommentLines": 12,
+        "FileSize": 1132,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 1,
+        "TechDebt": 2,
+        "Complexity": 3,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/prefix.ts": {
+      "mtimeMs": 1789850272064.5972,
+      "size": 2163,
+      "metrics": {
+        "TotalLines": 81,
+        "BlankLines": 13,
+        "CommentLines": 19,
+        "FileSize": 2163,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 4,
+        "Complexity": 11,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/process.ts": {
+      "mtimeMs": 1789850272065.23,
+      "size": 2683,
+      "metrics": {
+        "TotalLines": 102,
+        "BlankLines": 7,
+        "CommentLines": 22,
+        "FileSize": 2683,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 1,
+        "TechDebt": 7,
+        "Complexity": 10,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/publish.ts": {
+      "mtimeMs": 1789850272065.932,
+      "size": 4656,
+      "metrics": {
+        "TotalLines": 153,
+        "BlankLines": 17,
+        "CommentLines": 18,
+        "FileSize": 4656,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 14,
+        "Complexity": 24,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/repo.ts": {
+      "mtimeMs": 1789850272067.6875,
+      "size": 12477,
+      "metrics": {
+        "TotalLines": 454,
+        "BlankLines": 53,
+        "CommentLines": 67,
+        "FileSize": 12477,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 5,
+        "TechDebt": 32,
+        "Complexity": 64,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/resolve.ts": {
+      "mtimeMs": 1789850272068.418,
+      "size": 12905,
+      "metrics": {
+        "TotalLines": 515,
+        "BlankLines": 68,
+        "CommentLines": 25,
+        "FileSize": 12905,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 110,
+        "Complexity": 59,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/result.ts": {
+      "mtimeMs": 1789850272068.9937,
+      "size": 1398,
+      "metrics": {
+        "TotalLines": 45,
+        "BlankLines": 8,
+        "CommentLines": 10,
+        "FileSize": 1398,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 5,
+        "DependencyTracker": 0,
+        "TechDebt": 4,
+        "Complexity": 3,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/session.ts": {
+      "mtimeMs": 1789850272069.7783,
+      "size": 6413,
+      "metrics": {
+        "TotalLines": 188,
+        "BlankLines": 15,
+        "CommentLines": 47,
+        "FileSize": 6413,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 0,
+        "TechDebt": 9,
+        "Complexity": 16,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/settings.ts": {
+      "mtimeMs": 1789850272070.349,
+      "size": 2222,
+      "metrics": {
+        "TotalLines": 77,
+        "BlankLines": 11,
+        "CommentLines": 9,
+        "FileSize": 2222,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 0,
+        "TechDebt": 10,
+        "Complexity": 13,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/validate.ts": {
+      "mtimeMs": 1789850272070.952,
+      "size": 5154,
+      "metrics": {
+        "TotalLines": 196,
+        "BlankLines": 23,
+        "CommentLines": 7,
+        "FileSize": 5154,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 63,
+        "Complexity": 41,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/version.ts": {
+      "mtimeMs": 1789850272071.7502,
+      "size": 1291,
+      "metrics": {
+        "TotalLines": 42,
+        "BlankLines": 4,
+        "CommentLines": 13,
+        "FileSize": 1291,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 2,
+        "TechDebt": 2,
+        "Complexity": 6,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/core/wt.ts": {
+      "mtimeMs": 1789850272072.2642,
+      "size": 1859,
+      "metrics": {
+        "TotalLines": 68,
+        "BlankLines": 6,
+        "CommentLines": 18,
+        "FileSize": 1859,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 3,
+        "Complexity": 6,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/docs/blocks.ts": {
+      "mtimeMs": 1789850272072.8293,
+      "size": 955,
+      "metrics": {
+        "TotalLines": 44,
+        "BlankLines": 5,
+        "CommentLines": 2,
+        "FileSize": 955,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 12,
+        "Complexity": 3,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/docs/clipboard.ts": {
+      "mtimeMs": 1789850272073.3325,
+      "size": 3611,
+      "metrics": {
+        "TotalLines": 107,
+        "BlankLines": 12,
+        "CommentLines": 19,
+        "FileSize": 3611,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 1,
+        "TechDebt": 7,
+        "Complexity": 10,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/docs/config-basics.ts": {
+      "mtimeMs": 1789850272073.889,
+      "size": 11539,
+      "metrics": {
+        "TotalLines": 278,
+        "BlankLines": 7,
+        "CommentLines": 6,
+        "FileSize": 11539,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 143,
+        "Complexity": 1,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/docs/index.ts": {
+      "mtimeMs": 1789850272074.4727,
+      "size": 751,
+      "metrics": {
+        "TotalLines": 21,
+        "BlankLines": 4,
+        "CommentLines": 1,
+        "FileSize": 751,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 7,
+        "Complexity": 4,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/docs/layout.ts": {
+      "mtimeMs": 1789850272075.0027,
+      "size": 2907,
+      "metrics": {
+        "TotalLines": 108,
+        "BlankLines": 15,
+        "CommentLines": 9,
+        "FileSize": 2907,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 0,
+        "TechDebt": 14,
+        "Complexity": 17,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/docs/node.ts": {
+      "mtimeMs": 1789850272075.5508,
+      "size": 10032,
+      "metrics": {
+        "TotalLines": 253,
+        "BlankLines": 2,
+        "CommentLines": 9,
+        "FileSize": 10032,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 77,
+        "Complexity": 13,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/docs/search.ts": {
+      "mtimeMs": 1789850272081.125,
+      "size": 4490,
+      "metrics": {
+        "TotalLines": 162,
+        "BlankLines": 21,
+        "CommentLines": 14,
+        "FileSize": 4490,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 21,
+        "Complexity": 22,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/docs/types.ts": {
+      "mtimeMs": 1789850272081.6924,
+      "size": 1772,
+      "metrics": {
+        "TotalLines": 56,
+        "BlankLines": 8,
+        "CommentLines": 20,
+        "FileSize": 1772,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 2,
+        "Complexity": 3,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/DocsBrowser.tsx": {
+      "mtimeMs": 1789850272082.8398,
+      "size": 4283,
+      "metrics": {
+        "TotalLines": 145,
+        "BlankLines": 14,
+        "CommentLines": 15,
+        "FileSize": 4283,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 2,
+        "TechDebt": 18,
+        "Complexity": 24,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/keys.ts": {
+      "mtimeMs": 1789850272083.4685,
+      "size": 3657,
+      "metrics": {
+        "TotalLines": 130,
+        "BlankLines": 18,
+        "CommentLines": 25,
+        "FileSize": 3657,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 8,
+        "Complexity": 31,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/kit/glyphs.ts": {
+      "mtimeMs": 1789850272084.0623,
+      "size": 2451,
+      "metrics": {
+        "TotalLines": 150,
+        "BlankLines": 3,
+        "CommentLines": 6,
+        "FileSize": 2451,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 45,
+        "Complexity": 1,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/kit/lines.ts": {
+      "mtimeMs": 1789850272085.49,
+      "size": 9450,
+      "metrics": {
+        "TotalLines": 344,
+        "BlankLines": 42,
+        "CommentLines": 38,
+        "FileSize": 9450,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 33,
+        "Complexity": 63,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/kit/render.tsx": {
+      "mtimeMs": 1789850272086.9565,
+      "size": 5851,
+      "metrics": {
+        "TotalLines": 258,
+        "BlankLines": 26,
+        "CommentLines": 15,
+        "FileSize": 5851,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 2,
+        "TechDebt": 50,
+        "Complexity": 58,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/kit/theme.ts": {
+      "mtimeMs": 1789850272092.0227,
+      "size": 2796,
+      "metrics": {
+        "TotalLines": 111,
+        "BlankLines": 10,
+        "CommentLines": 12,
+        "FileSize": 2796,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 1,
+        "TechDebt": 11,
+        "Complexity": 16,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/mouse.ts": {
+      "mtimeMs": 1789850272092.5242,
+      "size": 1825,
+      "metrics": {
+        "TotalLines": 62,
+        "BlankLines": 8,
+        "CommentLines": 13,
+        "FileSize": 1825,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 1,
+        "TechDebt": 3,
+        "Complexity": 12,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/screens/callouts.ts": {
+      "mtimeMs": 1789850272093.0654,
+      "size": 9589,
+      "metrics": {
+        "TotalLines": 386,
+        "BlankLines": 21,
+        "CommentLines": 27,
+        "FileSize": 9589,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 59,
+        "Complexity": 38,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/screens/docs.ts": {
+      "mtimeMs": 1789850272093.8013,
+      "size": 15112,
+      "metrics": {
+        "TotalLines": 606,
+        "BlankLines": 54,
+        "CommentLines": 17,
+        "FileSize": 15112,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 223,
+        "Complexity": 119,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/screens/overwrite.ts": {
+      "mtimeMs": 1789850272094.4304,
+      "size": 8190,
+      "metrics": {
+        "TotalLines": 345,
+        "BlankLines": 33,
+        "CommentLines": 13,
+        "FileSize": 8190,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 97,
+        "Complexity": 56,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/screens/review.ts": {
+      "mtimeMs": 1789850272095.0483,
+      "size": 4538,
+      "metrics": {
+        "TotalLines": 173,
+        "BlankLines": 12,
+        "CommentLines": 8,
+        "FileSize": 4538,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 42,
+        "Complexity": 29,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/screens/running.ts": {
+      "mtimeMs": 1789850272095.7395,
+      "size": 19823,
+      "metrics": {
+        "TotalLines": 807,
+        "BlankLines": 64,
+        "CommentLines": 42,
+        "FileSize": 19823,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 19823,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 161,
+        "Complexity": 149,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/screens/setup.ts": {
+      "mtimeMs": 1789850272096.3696,
+      "size": 20456,
+      "metrics": {
+        "TotalLines": 752,
+        "BlankLines": 58,
+        "CommentLines": 42,
+        "FileSize": 20456,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 20456,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 140,
+        "Complexity": 136,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/screens/welcome.ts": {
+      "mtimeMs": 1789850293910.1846,
+      "size": 3020,
+      "metrics": {
+        "TotalLines": 103,
+        "BlankLines": 4,
+        "CommentLines": 10,
+        "FileSize": 3020,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 14,
+        "Complexity": 3,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/session.tsx": {
+      "mtimeMs": 1789850272097.5144,
+      "size": 13025,
+      "metrics": {
+        "TotalLines": 538,
+        "BlankLines": 53,
+        "CommentLines": 29,
+        "FileSize": 13025,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 3,
+        "TechDebt": 105,
+        "Complexity": 60,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/terminal.tsx": {
+      "mtimeMs": 1789850272098.143,
+      "size": 2255,
+      "metrics": {
+        "TotalLines": 88,
+        "BlankLines": 6,
+        "CommentLines": 8,
+        "FileSize": 2255,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 3,
+        "TechDebt": 12,
+        "Complexity": 5,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/source/ui/use-keys.ts": {
+      "mtimeMs": 1789850272098.6235,
+      "size": 1870,
+      "metrics": {
+        "TotalLines": 63,
+        "BlankLines": 6,
+        "CommentLines": 12,
+        "FileSize": 1870,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 3,
+        "TechDebt": 4,
+        "Complexity": 7,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/cli.test.ts": {
+      "mtimeMs": 1789850293898.6191,
+      "size": 5923,
+      "metrics": {
+        "TotalLines": 189,
+        "BlankLines": 28,
+        "CommentLines": 3,
+        "FileSize": 5923,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 10,
+        "DependencyTracker": 3,
+        "TechDebt": 182,
+        "Complexity": 3,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/clipboard.test.ts": {
+      "mtimeMs": 1789850272099.8281,
+      "size": 3408,
+      "metrics": {
+        "TotalLines": 116,
+        "BlankLines": 19,
+        "CommentLines": 0,
+        "FileSize": 3408,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 4,
+        "TechDebt": 126,
+        "Complexity": 8,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/default-branch-probe.test.ts": {
+      "mtimeMs": 1789850272100.3052,
+      "size": 3660,
+      "metrics": {
+        "TotalLines": 111,
+        "BlankLines": 20,
+        "CommentLines": 9,
+        "FileSize": 3660,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 1,
+        "TechDebt": 15,
+        "Complexity": 5,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/diff.test.ts": {
+      "mtimeMs": 1789850272100.901,
+      "size": 2045,
+      "metrics": {
+        "TotalLines": 66,
+        "BlankLines": 15,
+        "CommentLines": 1,
+        "FileSize": 2045,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 1,
+        "TechDebt": 57,
+        "Complexity": 1,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/docs-content.test.ts": {
+      "mtimeMs": 1789850272101.4705,
+      "size": 14264,
+      "metrics": {
+        "TotalLines": 474,
+        "BlankLines": 43,
+        "CommentLines": 24,
+        "FileSize": 14264,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 6,
+        "TechDebt": 98,
+        "Complexity": 44,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/docs-package.test.ts": {
+      "mtimeMs": 1789850272102.0918,
+      "size": 5620,
+      "metrics": {
+        "TotalLines": 190,
+        "BlankLines": 24,
+        "CommentLines": 19,
+        "FileSize": 5620,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 6,
+        "TechDebt": 22,
+        "Complexity": 8,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/docs-search.test.ts": {
+      "mtimeMs": 1789850272102.6829,
+      "size": 2659,
+      "metrics": {
+        "TotalLines": 79,
+        "BlankLines": 14,
+        "CommentLines": 1,
+        "FileSize": 2659,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 1,
+        "TechDebt": 70,
+        "Complexity": 24,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/docs-shellcheck.test.ts": {
+      "mtimeMs": 1789850272103.274,
+      "size": 2912,
+      "metrics": {
+        "TotalLines": 81,
+        "BlankLines": 10,
+        "CommentLines": 12,
+        "FileSize": 2912,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 4,
+        "TechDebt": 6,
+        "Complexity": 5,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/e2e-clone.test.ts": {
+      "mtimeMs": 1789850293884.344,
+      "size": 16322,
+      "metrics": {
+        "TotalLines": 558,
+        "BlankLines": 57,
+        "CommentLines": 346,
+        "FileSize": 16322,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 16322,
+        "DebtTracker": 0,
+        "CodeChurn": 7,
+        "DependencyTracker": 5,
+        "TechDebt": 10,
+        "Complexity": 12,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/env.test.ts": {
+      "mtimeMs": 1789850272104.6685,
+      "size": 3927,
+      "metrics": {
+        "TotalLines": 135,
+        "BlankLines": 12,
+        "CommentLines": 0,
+        "FileSize": 3927,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 2,
+        "TechDebt": 165,
+        "Complexity": 7,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/generate.test.ts": {
+      "mtimeMs": 1789850272105.3145,
+      "size": 7248,
+      "metrics": {
+        "TotalLines": 203,
+        "BlankLines": 27,
+        "CommentLines": 4,
+        "FileSize": 7248,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 5,
+        "TechDebt": 123,
+        "Complexity": 7,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/generated-config-doc.test.ts": {
+      "mtimeMs": 1789850272106.005,
+      "size": 2274,
+      "metrics": {
+        "TotalLines": 70,
+        "BlankLines": 10,
+        "CommentLines": 8,
+        "FileSize": 2274,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 3,
+        "TechDebt": 8,
+        "Complexity": 4,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/helpers/docs.ts": {
+      "mtimeMs": 1789850272106.589,
+      "size": 1467,
+      "metrics": {
+        "TotalLines": 47,
+        "BlankLines": 6,
+        "CommentLines": 7,
+        "FileSize": 1467,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 1,
+        "TechDebt": 4,
+        "Complexity": 7,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/helpers/generated.ts": {
+      "mtimeMs": 1789850272107.0542,
+      "size": 1261,
+      "metrics": {
+        "TotalLines": 47,
+        "BlankLines": 9,
+        "CommentLines": 0,
+        "FileSize": 1261,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 1,
+        "TechDebt": 67,
+        "Complexity": 10,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/helpers/generator-cases.ts": {
+      "mtimeMs": 1789850272107.5635,
+      "size": 847,
+      "metrics": {
+        "TotalLines": 33,
+        "BlankLines": 1,
+        "CommentLines": 3,
+        "FileSize": 847,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 6,
+        "Complexity": 1,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/helpers/run.ts": {
+      "mtimeMs": 1789850272108.1814,
+      "size": 4453,
+      "metrics": {
+        "TotalLines": 173,
+        "BlankLines": 17,
+        "CommentLines": 2,
+        "FileSize": 4453,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 6,
+        "TechDebt": 176,
+        "Complexity": 8,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/helpers/settings.ts": {
+      "mtimeMs": 1789850272108.6323,
+      "size": 362,
+      "metrics": {
+        "TotalLines": 14,
+        "BlankLines": 1,
+        "CommentLines": 0,
+        "FileSize": 362,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 34,
+        "Complexity": 1,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/init.test.ts": {
+      "mtimeMs": 1789850293885.2917,
+      "size": 18165,
+      "metrics": {
+        "TotalLines": 617,
+        "BlankLines": 57,
+        "CommentLines": 30,
+        "FileSize": 18165,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 18165,
+        "DebtTracker": 0,
+        "CodeChurn": 5,
+        "DependencyTracker": 4,
+        "TechDebt": 137,
+        "Complexity": 17,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/interactive-flow.test.ts": {
+      "mtimeMs": 1789850293886.1514,
+      "size": 23422,
+      "metrics": {
+        "TotalLines": 757,
+        "BlankLines": 65,
+        "CommentLines": 35,
+        "FileSize": 23422,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 23422,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 4,
+        "TechDebt": 172,
+        "Complexity": 55,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/interactive-terminal.test.ts": {
+      "mtimeMs": 1789850272110.6245,
+      "size": 40674,
+      "metrics": {
+        "TotalLines": 1299,
+        "BlankLines": 137,
+        "CommentLines": 105,
+        "FileSize": 40674,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 40674,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 4,
+        "TechDebt": 166,
+        "Complexity": 49,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/interactive.test.ts": {
+      "mtimeMs": 1789850272111.1792,
+      "size": 5752,
+      "metrics": {
+        "TotalLines": 193,
+        "BlankLines": 36,
+        "CommentLines": 9,
+        "FileSize": 5752,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 5,
+        "TechDebt": 46,
+        "Complexity": 12,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/journal.test.ts": {
+      "mtimeMs": 1789850272111.7058,
+      "size": 2502,
+      "metrics": {
+        "TotalLines": 81,
+        "BlankLines": 13,
+        "CommentLines": 0,
+        "FileSize": 2502,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 1,
+        "TechDebt": 121,
+        "Complexity": 1,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/offline.test.ts": {
+      "mtimeMs": 1789850272112.2034,
+      "size": 1625,
+      "metrics": {
+        "TotalLines": 50,
+        "BlankLines": 6,
+        "CommentLines": 6,
+        "FileSize": 1625,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 4,
+        "TechDebt": 6,
+        "Complexity": 4,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/prefix.test.ts": {
+      "mtimeMs": 1789850272112.6814,
+      "size": 1413,
+      "metrics": {
+        "TotalLines": 46,
+        "BlankLines": 3,
+        "CommentLines": 2,
+        "FileSize": 1413,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 1,
+        "TechDebt": 17,
+        "Complexity": 2,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/public-surface.test.ts": {
+      "mtimeMs": 1789850502232.2024,
+      "size": 7050,
+      "metrics": {
+        "TotalLines": 221,
+        "BlankLines": 30,
+        "CommentLines": 13,
+        "FileSize": 7050,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 4,
+        "TechDebt": 41,
+        "Complexity": 14,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/publish.test.ts": {
+      "mtimeMs": 1789850272113.9968,
+      "size": 9539,
+      "metrics": {
+        "TotalLines": 311,
+        "BlankLines": 43,
+        "CommentLines": 5,
+        "FileSize": 9539,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 1,
+        "TechDebt": 200,
+        "Complexity": 6,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/repo.test.ts": {
+      "mtimeMs": 1789850272114.6772,
+      "size": 9978,
+      "metrics": {
+        "TotalLines": 330,
+        "BlankLines": 38,
+        "CommentLines": 0,
+        "FileSize": 9978,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 7,
+        "TechDebt": 350,
+        "Complexity": 5,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/resolve.test.ts": {
+      "mtimeMs": 1789850523692.1797,
+      "size": 6754,
+      "metrics": {
+        "TotalLines": 267,
+        "BlankLines": 30,
+        "CommentLines": 2,
+        "FileSize": 6754,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 1,
+        "TechDebt": 307,
+        "Complexity": 6,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/shellcheck.test.ts": {
+      "mtimeMs": 1789850272115.961,
+      "size": 3411,
+      "metrics": {
+        "TotalLines": 103,
+        "BlankLines": 9,
+        "CommentLines": 9,
+        "FileSize": 3411,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 4,
+        "TechDebt": 15,
+        "Complexity": 6,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/snapshots/copy-and-agents.toml": {
+      "mtimeMs": 1789850315297.4805,
+      "size": 5842,
+      "metrics": {
+        "TotalLines": 178,
+        "BlankLines": 14,
+        "CommentLines": 0,
+        "FileSize": 5842,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 208,
+        "Complexity": 18
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/snapshots/copy-without-tmux.toml": {
+      "mtimeMs": 1789850315298.8745,
+      "size": 818,
+      "metrics": {
+        "TotalLines": 18,
+        "BlankLines": 2,
+        "CommentLines": 0,
+        "FileSize": 818,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 38,
+        "Complexity": 2
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/snapshots/defaults.toml": {
+      "mtimeMs": 1789850315295.75,
+      "size": 5096,
+      "metrics": {
+        "TotalLines": 160,
+        "BlankLines": 13,
+        "CommentLines": 0,
+        "FileSize": 5096,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 190,
+        "Complexity": 17
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/snapshots/four-agents-no-mc.toml": {
+      "mtimeMs": 1789850315298.1267,
+      "size": 5695,
+      "metrics": {
+        "TotalLines": 172,
+        "BlankLines": 13,
+        "CommentLines": 0,
+        "FileSize": 5695,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 0,
+        "TechDebt": 202,
+        "Complexity": 18
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/snapshots/minimal.toml": {
+      "mtimeMs": 1789850315299.1865,
+      "size": 557,
+      "metrics": {
+        "TotalLines": 9,
+        "BlankLines": 0,
+        "CommentLines": 0,
+        "FileSize": 557,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 29,
+        "Complexity": 2
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/tmux-hooks.test.ts": {
+      "mtimeMs": 1789850272116.5212,
+      "size": 11378,
+      "metrics": {
+        "TotalLines": 364,
+        "BlankLines": 61,
+        "CommentLines": 26,
+        "FileSize": 11378,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 5,
+        "TechDebt": 54,
+        "Complexity": 6,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/ui-input.test.ts": {
+      "mtimeMs": 1789850272117.0515,
+      "size": 5845,
+      "metrics": {
+        "TotalLines": 172,
+        "BlankLines": 21,
+        "CommentLines": 9,
+        "FileSize": 5845,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 1,
+        "DependencyTracker": 1,
+        "TechDebt": 35,
+        "Complexity": 5,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/ui-kit.test.ts": {
+      "mtimeMs": 1789850272117.5552,
+      "size": 10041,
+      "metrics": {
+        "TotalLines": 292,
+        "BlankLines": 41,
+        "CommentLines": 15,
+        "FileSize": 10041,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 3,
+        "TechDebt": 63,
+        "Complexity": 9,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/ui-screens.test.ts": {
+      "mtimeMs": 1789850503154.7454,
+      "size": 59160,
+      "metrics": {
+        "TotalLines": 1875,
+        "BlankLines": 242,
+        "CommentLines": 32,
+        "FileSize": 59160,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "LargestFiles": 59160,
+        "DebtTracker": 0,
+        "CodeChurn": 4,
+        "DependencyTracker": 1,
+        "TechDebt": 1122,
+        "Complexity": 75,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/test/validate.test.ts": {
+      "mtimeMs": 1789850272119.0496,
+      "size": 6133,
+      "metrics": {
+        "TotalLines": 208,
+        "BlankLines": 20,
+        "CommentLines": 9,
+        "FileSize": 6133,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 3,
+        "DependencyTracker": 5,
+        "TechDebt": 55,
+        "Complexity": 21,
+        "CircularDeps": 0
+      }
+    },
+    "/Users/michaelnji/Projects/trunk/development/tsconfig.json": {
+      "mtimeMs": 1789709340566.4822,
+      "size": 320,
+      "metrics": {
+        "TotalLines": 11,
+        "BlankLines": 0,
+        "CommentLines": 0,
+        "FileSize": 320,
+        "TotalFiles": 1,
+        "LanguageDistribution": 1,
+        "DebtTracker": 0,
+        "CodeChurn": 2,
+        "DependencyTracker": 0,
+        "TechDebt": 31,
+        "Complexity": 1
+      }
+    }
+  }
+}

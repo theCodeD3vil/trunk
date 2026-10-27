@@ -42,7 +42,8 @@ describe('offline', () => {
 		) as {dependencies: Record<string, string>};
 
 		expect(Object.keys(packageJson.dependencies).sort()).toEqual([
-			'ink',
+			'@opentui/core',
+			'@opentui/react',
 			'meow',
 			'react',
 		]);
