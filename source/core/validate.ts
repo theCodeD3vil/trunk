@@ -47,7 +47,8 @@ export async function validateGeneratedConfig(
 ): Promise<ValidationResult> {
 	const run = options.run ?? runCommand;
 	const wtPath = options.wtPath ?? 'wt';
-	const commandOptions = {env: options.env};
+	// Wt inspects the user's shell setup, which must not be able to stall on the terminal.
+	const commandOptions = {env: options.env, detached: true};
 	const config = await run(
 		wtPath,
 		['-C', worktreePath, 'config', 'show'],

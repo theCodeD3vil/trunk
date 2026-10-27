@@ -18,6 +18,13 @@ export type CommandOptions = Readonly<{
 	env?: NodeJS.ProcessEnv;
 	/** Stops the command when aborted; the result then has `aborted` set. */
 	signal?: AbortSignal;
+	/**
+	 * Starts the command in its own session, so it has no controlling terminal.
+	 * A program that runs an interactive shell to look around, as `wt config show`
+	 * does for completions, would otherwise be stopped by the terminal the moment
+	 * that shell touches it, and never finish.
+	 */
+	detached?: boolean;
 	/** Called with each chunk as it arrives, so a UI can show progress before the exit. */
 	onOutput?: (chunk: string, stream: 'stdout' | 'stderr') => void;
 }>;
@@ -75,6 +82,7 @@ export const runCommand: CommandRunner = async (
 			cwd: options.cwd,
 			env: options.env,
 			stdio: ['ignore', 'pipe', 'pipe'],
+			detached: options.detached,
 			signal: options.signal,
 		});
 		let stdout = '';

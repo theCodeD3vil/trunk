@@ -21,6 +21,7 @@
 
 ### Fixed
 
+- The apply step no longer hangs on _Validate with Worktrunk_ in a terminal. `wt config show` starts an interactive shell to see whether completions are set up, which loads your `.zshrc`. Run from inside the setup screen, that shell was stopped by the terminal and `wt` waited for it forever, with no output and no error. Trunk now runs the Worktrunk checks without a terminal, so they finish in a second or two.
 - The agents picker no longer cuts the list off. It is now a vertical list with a checkbox per agent, so all six fit at any width. Agents that are not installed stay listed, dim, with the reason, and the cursor skips them; at four picked the others say "limit reached" and Space explains why. Up and down move through the list and cross into the neighbouring field at either end. A short terminal shows a window onto the list that follows the cursor.
 - The push and the pull request no longer run with prompts on. A missing key, token or host key failed silently behind the screen before; it now fails at once with a card that says what to do. A failed push or pull request also no longer prints its raw output through the layout.
 - The screens are drawn in colour again. Loading them with `CI=false`, which stops Ink treating your shell as CI, also told its colour library that there was no colour, so every screen was plain text and the highlighted option in each choice was invisible. The colour level is now read from the real terminal and handed over for the import.

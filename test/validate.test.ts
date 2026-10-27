@@ -114,6 +114,32 @@ describe('generated config validation', () => {
 		expect((failure as Error).message).toContain('omitted generated hooks');
 	}, 30_000);
 
+	test('runs every wt call detached from the terminal', async () => {
+		// `wt config show` starts an interactive shell to inspect completions. On a
+		// real terminal that shell is stopped by the terminal and wt waits for it
+		// forever, so wt must not have a terminal to be stopped by.
+		const seen: Array<{args: string; detached: boolean | undefined}> = [];
+		try {
+			await validateGeneratedConfig('/tmp/project', testSettings(), {
+				async run(_command, arguments_, options): Promise<CommandResult> {
+					seen.push({
+						args: arguments_.slice(2).join(' '),
+						detached: options?.detached,
+					});
+					return {code: 0, stdout: '[]', stderr: ''};
+				},
+			});
+		} catch {
+			// The hook list is empty on purpose; only the calls matter here.
+		}
+
+		expect(seen.map(call => call.args)).toEqual([
+			'config show',
+			'hook show --expanded --format json',
+		]);
+		expect(seen.every(call => call.detached === true)).toBe(true);
+	});
+
 	test('surfaces raw Worktrunk warnings', async () => {
 		const warning = 'warning: misplaced setting\n';
 		try {
