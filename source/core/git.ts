@@ -158,7 +158,8 @@ export async function cloneBareQuietly(
 	gitDirectory: string,
 	options: GitOptions = {},
 ): Promise<CommandResult> {
-	return runGit(['clone', '--bare', url, gitDirectory], options);
+	// --progress makes git report even without a terminal, so the log box can follow it.
+	return runGit(['clone', '--bare', '--progress', url, gitDirectory], options);
 }
 
 /**

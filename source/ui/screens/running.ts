@@ -6,6 +6,7 @@
  */
 import type {
 	FinishRequest,
+	LogEvent,
 	PublishProblem,
 	PublishRequest,
 	PublishStatus,
@@ -58,15 +59,123 @@ export type PublishView = Readonly<{
 	stopping?: boolean;
 }>;
 
+/** One row of the log box. */
+export type LogLine = Readonly<{
+	text: string;
+	tone: 'command' | 'out' | 'fail';
+	/** Still being written: more of it may arrive, or a `\r` may redraw it. */
+	open?: boolean;
+	/** A `\r` was seen, so the next text replaces this line instead of extending it. */
+	redraw?: boolean;
+}>;
+
+/** Older rows fall off, so a chatty command cannot grow the state without bound. */
+const logLimit = 300;
+
+/* eslint-disable no-control-regex */
+const escapes = /\u001B\[[\d;?]*[ -/]*[@-~]/g;
+const controls = /[\u0000-\u0008\u000B\u000C\u000E-\u001A\u001C-\u001F\u007F]/g;
+/* eslint-enable no-control-regex */
+
+/**
+ * Folds a log event into the box's rows. Output arrives in arbitrary chunks, so
+ * a row stays open until its newline comes, and a `\r` (git's progress meter)
+ * makes the next text replace the row rather than stack up under it.
+ */
+export function appendLog(state: RunState, event: LogEvent): RunState {
+	const lines = [...(state.log ?? [])];
+	const close = () => {
+		const last = lines.at(-1);
+		if (last?.open) {
+			lines[lines.length - 1] = {text: last.text, tone: last.tone};
+		}
+	};
+
+	if (event.kind === 'command') {
+		close();
+		lines.push({text: `$ ${event.text}`, tone: 'command'});
+	} else if (event.kind === 'exit') {
+		close();
+		// A clean exit says nothing: the step beside it already ticks.
+		if (event.code !== 0) {
+			lines.push({
+				text: event.code === undefined ? 'stopped' : `exit ${event.code}`,
+				tone: 'fail',
+			});
+		}
+	} else {
+		let current = lines.at(-1)?.open ? lines.pop() : undefined;
+		const text = event.text
+			.replaceAll(escapes, '')
+			.replaceAll('\t', '    ')
+			.replaceAll(controls, '');
+		for (const piece of text.split(/(\r\n|\n|\r)/)) {
+			if (piece === '\n' || piece === '\r\n') {
+				lines.push({text: current?.text ?? '', tone: 'out'});
+				current = undefined;
+			} else if (piece === '\r') {
+				if (current !== undefined) {
+					current = {...current, redraw: true};
+				}
+			} else if (piece !== '') {
+				current = {
+					text:
+						current !== undefined && current.redraw !== true
+							? current.text + piece
+							: piece,
+					tone: 'out',
+					open: true,
+				};
+			}
+		}
+
+		if (current !== undefined) {
+			lines.push(current);
+		}
+	}
+
+	return {...state, log: lines.slice(-logLimit)};
+}
+
+/**
+ * The progress meter git prints, read off the newest log row as a short phrase
+ * for the step row, such as `Receiving objects 72% · 6.82 MiB · 37.00 KiB/s`. Only the last
+ * row counts, so a meter a finished command left behind is never shown for the
+ * next one.
+ */
+export function progressOf(
+	log: readonly LogLine[] | undefined,
+): string | undefined {
+	const last = log?.at(-1);
+	if (last?.tone !== 'out') {
+		return undefined;
+	}
+
+	const match =
+		/^(?:remote: )?([A-Z][a-z]+(?: [a-z]+)*):\s+(\d+)%(?: \([^)]*\))?(?:, (.*?))?$/.exec(
+			last.text,
+		);
+	if (match === null) {
+		return undefined;
+	}
+
+	const [, phase, percent, rest] = match;
+	return [`${phase} ${percent}%`, ...(rest?.split(/ \| |, /) ?? [])].join(
+		' \u00B7 ',
+	);
+}
+
 export type RunState = Readonly<{
 	command: 'clone' | 'init';
 	project: string;
 	steps: readonly StepView[];
+	/** What the commands run so far have printed, for the box under the steps. */
+	log?: readonly LogLine[];
 	finish?: FinishView;
 	publish?: PublishView;
 	/** What happened after a failed run was kept or rolled back, shown under the steps. */
 	outcome?: readonly ResultLine[];
-	/** Ctrl+C was pressed: the run stops after the step in progress. */
+	/** Ctrl+C was pressed: the command in progress is being stopped. */
 	cancelling?: boolean;
 }>;
 

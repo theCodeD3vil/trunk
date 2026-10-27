@@ -57,6 +57,15 @@ export class Journal {
 		}
 	}
 
+	/** Drops an entry for something that no longer exists, such as a clone git cleaned up itself. */
+	forget(path: string): void {
+		for (let index = this.records.length - 1; index >= 0; index--) {
+			if (this.records[index]!.path === path) {
+				this.records.splice(index, 1);
+			}
+		}
+	}
+
 	/** Adds a trailing note to the most recent matching entry. */
 	annotate(path: string, note: string): void {
 		const entry = this.records.findLast(record => record.path === path);

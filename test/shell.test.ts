@@ -19,6 +19,7 @@ import {unicodeGlyphs} from '../source/ui/kit/glyphs.js';
 import {
 	askPublish,
 	endPublish,
+	appendLog,
 	initialRun,
 	startPublish,
 	updatePublish,
@@ -600,6 +601,45 @@ describe('the frame', () => {
 		for (const frame of seen) {
 			expect(frame).toMatch(/^[\n -~]*$/);
 		}
+	});
+
+	test('the run shows an output box under the steps, following the newest rows', () => {
+		const {controller} = shell();
+		controller.configure(request(), 0);
+		let run = initialRun(
+			[{id: 'clone', label: 'Clone repository', detail: 'u'}],
+			'clone',
+			'acme/storefront',
+		);
+		run = updateStep(run, 'clone', 'active', 0);
+		run = appendLog(run, {kind: 'command', text: 'git clone --bare u d'});
+		for (let n = 1; n <= 40; n++) {
+			run = appendLog(run, {
+				kind: 'output',
+				text: `Receiving objects: ${n}\n`,
+				stream: 'stderr',
+			});
+		}
+
+		controller.show({kind: 'run', run}, 9000);
+		const frame = plain(draw(controller, 9000));
+		expect(frame).toContain('Output');
+		expect(frame).toContain('Receiving objects: 40');
+		expect(frame).not.toContain('Receiving objects: 2\n');
+		expect(frame).not.toContain('git clone --bare');
+
+		// A finished run gives the room back to the result.
+		controller.show(
+			{
+				kind: 'run',
+				run: {
+					...run,
+					finish: {request: finish, sel: 0, outcome: [], answered: false},
+				},
+			},
+			9100,
+		);
+		expect(plain(draw(controller, 9100))).not.toContain('Output');
 	});
 
 	test('a closed frame keeps its picture but drops the key bar', () => {

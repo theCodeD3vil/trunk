@@ -37,6 +37,7 @@ import {
 	scrollLimit,
 } from './screens/overwrite.js';
 import {
+	appendLog,
 	askPublish,
 	endPublish,
 	initialRun,
@@ -155,6 +156,8 @@ export async function openSession(): Promise<Session> {
 		clock: () => performance.now(),
 	});
 	let aborted = false;
+	/** Aborted by the first Ctrl+C during work, which stops the command in progress. */
+	const stopWork = new AbortController();
 	let run: RunState | undefined;
 	/** Handles keys for whatever question is showing; a no-op between questions. */
 	let onKey: (name: string, at?: Point) => void = () => undefined;
@@ -204,14 +207,15 @@ export async function openSession(): Promise<Session> {
 			return;
 		}
 
-		// Nothing is being asked, so work is running: stop after the step, and
-		// quit at once on a second press.
+		// Nothing is being asked, so work is running: stop the command in
+		// progress, and quit at once on a second press.
 		if (aborted) {
 			// A second Ctrl+C means "now": nothing is left to unwind gracefully.
 			void quitNow();
 		}
 
 		aborted = true;
+		stopWork.abort();
 		if (run !== undefined) {
 			run = {...run, cancelling: true};
 			showRun();
@@ -296,6 +300,13 @@ export async function openSession(): Promise<Session> {
 		update(id: string, status: StepStatus, detail?: string) {
 			if (run !== undefined) {
 				run = updateStep(run, id, status, performance.now(), detail);
+				showRun();
+			}
+		},
+
+		log(event) {
+			if (run !== undefined) {
+				run = appendLog(run, event);
 				showRun();
 			}
 		},
@@ -435,6 +446,8 @@ export async function openSession(): Promise<Session> {
 		},
 
 		aborted: () => aborted,
+
+		signal: stopWork.signal,
 
 		async close() {
 			onKey = () => undefined;

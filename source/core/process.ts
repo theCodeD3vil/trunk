@@ -18,6 +18,8 @@ export type CommandOptions = Readonly<{
 	env?: NodeJS.ProcessEnv;
 	/** Stops the command when aborted; the result then has `aborted` set. */
 	signal?: AbortSignal;
+	/** Called with each chunk as it arrives, so a UI can show progress before the exit. */
+	onOutput?: (chunk: string, stream: 'stdout' | 'stderr') => void;
 }>;
 
 /**
@@ -82,9 +84,11 @@ export const runCommand: CommandRunner = async (
 		child.stderr.setEncoding('utf8');
 		child.stdout.on('data', (chunk: string) => {
 			stdout += chunk;
+			options.onOutput?.(chunk, 'stdout');
 		});
 		child.stderr.on('data', (chunk: string) => {
 			stderr += chunk;
+			options.onOutput?.(chunk, 'stderr');
 		});
 		child.once('error', error => {
 			// Aborting is a normal way for a command to end, not a failure to start.

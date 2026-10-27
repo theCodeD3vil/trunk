@@ -8,6 +8,7 @@ import {failureParts} from '../screens/callouts.js';
 import {overwriteParts} from '../screens/overwrite.js';
 import {
 	problemLines,
+	progressOf,
 	resultLine,
 	type PublishRow,
 	type PublishView,
@@ -120,7 +121,7 @@ function drawItems(
 	return y + items.length;
 }
 
-function stepItem(context: Context, step: StepView): Item {
+function stepItem(context: Context, step: StepView, progress?: string): Item {
 	const {g, now} = context;
 	const spent =
 		step.startedAt === undefined ? 0 : (step.endedAt ?? now) - step.startedAt;
@@ -130,6 +131,8 @@ function stepItem(context: Context, step: StepView): Item {
 			const frame = Math.floor(spent / 80) % g.spin.length;
 			return {
 				...base,
+				// What the command is doing beats what the step set out to do.
+				detail: progress ?? base.detail,
 				tone: 'active',
 				glyph: g.spin[frame] ?? g.pend,
 				clock: seconds(spent),
@@ -432,6 +435,7 @@ export function drawRun(
 	context: Context,
 	run: RunState,
 	level: 0 | 1 | 2 | 3,
+	room: number,
 ): number {
 	const {p, g, frame} = context;
 	const width = s.w - lead * 2;
@@ -442,6 +446,7 @@ export function drawRun(
 		run.steps.every(
 			step => step.status === 'done' || step.status === 'skipped',
 		);
+	const progress = progressOf(run.log);
 	const name = frame.request?.rootName ?? run.project;
 	const published =
 		run.publish?.ended === true &&
@@ -463,7 +468,7 @@ export function drawRun(
 				? 'Setup branch pushed.'
 				: complete
 				? 'All steps finished.'
-				: 'Ctrl+C stops after the current step.',
+				: 'Ctrl+C stops the run.',
 		},
 		{compact: level > 0} satisfies Spacing,
 	);
@@ -475,7 +480,7 @@ export function drawRun(
 			context,
 			top,
 			width,
-			run.steps.map(step => stepItem(context, step)),
+			run.steps.map(step => stepItem(context, step, progress)),
 		);
 	} else {
 		const done = run.steps.filter(
@@ -569,17 +574,58 @@ export function drawRun(
 		s.put(
 			lead + 4,
 			top,
-			cut(
-				'Stopping after this step. Press Ctrl+C again to quit now.',
-				width - 4,
-				g.ell,
-			),
+			cut('Stopping. Press Ctrl+C again to quit now.', width - 4, g.ell),
 			{c: 'c-dim'},
 		);
 		top += 1;
 	}
 
-	return top;
+	return run.finish === undefined && run.publish === undefined
+		? drawLog(s, context, run, top, width, room)
+		: top;
+}
+
+/** Rows the log box never grows past, so a tall terminal is not mostly empty frame. */
+const logRows = 12;
+/** Less than this and the box shows too little to be worth its borders. */
+const logMinimum = 3;
+
+/**
+ * What the commands print, in a box under the steps: the newest rows, so the
+ * box follows the work. It takes whatever room the steps leave, and is left out
+ * when that is too little rather than folding the steps for it.
+ */
+function drawLog(
+	s: Surface,
+	context: Context,
+	run: RunState,
+	top: number,
+	width: number,
+	room: number,
+): number {
+	const {p} = context;
+	const log = run.log ?? [];
+	const inner = Math.min(logRows, room - top - 3);
+	if (log.length === 0 || inner < logMinimum) {
+		return top;
+	}
+
+	const y = top + 1;
+	box(s, context, lead, y, width, inner + 2, {edge: p.line});
+	s.put(lead + 2, y, ' Output ', {c: 'c-dim'});
+	const text = width - 4;
+	for (const [index, item] of log.slice(-inner).entries()) {
+		s.put(lead + 2, y + 1 + index, cut(item.text, text, context.g.ell), {
+			c:
+				item.tone === 'command'
+					? 'b'
+					: item.tone === 'fail'
+					? 'c-err'
+					: 'c-dim',
+		});
+	}
+
+	return y + inner + 2;
 }
 
 /** The existing-config screen, in the stage: its diff scrolls inside it. */

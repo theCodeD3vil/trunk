@@ -59,6 +59,12 @@ export type OverwriteRequest = Readonly<{
 	generated: string;
 }>;
 
+/** What the run's log box shows: a command as it starts, what it prints, and how it ended. */
+export type LogEvent =
+	| Readonly<{kind: 'command'; text: string}>
+	| Readonly<{kind: 'output'; text: string; stream: 'stdout' | 'stderr'}>
+	| Readonly<{kind: 'exit'; code: number | undefined}>;
+
 export type NextStep = Readonly<{command: string; note?: string}>;
 
 export type FinishRequest = Readonly<{
@@ -141,6 +147,8 @@ export type Session = Readonly<{
 		project: string,
 	) => void;
 	update: (id: string, status: StepStatus, detail?: string) => void;
+	/** Feeds the log box under the steps. */
+	log: (event: LogEvent) => void;
 	overwrite: (
 		request: OverwriteRequest,
 	) => Promise<'keep' | 'replace' | undefined>;
@@ -163,6 +171,8 @@ export type Session = Readonly<{
 	fail: (request: FailureRequest) => Promise<'keep' | 'rollback' | undefined>;
 	/** True once the user pressed Ctrl+C; the run should stop at its next step. */
 	aborted: () => boolean;
+	/** Aborted by the first Ctrl+C during work, so a long command stops instead of being waited for. */
+	signal: AbortSignal;
 	/** Ends the session; true when it also cleared the screen and printed what to do next. */
 	close: () => Promise<boolean>;
 }>;

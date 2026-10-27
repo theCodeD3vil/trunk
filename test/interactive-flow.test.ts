@@ -49,6 +49,8 @@ type Answers = Partial<{
 	problems: ReadonlyArray<'retry' | 'later' | undefined>;
 	/** Aborts the publish this many milliseconds after it starts, as Ctrl+C would. */
 	cancelAfter: number;
+	/** Presses Ctrl+C this many milliseconds after the clone step starts. */
+	stopAfter: number;
 }>;
 
 /** Records everything the flow tells the UI and answers each question as told. */
@@ -72,6 +74,7 @@ function fakeSession(answers: Answers = {}) {
 		},
 	};
 	const queue = [...(answers.problems ?? [])];
+	const stop = new AbortController();
 	const session: Session = {
 		async configure(request) {
 			record.configured = request;
@@ -84,6 +87,15 @@ function fakeSession(answers: Answers = {}) {
 		},
 		update(id, status, detail) {
 			record.updates.push([id, status, detail]);
+			if (
+				id === 'clone' &&
+				status === 'active' &&
+				answers.stopAfter !== undefined
+			) {
+				setTimeout(() => {
+					stop.abort();
+				}, answers.stopAfter);
+			}
 		},
 		async overwrite(request) {
 			record.overwrite = request;
@@ -121,7 +133,9 @@ function fakeSession(answers: Answers = {}) {
 		publishEnd(lines) {
 			record.publish.ended = lines;
 		},
-		aborted: () => false,
+		log: () => undefined,
+		aborted: () => stop.signal.aborted,
+		signal: stop.signal,
 		async close() {
 			record.closed = true;
 			return false;
@@ -210,6 +224,31 @@ describe('the interactive setup flow', () => {
 				'chore/trunk-setup',
 			]),
 		).toBe('');
+	}, 60_000);
+
+	test('Ctrl+C during the clone stops the clone instead of waiting for it', async () => {
+		const fixture = await createFixture(roots);
+		const real = await resolveExecutable('git');
+		const slow = await stub(
+			fixture.root,
+			'git-slow-clone',
+			`case " $* " in\n  *" clone "*) exec /bin/sleep 30 ;;\nesac\nexec "${real}" "$@"`,
+		);
+		const {record, terminal} = fakeSession({stopAfter: 500});
+		const started = Date.now();
+
+		const outcome = await run(fixture, terminal, undefined, {gitPath: slow});
+
+		expect(outcome.code).toBe(exitCodes.userAborted);
+		// It did not wait for the 30 second sleep.
+		expect(Date.now() - started).toBeLessThan(20_000);
+		// Stopped on purpose, so it is not shown as a failure and no failure card is asked.
+		expect(record.updates).toContainEqual(['clone', 'skipped', 'stopped']);
+		expect(record.failure).toBeUndefined();
+		// Git removed the half-made clone, so nothing is left to resume or clean up.
+		expect(await exists(join(fixture.workingDirectory, 'acme-admin'))).toBe(
+			false,
+		);
 	}, 60_000);
 
 	test('cancelling at the questions leaves nothing behind', async () => {
@@ -326,6 +365,14 @@ type RunOptions = Readonly<{
 	ghPath?: string;
 	environment?: NodeJS.ProcessEnv;
 }>;
+
+/** A script on disk that stands in for a tool, and a log of what it saw. */
+async function stub(root: string, name: string, body: string): Promise<string> {
+	const path = join(root, name);
+	await writeFile(path, `#!/bin/sh\n${body}\n`);
+	await chmod(path, 0o755);
+	return path;
+}
 
 async function run(
 	fixture: Fixture,
@@ -488,18 +535,6 @@ describe('publishing the setup branch', () => {
 			roots.map(async root => rm(root, {recursive: true, force: true})),
 		);
 	});
-
-	/** A script on disk that stands in for a tool, and a log of what it saw. */
-	async function stub(
-		root: string,
-		name: string,
-		body: string,
-	): Promise<string> {
-		const path = join(root, name);
-		await writeFile(path, `#!/bin/sh\n${body}\n`);
-		await chmod(path, 0o755);
-		return path;
-	}
 
 	/**
 	 * Makes `git@github.com:acme/admin.git` mean the fixture's bare repository,

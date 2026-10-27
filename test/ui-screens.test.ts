@@ -35,6 +35,8 @@ import {
 	scrollLimit,
 } from '../source/ui/screens/overwrite.js';
 import {
+	appendLog,
+	progressOf,
 	askPublish,
 	endPublish,
 	initialRun,
@@ -235,6 +237,63 @@ describe('running screen and result card', () => {
 		state = updateStep(state, 'commit', 'active', 3000);
 		state = updateStep(state, 'commit', 'active', 9000);
 		expect(state.steps[1]?.startedAt).toBe(9000);
+	});
+
+	test('git progress on the newest row becomes a phrase for the step row', () => {
+		const out = (text: string) => ({
+			kind: 'output' as const,
+			text,
+			stream: 'stderr' as const,
+		});
+		const phrase = (...events: Array<ReturnType<typeof out>>) => {
+			let state = initialRun(definitions, 'init', 'acme/admin');
+			for (const event of events) {
+				state = appendLog(state, event);
+			}
+
+			return progressOf(state.log);
+		};
+
+		expect(
+			phrase(
+				out('Receiving objects:  72% (2713/3765), 6.82 MiB | 37.00 KiB/s'),
+			),
+		).toBe('Receiving objects 72% \u00B7 6.82 MiB \u00B7 37.00 KiB/s');
+		expect(
+			phrase(out('remote: Compressing objects: 100% (71/71), done.\n')),
+		).toBe('Compressing objects 100% \u00B7 done.');
+		// Nothing to show for ordinary output, or once a newer command has started.
+		expect(phrase(out('Cloning into bare repository'))).toBeUndefined();
+		expect(
+			phrase(out('Receiving objects: 100% (3/3)\n'), {
+				kind: 'command',
+				text: 'git fetch',
+			} as never),
+		).toBeUndefined();
+	});
+
+	test('the log keeps a row open until its newline, and a carriage return redraws it', () => {
+		const out = (text: string) => ({
+			kind: 'output' as const,
+			text,
+			stream: 'stderr' as const,
+		});
+		let state = initialRun(definitions, 'init', 'acme/admin');
+		state = appendLog(state, {kind: 'command', text: 'git clone --bare u d'});
+		state = appendLog(state, out('Receiving objects:  10%\r'));
+		state = appendLog(state, out('Receiving objects: 20%\r'));
+		state = appendLog(state, out('Receiving objects: 100%\u001B[K\ndone'));
+		state = appendLog(state, out('.\n'));
+		state = appendLog(state, {kind: 'exit', code: 0});
+		expect(state.log?.map(row => row.text)).toEqual([
+			'$ git clone --bare u d',
+			'Receiving objects: 100%',
+			'done.',
+		]);
+
+		// Only a failure is worth a row of its own.
+		state = appendLog(state, {kind: 'exit', code: 128});
+		expect(state.log?.at(-1)).toEqual({text: 'exit 128', tone: 'fail'});
 	});
 });
 

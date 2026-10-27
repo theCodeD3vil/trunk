@@ -121,7 +121,7 @@ export function layoutOf(frame: Frame): Layout {
 
 		case 'run': {
 			for (const level of [0, 1, 2, 3] as const) {
-				if (attempt(s => drawRun(s, context, screen.run, level))) {
+				if (attempt(s => drawRun(s, context, screen.run, level, room))) {
 					break;
 				}
 			}

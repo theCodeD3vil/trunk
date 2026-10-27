@@ -9,7 +9,7 @@
  * does the rest: the config, the setup branch, validation, the commit, the
  * result, and what to do when a step fails or the user cancels.
  */
-import {readFile} from 'node:fs/promises';
+import {readFile, rmdir, stat} from 'node:fs/promises';
 import {homedir} from 'node:os';
 import {basename, join, relative} from 'node:path';
 import process from 'node:process';
@@ -24,6 +24,7 @@ import {
 } from './gh.js';
 import {addWorktree, commitPath, withoutPrompts} from './git.js';
 import {resumeCommand, undoCommands} from './journal.js';
+import {runCommand, type CommandRunner} from './process.js';
 import {
 	describePullRequest,
 	destinationLabel,
@@ -251,13 +252,16 @@ export async function runInteractiveSetup(
 	const buffered: Array<
 		readonly ['success' | 'error' | 'info' | 'warning', string]
 	> = [];
+	const session = await terminal.session();
+	// Every command the flow runs is echoed into the run's log box.
 	const context: SetupContext = {
 		...base,
 		report(kind, line) {
 			buffered.push([kind, line]);
 		},
+		git: {...base.git, run: logged(base.git.run ?? runCommand, session)},
+		run: logged(base.run, session),
 	};
-	const session = await terminal.session();
 	try {
 		return await runSession(context, session, plan, request);
 	} finally {
@@ -267,6 +271,34 @@ export async function runInteractiveSetup(
 			base.report(kind, line);
 		}
 	}
+}
+
+/** Wraps a runner so the session sees each command, its output as it arrives, and its exit. */
+function logged(run: CommandRunner, session: Session): CommandRunner {
+	return async (command, arguments_, options) => {
+		const shown = [basename(command), ...arguments_].map(part =>
+			/\s/.test(part) ? JSON.stringify(part) : part,
+		);
+		session.log({
+			kind: 'command',
+			text: shown.join(' ').replaceAll(/\s+/g, ' '),
+		});
+		// A caller that brings its own signal, such as the push, handles an abort itself.
+		const mine = options?.signal === undefined;
+		const result = await run(command, arguments_, {
+			...options,
+			signal: options?.signal ?? session.signal,
+			onOutput(text, stream) {
+				session.log({kind: 'output', text, stream});
+			},
+		});
+		session.log({kind: 'exit', code: result.code});
+		if (mine && result.aborted === true) {
+			throw new AbortedRun();
+		}
+
+		return result;
+	};
 }
 
 async function runSession(
@@ -311,6 +343,8 @@ async function runSession(
 			return result.value;
 		} catch (error: unknown) {
 			if (error instanceof AbortedRun) {
+				// Stopped on purpose, so no red cross.
+				session.update(id, 'skipped', 'stopped');
 				throw error;
 			}
 
@@ -425,6 +459,7 @@ async function runSession(
 				await validateGeneratedConfig(worktree, settings, {
 					wtPath: context.wtPath,
 					env: context.env,
+					run: context.run,
 				});
 			} catch (error: unknown) {
 				throw new StepFailure('validate', errorMessage(error));
@@ -717,6 +752,35 @@ async function publish(
 }
 
 /** Cancel, or a step that failed: show what exists and let the user keep or undo it. */
+/**
+ * Stopping a command can leave nothing of what it was making: git removes a
+ * half-made clone itself. Entries for what is gone are dropped, and a folder
+ * trunk made that ended up empty is removed, so a stopped run does not claim
+ * to have created, or offer to resume, something that is not there.
+ */
+async function forgetVanished(context: SetupContext): Promise<void> {
+	const {journal} = context;
+	/* eslint-disable no-await-in-loop */
+	for (const entry of journal.entries.toReversed()) {
+		// Newest first: a folder is only empty once what it held is forgotten.
+		try {
+			await stat(entry.path);
+		} catch {
+			journal.forget(entry.path);
+			continue;
+		}
+
+		if (entry.kind === 'folder') {
+			try {
+				// Fails on a folder with anything in it, which is what keeps it.
+				await rmdir(entry.path);
+				journal.forget(entry.path);
+			} catch {}
+		}
+	}
+	/* eslint-enable no-await-in-loop */
+}
+
 async function handleFailure(
 	context: SetupContext,
 	session: Session,
@@ -744,6 +808,7 @@ async function handleFailure(
 	};
 
 	if (error instanceof AbortedRun || session.aborted()) {
+		await forgetVanished(context);
 		reportKept();
 		return userAborted();
 	}
