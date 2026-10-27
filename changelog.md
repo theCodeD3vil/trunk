@@ -32,6 +32,8 @@
 
 ### Changed
 
+- `trunk-cli docs` is a screen of the same shell as the setup form: the topics and sections in a rail, the page filling the window, a key bar, and copy and search notices as toasts. Below 100 columns the rail folds away. Quitting clears the screen.
+- The welcome (`trunk-cli`, `trunk-cli --help`) and the refusals (missing tools, a normal clone, an empty repository) are drawn in the same frame, on the same black background, and printed once. The exit status is in the foot line, and a command too long to fit is printed whole below the frame so it can be copied.
 - The setup shell fills the whole window instead of stopping at 104 columns, so the main panel gets the extra width. The step list keeps its width.
 - The setup shell uses plainer wording for help text, toasts and the result. A wrong session prefix now shows a toast instead of shaking the field. Toasts are a padded block at the top right.
 - The step list no longer draws a green bar beside the active step.

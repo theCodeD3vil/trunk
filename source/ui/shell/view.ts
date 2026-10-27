@@ -7,6 +7,7 @@
 import type {KeyHint, Line} from '../kit/lines.js';
 import {createCanvas, type Canvas, type Surface} from './canvas.js';
 import {
+	cap,
 	drawFrame,
 	drawKeys,
 	drawTopBar,
@@ -18,6 +19,7 @@ import {
 	type Geo,
 } from './chrome.js';
 import {along, duration, ease} from './motion.js';
+import {documentationLines} from './docs-view.js';
 import {drawPanel} from './panels.js';
 import {drawFailure, drawIdle, drawOverwrite, drawRun} from './run-panels.js';
 import {drawRail, railModel} from './rail.js';
@@ -149,6 +151,11 @@ export function layoutOf(frame: Frame): Layout {
 			attempt(s => drawIdle(s, context));
 			break;
 		}
+
+		case 'docs': {
+			// Drawn by `documentationLines`, before any layout is worked out.
+			break;
+		}
 	}
 
 	const previewLines =
@@ -165,14 +172,6 @@ export function layoutOf(frame: Frame): Layout {
 		hints,
 	};
 }
-
-const cap = (
-	glyph: string,
-	label: string,
-	keys: readonly string[],
-	off = false,
-	optional = false,
-): Cap => ({glyph, label, keys, off, optional});
 
 /** The key bar for the open screen: its caps, and the word at the right. */
 function keyBar(
@@ -308,6 +307,16 @@ function tooSmall(s: Surface, context: Context): void {
 }
 
 export function frameLines(frame: Frame): Line[] {
+	if (frame.screen.kind === 'docs') {
+		if (frame.cols < minimum.cols || frame.rows < minimum.rows) {
+			const canvas = createCanvas(frame.cols, frame.rows);
+			tooSmall(canvas.surface, makeContext(frame));
+			return canvas.lines();
+		}
+
+		return documentationLines(frame, makeContext(frame));
+	}
+
 	const context = makeContext(frame);
 	const {screen} = frame;
 	const layout = layoutOf(frame);

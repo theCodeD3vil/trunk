@@ -28,22 +28,26 @@ export type Geo = Readonly<{
 	/** The stage's column and width, inside the app. */
 	mainX: number;
 	mainW: number;
+	/** Columns from the left border to the rail's divider; 0 when the rail is folded away. */
+	side: number;
 }>;
 
-/** The app fills the window; the sidebar keeps its width and the stage takes the rest. */
-export function geometry(width: number, rows: number): Geo {
+/** The app fills the window; the rail keeps its width (or is folded away) and the stage takes the rest. */
+export function geometry(width: number, rows: number, side = sideWidth): Geo {
 	const cols = width;
+	const mainX = side === 0 ? 1 : side + 1;
 	return {
 		cols,
 		rows,
 		bodyY: 2,
 		bodyH: Math.max(0, rows - 4),
-		mainX: sideWidth + 1,
-		mainW: Math.max(0, cols - sideWidth - 2),
+		mainX,
+		mainW: Math.max(0, cols - mainX - 1),
+		side,
 	};
 }
 
-/** The border down each side, the rule under the bar and over the keys, and where they meet. */
+/** The border, the rule under the bar and over the keys, the rail's divider and where they meet. */
 export function drawFrame(
 	s: Surface,
 	context: Context,
@@ -58,22 +62,26 @@ export function drawFrame(
 		s.put(right, y, g.v, style);
 	}
 
-	for (let y = geo.bodyY; y < geo.rows - 2; y++) {
-		s.put(sideWidth, y, g.v, style);
+	if (geo.side > 0) {
+		for (let y = geo.bodyY; y < geo.rows - 2; y++) {
+			s.put(geo.side, y, g.v, style);
+		}
 	}
 
 	const across = (y: number, junction: string): void => {
 		s.put(0, y, g.tee, style);
 		s.put(1, y, g.h.repeat(geo.cols - 2), style);
 		s.put(right, y, g.teeL, style);
-		s.put(sideWidth, y, junction, style);
+		if (geo.side > 0) {
+			s.put(geo.side, y, junction, style);
+		}
 	};
 
 	across(1, g.teeD);
 	across(geo.rows - 2, g.teeU);
 	if (previewY !== undefined) {
-		s.put(sideWidth, previewY, g.tee, style);
-		s.put(sideWidth + 1, previewY, g.h.repeat(geo.mainW), style);
+		s.put(geo.side, previewY, g.tee, style);
+		s.put(geo.side + 1, previewY, g.h.repeat(geo.mainW), style);
 		s.put(right, previewY, g.teeL, style);
 	}
 }
@@ -126,6 +134,14 @@ export type Cap = Readonly<{
 	/** Left out when the bar is too narrow for every cap. */
 	optional?: boolean;
 }>;
+
+export const cap = (
+	glyph: string,
+	label: string,
+	keys: readonly string[],
+	off = false,
+	optional = false,
+): Cap => ({glyph, label, keys, off, optional});
 
 /** The key bar: a cap per key, which brightens under the pointer, and a status on the right. */
 export function drawKeys(

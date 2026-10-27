@@ -24,9 +24,7 @@ import {
 } from '../source/ui/screens/callouts.js';
 import {
 	documentationKey,
-	documentationLines,
 	initialDocumentation,
-	readerHeight,
 } from '../source/ui/screens/docs.js';
 import {
 	buildOverwriteModel,
@@ -53,6 +51,12 @@ const text = (line: Line): string =>
 	line.segs.map(segment => segment.t).join('');
 const screenText = (lines: readonly Line[]): string =>
 	lines.map(line => text(line)).join('\n');
+
+/** What a printed screen draws: its body, and whatever is printed below the frame. */
+const asLines = (parts: {
+	body: readonly Line[];
+	after?: readonly Line[];
+}): Line[] => [...parts.body, ...(parts.after ?? [])];
 
 const values: SetupValues = {
 	prefix: 'acme',
@@ -116,7 +120,7 @@ const failure: FailureRequest = {
 function screens(kit: Kit, rows: number): Array<[string, Line[]]> {
 	const existing = '# mine\n[post-start]\nedit = "true"\n';
 	return [
-		['welcome', welcomeLines(kit, '0.1.1')],
+		['welcome', asLines(welcomeLines(kit))],
 		[
 			'overwrite',
 			overwriteLines(
@@ -138,21 +142,22 @@ function screens(kit: Kit, rows: number): Array<[string, Line[]]> {
 		],
 		['failure', failureLines(kit, failure, {sel: 0}, rows)],
 		[
-			'docs',
-			documentationLines(kit, initialDocumentation, {caret: true, rows}),
+			'missing tools',
+			asLines(missingToolLines(kit, ['git', 'wt'], 'trunk-cli init')),
 		],
-		['missing tools', missingToolLines(kit, ['git', 'wt'], 'trunk-cli init')],
 		[
 			'normal clone',
-			normalCloneLines(kit, {
-				name: 'acme-admin',
-				url: 'https://example.com/acme/admin.git',
-				unsaved: ['3 uncommitted files'],
-			}),
+			asLines(
+				normalCloneLines(kit, {
+					name: 'acme-admin',
+					url: 'https://example.com/acme/admin.git',
+					unsaved: ['3 uncommitted files'],
+				}),
+			),
 		],
 		[
 			'empty repository',
-			emptyRepositoryLines(kit, 'acme-admin', 'trunk-cli init'),
+			asLines(emptyRepositoryLines(kit, 'acme-admin', 'trunk-cli init')),
 		],
 	];
 }
@@ -281,32 +286,12 @@ describe('existing-config screen', () => {
 
 describe('docs screen', () => {
 	const kit = createKit(unicodeGlyphs, 104);
-	const view = {kit, rows: 36};
-
-	test('a wide terminal shows the sidebar beside the page, a narrow one folds it', () => {
-		const wide = screenText(
-			documentationLines(kit, initialDocumentation, {caret: true, rows: 36}),
-		);
-		expect(wide).toContain('Config Basics');
-		expect(wide).toContain('Hook lifecycle');
-		expect(wide).toContain('1 of 13');
-
-		const narrow = screenText(
-			documentationLines(createKit(unicodeGlyphs, 80), initialDocumentation, {
-				caret: true,
-				rows: 36,
-			}),
-		);
-		expect(narrow).not.toContain('Hook lifecycle');
-		expect(narrow).toContain('1 of 13');
-	});
+	const view = {kit, width: 80, height: 28};
 
 	test('the side arrows step through every section and stop at the ends', () => {
 		let state = initialDocumentation;
 		state = documentationKey(state, 'right', view).state;
-		expect(
-			screenText(documentationLines(kit, state, {caret: true, rows: 36})),
-		).toContain('2 of 13');
+		expect(state).toMatchObject({topic: 0, section: 1});
 
 		expect(documentationKey(initialDocumentation, 'left', view).state).toEqual(
 			initialDocumentation,
@@ -316,9 +301,8 @@ describe('docs screen', () => {
 			state = documentationKey(state, 'right', view).state;
 		}
 
-		expect(
-			screenText(documentationLines(kit, state, {caret: true, rows: 36})),
-		).toContain('13 of 13');
+		// The last of the thirteen sections: the fifth of the second topic.
+		expect(state).toMatchObject({topic: 1, section: 4});
 	});
 
 	test('q quits, and c on a page with several snippets asks which to copy', () => {
@@ -386,23 +370,25 @@ describe('failure and refusal cards', () => {
 	});
 
 	test('a missing tool names it, links the fix and shows the command to re-run', () => {
-		const screen = screenText(
-			missingToolLines(kit, ['wt'], 'trunk-cli clone x'),
-		);
+		const parts = missingToolLines(kit, ['wt'], 'trunk-cli clone x');
+		const screen = screenText(parts.body);
 
 		expect(screen).toContain('Worktrunk');
 		expect(screen).toContain('https://worktrunk.dev');
 		expect(screen).toContain('trunk-cli clone x');
-		expect(screen).toContain('exit 3');
+		expect(parts.exit).toBe(3);
+		expect(parts.foot).toBe('Nothing was created.');
 	});
 
 	test('a normal clone is left alone and the steps to move it across are listed', () => {
 		const screen = screenText(
-			normalCloneLines(kit, {
-				name: 'acme-admin',
-				url: 'https://example.com/a.git',
-				unsaved: [],
-			}),
+			asLines(
+				normalCloneLines(kit, {
+					name: 'acme-admin',
+					url: 'https://example.com/a.git',
+					unsaved: [],
+				}),
+			),
 		);
 
 		expect(screen).toContain('acme-admin is a normal clone');
@@ -415,10 +401,10 @@ describe('failure and refusal cards', () => {
 describe('welcome screen', () => {
 	test('leads with the three commands, then an example and the options', () => {
 		const screen = screenText(
-			welcomeLines(createKit(unicodeGlyphs, 104), '0.1.1'),
+			asLines(welcomeLines(createKit(unicodeGlyphs, 104))),
 		);
 
-		expect(screen).toContain('0.1.1');
+		expect(screen).toContain('Set up a repository for parallel work.');
 		for (const command of ['clone', 'init', 'docs']) {
 			expect(screen).toContain(command);
 		}
@@ -533,7 +519,9 @@ describe('commands are never cut off', () => {
 	const url = `https://example.com/${'organisation/'.repeat(5)}storefront.git`;
 
 	test('a normal clone with a long URL shows the whole command below its card', () => {
-		const lines = normalCloneLines(kit, {name: 'storefront', url, unsaved: []});
+		const lines = asLines(
+			normalCloneLines(kit, {name: 'storefront', url, unsaved: []}),
+		);
 		const command = `trunk-cli clone ${url} storefront-wt`;
 		const soft = lines
 			.filter(line => line.soft === true)
@@ -545,11 +533,13 @@ describe('commands are never cut off', () => {
 	});
 
 	test('a short URL stays inside the card, as designed', () => {
-		const lines = normalCloneLines(kit, {
-			name: 'storefront',
-			url: 'git@github.com:acme/storefront.git',
-			unsaved: [],
-		});
+		const lines = asLines(
+			normalCloneLines(kit, {
+				name: 'storefront',
+				url: 'git@github.com:acme/storefront.git',
+				unsaved: [],
+			}),
+		);
 
 		expect(lines.some(line => line.soft === true)).toBe(false);
 		expect(screenText(lines)).toContain(
@@ -559,8 +549,8 @@ describe('commands are never cut off', () => {
 
 	test('the same holds for the missing-tool and empty-repository re-run commands', () => {
 		const rerun = `trunk-cli clone ${url} some-directory`;
-		const missing = missingToolLines(kit, ['wt'], rerun);
-		const empty = emptyRepositoryLines(kit, 'storefront', rerun);
+		const missing = asLines(missingToolLines(kit, ['wt'], rerun));
+		const empty = asLines(emptyRepositoryLines(kit, 'storefront', rerun));
 
 		for (const lines of [missing, empty]) {
 			expect(
@@ -593,12 +583,12 @@ describe('welcome', () => {
 	const kit = createKit(unicodeGlyphs, 104);
 
 	test('plain trunk keeps the options to one dim line and says how to skip the questions', () => {
-		const screen = screenText(welcomeLines(kit, '0.3.0', 'summary'));
+		const screen = screenText(asLines(welcomeLines(kit, 'summary')));
 
 		expect(screen).toContain(
 			'--yes · --prefix · --agents · --tmux · --copy · --mc · --direct',
 		);
-		expect(screen).toContain(
+		expect(welcomeLines(kit, 'summary').foot).toBe(
 			'Nothing is written until you review it. Add --yes to skip every question.',
 		);
 		expect(screen).not.toContain('tmux session prefix');
@@ -608,7 +598,7 @@ describe('welcome', () => {
 	});
 
 	test('trunk-cli --help lists what every option means', () => {
-		const screen = screenText(welcomeLines(kit, '0.3.0', 'full'));
+		const screen = screenText(asLines(welcomeLines(kit, 'full')));
 
 		for (const meaning of [
 			'accept the defaults, no questions',
@@ -622,8 +612,8 @@ describe('welcome', () => {
 	});
 
 	test('the summary is the default', () => {
-		expect(screenText(welcomeLines(kit, '0.3.0'))).toBe(
-			screenText(welcomeLines(kit, '0.3.0', 'summary')),
+		expect(screenText(asLines(welcomeLines(kit)))).toBe(
+			screenText(asLines(welcomeLines(kit, 'summary'))),
 		);
 	});
 });
@@ -647,53 +637,6 @@ describe('clicks reach the screens', () => {
 		expect(failureKey(failure, {sel: 1}, 'keep').answer).toBe('keep');
 		expect(overwriteKey(initialOverwrite, 'replace').answer).toBe('replace');
 		expect(overwriteKey(initialOverwrite, 'keep').answer).toBe('keep');
-	});
-
-	test('the docs sidebar, search results and snippet picker are clickable', () => {
-		const lines = documentationLines(kit, initialDocumentation, {
-			caret: true,
-			rows: 36,
-		});
-		const view = {kit, rows: 36};
-		const hook = lines.find(line => text(line).includes('Hook lifecycle'));
-		expect(hook?.segs.some(segment => segment.k === 'docs-s:0:1')).toBe(true);
-
-		const moved = documentationKey(
-			initialDocumentation,
-			'docs-s:1:2',
-			view,
-		).state;
-		expect([moved.topic, moved.section]).toEqual([1, 2]);
-
-		let {state} = documentationKey(initialDocumentation, '/', view);
-		for (const key of 'tmux') {
-			state = documentationKey(state, key, view).state;
-		}
-
-		const results = documentationLines(kit, state, {caret: true, rows: 36});
-		expect(results.some(line => line.row === 'docs-r:1')).toBe(true);
-		const opened = documentationKey(state, 'docs-r:1', view).state;
-		expect(opened.search).toBeUndefined();
-
-		let picker = initialDocumentation;
-		for (let index = 0; index < 13; index++) {
-			const next = documentationKey(picker, 'c', view);
-			if (next.state.picker !== undefined) {
-				const chosen = documentationKey(next.state, 'picker:1', view);
-				expect(chosen.effect?.kind).toBe('copy');
-				return;
-			}
-
-			picker = documentationKey(picker, 'right', view).state;
-		}
-
-		throw new Error('no page has two snippets');
-	});
-
-	test('the docs reader uses the whole height of the terminal', () => {
-		expect(readerHeight(30)).toBe(24);
-		expect(readerHeight(50)).toBe(44);
-		expect(readerHeight(10)).toBe(6);
 	});
 });
 
@@ -727,17 +670,17 @@ describe('wording follows the proposal', () => {
 
 	test('a missing wt says what Trunk does through it, and a missing git the same for git', () => {
 		expect(
-			screenText(missingToolLines(kit, ['wt'], 'trunk-cli clone x')),
+			screenText(asLines(missingToolLines(kit, ['wt'], 'trunk-cli clone x'))),
 		).toContain(
-			'Trunk creates worktrees through the `wt` command, and it was not found on your',
+			'Trunk needs `wt` to create worktrees. It was not found on your PATH.',
 		);
 		expect(
-			screenText(missingToolLines(kit, ['git'], 'trunk-cli clone x')),
-		).toContain(
-			'Trunk reads and clones repositories through the `git` command',
-		);
+			screenText(asLines(missingToolLines(kit, ['git'], 'trunk-cli clone x'))),
+		).toContain('Trunk needs `git` to read and clone repositories.');
 		expect(
-			screenText(missingToolLines(kit, ['git', 'wt'], 'trunk-cli clone x')),
+			screenText(
+				asLines(missingToolLines(kit, ['git', 'wt'], 'trunk-cli clone x')),
+			),
 		).toContain(
 			'Trunk needs `git` and `wt` on your PATH, and neither was found.',
 		);
@@ -745,15 +688,19 @@ describe('wording follows the proposal', () => {
 
 	test('a normal clone names the branch to copy into when it knows it', () => {
 		const named = screenText(
-			normalCloneLines(kit, {
-				name: 'storefront',
-				url: 'u',
-				unsaved: [],
-				branch: 'main',
-			}),
+			asLines(
+				normalCloneLines(kit, {
+					name: 'storefront',
+					url: 'u',
+					unsaved: [],
+					branch: 'main',
+				}),
+			),
 		);
 		const unnamed = screenText(
-			normalCloneLines(kit, {name: 'storefront', url: 'u', unsaved: []}),
+			asLines(
+				normalCloneLines(kit, {name: 'storefront', url: 'u', unsaved: []}),
+			),
 		);
 
 		expect(named).toContain(

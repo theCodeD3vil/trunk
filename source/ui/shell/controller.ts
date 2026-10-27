@@ -43,6 +43,17 @@ type Snapshot = Readonly<{
 	wizard?: Wizard;
 }>;
 
+/** A screen nothing has happened on yet: no pointer, no effects, no toast. */
+export const blankUi = (motion: boolean): Ui => ({
+	hoverAt: 0,
+	fx: {},
+	rows: [],
+	top: 0,
+	zoom: false,
+	zoomTop: 0,
+	motion,
+});
+
 /** Longest any one effect runs, so a frame can tell when nothing is moving. */
 const longest = Math.max(duration.pop, duration.select);
 
@@ -53,15 +64,7 @@ export function createController(options: ControllerOptions) {
 	let request: ConfigureRequest | undefined;
 	let wizard: Wizard | undefined;
 	let closed = false;
-	let ui: Ui = {
-		hoverAt: 0,
-		fx: {},
-		rows: [],
-		top: 0,
-		zoom: false,
-		zoomTop: 0,
-		motion: options.motion,
-	};
+	let ui: Ui = blankUi(options.motion);
 
 	const snapshot = (): Snapshot => ({screen, request, wizard});
 
@@ -413,7 +416,10 @@ export function createController(options: ControllerOptions) {
 				need(80);
 			}
 
-			if (screen.kind === 'wizard' && wizard?.stage === 'prefix') {
+			if (
+				(screen.kind === 'wizard' && wizard?.stage === 'prefix') ||
+				(screen.kind === 'docs' && screen.state.search !== undefined)
+			) {
 				need(Math.max(16, 530 - (now % 530)));
 			}
 

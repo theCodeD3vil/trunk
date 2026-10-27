@@ -101,7 +101,7 @@ for _ in $(seq 1 50); do
   case "$SCREEN" in *"Config Basics"*) break ;; esac
   sleep 0.2
 done
-case "$SCREEN" in *"Config Basics"*"Node"*) ;; *) fail "menu never appeared: $SCREEN" ;; esac
+case "$SCREEN" in *"Config Basics"*"NODE"*) ;; *) fail "menu never appeared: $SCREEN" ;; esac
 tmux -L "$SOCKET" send-keys -t docs q
 for _ in $(seq 1 50); do
   tmux -L "$SOCKET" has-session -t docs 2>/dev/null || break

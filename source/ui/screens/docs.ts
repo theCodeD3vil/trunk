@@ -1,20 +1,14 @@
 /**
- * The docs browser: a sidebar of every topic and section beside a scrolling
- * reader, a search palette that opens on `/`, and a picker when a page has
- * several snippets. Below 100 columns the sidebar folds away and the side arrows
- * step through sections. State and keys are pure; copying is an effect the
- * component performs.
+ * The docs browser's state and keys: which section is open and how far it is
+ * scrolled, the search palette that opens on `/`, and the picker for pages
+ * with several snippets. Left and Right step through the sections. State and
+ * keys are pure; copying is an effect the component performs. What it looks
+ * like is `shell/docs-view.ts`.
  */
 import {findTopic, topics} from '../../docs/index.js';
 import {search} from '../../docs/search.js';
 import type {CodeBlock} from '../../docs/types.js';
-import {
-	margin,
-	type Kit,
-	type KeyHint,
-	type Line,
-	type Part,
-} from '../kit/lines.js';
+import type {Kit, Line, Part} from '../kit/lines.js';
 
 export type Notice = Readonly<{ok: boolean; text: string}>;
 
@@ -42,19 +36,9 @@ export type DocumentationStep = Readonly<{
 	effect?: DocumentationEffect;
 }>;
 
-const flat = topics.flatMap((topic, topicIndex) =>
+export const flat = topics.flatMap((topic, topicIndex) =>
 	topic.sections.map((_section, sectionIndex) => ({topicIndex, sectionIndex})),
 );
-
-const sidebarWidth = 28;
-
-/**
- * Lines the reader may show: the frame is one row shorter than the terminal,
- * and the header, its blank line, the rule and the key bar take the rest.
- */
-export function readerHeight(rows: number): number {
-	return Math.max(6, rows - 6);
-}
 
 /** Splits a long code line into pieces that fit the card, so nothing is cut off. */
 function chunk(text: string, width: number): string[] {
@@ -128,27 +112,15 @@ export function readerContent(
 	return {lines, blocks};
 }
 
-export type DocumentationView = Readonly<{kit: Kit; rows: number}>;
+/** The reader's size, which the shell works out from the window: its text width and the rows it shows. */
+export type DocumentationView = Readonly<{
+	kit: Kit;
+	width: number;
+	height: number;
+}>;
 
 function clamp(value: number, low: number, high: number): number {
 	return Math.min(high, Math.max(low, value));
-}
-
-/** The width of the text column; two more columns are kept for the scrollbar and its gap. */
-function readerWidth(kit: Kit): number {
-	const wide = kit.cols >= 100;
-	return (
-		(wide
-			? kit.cols - margin - sidebarWidth - 4 - margin
-			: kit.cols - margin * 2) - 3
-	);
-}
-
-/** Cuts a sidebar title to the column, marking the cut so it does not read as the whole name. */
-function fitTitle(title: string, width: number, ellipsis: string): string {
-	return [...title].length <= width
-		? title
-		: `${[...title].slice(0, width - 1).join('')}${ellipsis}`;
 }
 
 export function documentationKey(
@@ -156,17 +128,12 @@ export function documentationKey(
 	key: string,
 	view: DocumentationView,
 ): DocumentationStep {
-	const {kit, rows} = view;
+	const {kit, width, height} = view;
 	if (state.search !== undefined) {
 		return searchKey(state, state.search, key);
 	}
 
-	const content = readerContent(
-		kit,
-		state.topic,
-		state.section,
-		readerWidth(kit),
-	);
+	const content = readerContent(kit, state.topic, state.section, width);
 	if (state.picker !== undefined) {
 		const count = content.blocks.length;
 		if (key === 'esc') {
@@ -197,7 +164,6 @@ export function documentationKey(
 	}
 
 	const cleared: DocumentationState = {...state, notice: undefined};
-	const height = readerHeight(rows);
 	const maximum = Math.max(0, content.lines.length - height);
 	const current = flat.findIndex(
 		item =>
@@ -352,7 +318,7 @@ function searchKey(
 }
 
 /** Marks the first match of the query so the eye lands on it. */
-function highlight(text: string, query: string, base: string): Part[] {
+export function highlight(text: string, query: string, base: string): Part[] {
 	const token = query.toLowerCase().split(/\s+/).find(Boolean);
 	const at = token === undefined ? -1 : text.toLowerCase().indexOf(token);
 	if (token === undefined || at < 0) {
@@ -364,243 +330,4 @@ function highlight(text: string, query: string, base: string): Part[] {
 		[text.slice(at, at + token.length), 'c-acc b u'],
 		[text.slice(at + token.length), base],
 	];
-}
-
-export function documentationLines(
-	kit: Kit,
-	state: DocumentationState,
-	options: {caret: boolean; rows: number},
-): Line[] {
-	const {g, line, cols, justify, clip, padTo} = kit;
-	const contentWidth = cols - margin * 2;
-	const current = flat.findIndex(
-		item =>
-			item.topicIndex === state.topic && item.sectionIndex === state.section,
-	);
-	const topic = topics[state.topic];
-	const section = topic?.sections[state.section];
-	if (state.search !== undefined) {
-		const results = search(state.search.query);
-		const sel = Math.min(state.search.sel, Math.max(0, results.length - 1));
-		const capacity = Math.max(2, Math.floor((options.rows - 10) / 2));
-		const start = Math.min(
-			Math.max(0, sel - capacity + 1),
-			Math.max(0, results.length - capacity),
-		);
-		const status =
-			results.length > 0
-				? `${results.length} result${results.length > 1 ? 's' : ''}`
-				: state.search.query === ''
-				? 'titles, prose and code'
-				: 'no matches';
-		const body: Line[] = [
-			...kit.header(['docs', 'search']),
-			line(),
-			...kit.indent(
-				kit.box(
-					[
-						justify(
-							line(
-								['/  ', 'c-acc b'],
-								[state.search.query, 'b'],
-								[options.caret ? g.caret : ' ', 'c-acc'],
-							),
-							line([status, 'c-dim']),
-							contentWidth - 4,
-						),
-					],
-					contentWidth,
-					{borderStyle: 'c-acc'},
-				),
-				margin,
-			),
-			line(),
-		];
-		for (const [offset, result] of results
-			.slice(start, start + capacity)
-			.entries()) {
-			const on = start + offset === sel;
-			const title = justify(
-				line(
-					'  ',
-					[on ? `${g.arrow} ` : '  ', 'c-acc b'],
-					[result.sectionTitle, on ? 'b c-acc' : 'b'],
-				),
-				line([`${result.topicTitle}  `, 'c-dim']),
-				cols,
-			);
-			const snippet = clip(
-				line(
-					'      ',
-					...highlight(result.snippet.text, state.search.query, 'c-dim'),
-				),
-				cols,
-			);
-			const target = `docs-r:${start + offset}`;
-			body.push(
-				kit.withRow(on ? kit.withBg(title, 'sel') : title, target),
-				kit.withRow(on ? kit.withBg(snippet, 'sel') : snippet, target),
-			);
-		}
-
-		return kit.frame(
-			body,
-			kit.keybar([
-				['type', 'search'],
-				[g.updown, 'choose'],
-				[g.enter, 'open', 'enter'],
-				['Esc', 'close', 'esc'],
-			]),
-			{maxRows: options.rows},
-		);
-	}
-
-	if (state.picker !== undefined) {
-		const {blocks} = readerContent(
-			kit,
-			state.topic,
-			state.section,
-			readerWidth(kit),
-		);
-		const body: Line[] = [
-			...kit.header(['docs', 'copy'], `${current + 1} of ${flat.length}`),
-			line(),
-			line('  ', ['Copy which snippet?', 'b']),
-			line(),
-		];
-		for (const [index, block] of blocks.entries()) {
-			const row = line(
-				'  ',
-				[index === state.picker ? `${g.arrow} ` : '  ', 'c-acc b'],
-				[block.label, index === state.picker ? 'b c-acc' : 'c-fg'],
-				[`   ${block.language}`, 'c-faint'],
-			);
-			body.push(
-				kit.withRow(
-					index === state.picker ? kit.withBg(row, 'sel') : row,
-					`picker:${index}`,
-				),
-			);
-		}
-
-		return kit.frame(
-			body,
-			kit.keybar([
-				[g.updown, 'choose'],
-				[g.enter, 'copy', 'enter'],
-				['Esc', 'cancel', 'esc'],
-			]),
-			{maxRows: options.rows},
-		);
-	}
-
-	const wide = cols >= 100;
-	// A notice replaces the key bar for one keypress; a long one wraps to a few lines.
-	const noticeLines = state.notice
-		? kit
-				.wrap(state.notice.text, cols - 6)
-				.slice(0, 3)
-				.map((text, index) =>
-					line(
-						'  ',
-						[
-							index === 0
-								? state.notice?.ok
-									? `${g.tick} `
-									: `${g.warn} `
-								: '  ',
-							state.notice?.ok ? 'c-ok' : 'c-warn',
-						],
-						[text, state.notice?.ok ? 'c-fg' : 'c-warn'],
-					),
-				)
-		: undefined;
-	// A wrapped notice takes rows from the key bar's neighbours, so the reader gives them up.
-	const height =
-		readerHeight(options.rows) - Math.max(0, (noticeLines?.length ?? 1) - 1);
-	const readerCols = readerWidth(kit) + 3;
-	const {lines: readerLines, blocks} = readerContent(
-		kit,
-		state.topic,
-		state.section,
-		readerWidth(kit),
-	);
-	const maximum = Math.max(0, readerLines.length - height);
-	const scroll = clamp(state.scroll, 0, maximum);
-	const shown = readerLines.slice(scroll, scroll + height);
-	const thumbAt =
-		maximum === 0 ? 0 : Math.round((scroll / maximum) * (height - 3));
-	const sidebar: Line[] = [];
-	for (const [topicIndex, entry] of topics.entries()) {
-		sidebar.push(line([entry.title, 'c-acc b']));
-		for (const [sectionIndex, entrySection] of entry.sections.entries()) {
-			const on = topicIndex === state.topic && sectionIndex === state.section;
-			const title = fitTitle(entrySection.title, sidebarWidth - 3, g.ell);
-			const target = `docs-s:${topicIndex}:${sectionIndex}`;
-			sidebar.push(
-				line(
-					[on ? `${g.tri} ` : '  ', 'c-acc', target],
-					[on ? `${title} ` : title, on ? 'b chip' : 'c-dim', target],
-				),
-			);
-		}
-
-		sidebar.push(line());
-	}
-
-	const body: Line[] = [
-		...kit.header(
-			['docs', topic?.title ?? '', section?.title ?? ''],
-			`${current + 1} of ${flat.length}`,
-		),
-		line(),
-	];
-	for (let index = 0; index < height; index++) {
-		const row = shown[index] ?? line();
-		const bar: Part =
-			maximum === 0
-				? ' '
-				: index >= thumbAt && index < thumbAt + 3
-				? [g.thumb, 'c-dim']
-				: [g.track, 'c-faint'];
-		if (wide) {
-			const left = sidebar[index];
-			body.push(
-				line(
-					'  ',
-					...(left === undefined
-						? [' '.repeat(sidebarWidth)]
-						: padTo(clip(left, sidebarWidth), sidebarWidth).segs),
-					[` ${g.v} `, 'c-faint'],
-					...padTo(clip(row, readerCols - 3), readerCols - 3).segs,
-					' ',
-					bar,
-				),
-			);
-		} else {
-			body.push(
-				line(
-					'  ',
-					...padTo(clip(row, readerCols - 2), readerCols - 2).segs,
-					' ',
-					bar,
-				),
-			);
-		}
-	}
-
-	const hints: KeyHint[] = [
-		[g.updown, 'scroll'],
-		[g.leftright, 'section'],
-		...(blocks.length > 0
-			? ([
-					['c', blocks.length > 1 ? `copy (${blocks.length})` : 'copy', 'c'],
-			  ] as const)
-			: []),
-		['/', 'search', '/'],
-		['q', 'quit', 'q'],
-	];
-	return kit.frame(body, noticeLines ?? kit.keybar(hints), {
-		maxRows: options.rows,
-	});
 }

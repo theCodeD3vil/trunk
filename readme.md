@@ -79,7 +79,7 @@ Browse the offline documentation:
 trunk-cli docs
 ```
 
-`trunk-cli docs` opens an interactive terminal browser with two topics, Config Basics and Node. The topics and their pages are listed in a sidebar; the left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits. `trunk` on its own shows a short welcome; `trunk-cli --help` lists every option with its meaning. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
+`trunk-cli docs` opens an interactive terminal browser with two topics, Config Basics and Node. The browser is a screen of the same shell as the setup form: the topics and their pages are listed in a rail beside the page, which fills the window. The left and right arrows step through the pages, the up and down arrows scroll, `/` searches, `c` copies a snippet, and `q` quits and clears the screen. Below 100 columns the rail folds away and the arrows still step through the pages. `trunk` on its own shows a short welcome; `trunk-cli --help` lists every option with its meaning. Everything is bundled with the package, so it works without a checkout, a browser, or a network connection. It needs a terminal that can read keys and exits with status 2 otherwise.
 
 ## The Terminal Screens
 
@@ -98,7 +98,7 @@ Every screen ends with a key bar of the keys that work on it, and it stays on th
 
 In the setup form, `p` opens the preview full size (`Ctrl+P` on the session-prefix step, where `p` is a letter), and so does a click on its header. Arrows, `Space` and `b` scroll it; `p` or Esc closes it. When `clone` or `init` finishes, the screen is cleared and the result, the next steps and any notes are printed, so your prompt sits right under them. Your earlier scrollback is kept. Failures, cancelled runs and `--yes` leave the screen as it was.
 
-The setup shell fills the window. The other screens use up to 104 columns. At 100 columns or more the form and the docs show two panes; below that they fold to one. On a short terminal, such as 80 by 24, the result card folds its step list to one line so the question is never pushed off the screen. They follow your terminal:
+The setup shell and the docs browser fill the window. The welcome and the refusals are printed once, in the same frame, up to 104 columns wide. On a short terminal, such as 80 by 24, the result card folds its step list to one line so the question is never pushed off the screen. They follow your terminal:
 
 | Variable         | Effect                                                                      |
 | ---------------- | --------------------------------------------------------------------------- |

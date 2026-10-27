@@ -70,7 +70,7 @@ describe('interactive screens appear live even when the environment looks like C
 			// No key has been pressed: the screen must already be there.
 			const screen = await waitForScreen(tmux, session, 'Config Basics');
 			// The sidebar lists every topic and section straight away.
-			expect(screen).toContain('Node');
+			expect(screen).toContain('NODE');
 			expect(screen).toContain('Install dependencies');
 			expect(screen).toContain('scroll');
 
@@ -92,11 +92,11 @@ describe('interactive screens appear live even when the environment looks like C
 			80,
 		);
 		const first = await waitForScreen(tmux, 'narrow', 'What Trunk generates');
-		expect(first).toContain('1 of 13');
+		expect(first).toMatch(/1\/13/);
 		expect(first).not.toContain('Adding your own hooks');
 
 		await send(tmux, 'narrow', 'Right');
-		const second = await waitForScreen(tmux, 'narrow', '2 of 13');
+		const second = await waitForScreen(tmux, 'narrow', '2/13');
 		expect(second).toContain('Hook lifecycle');
 
 		await send(tmux, 'narrow', 'q');
@@ -262,7 +262,7 @@ describe('interactive screens appear live even when the environment looks like C
 		// One write, as a paste is: every character must count.
 		await sendLiteral(tmux, 'paste', 'pnpm');
 		const found = await waitForScreen(tmux, 'paste', 'pnpm');
-		expect(found).toMatch(/\/ {2}pnpm.*\d+ results?/);
+		expect(found).toMatch(/\/ pnpm.*\d+ results?/);
 		expect(found).toContain('Install dependencies');
 
 		// Two Backspaces in one write, as a held key arrives while the screen redraws.
@@ -276,13 +276,13 @@ describe('interactive screens appear live even when the environment looks like C
 			'7f',
 			'7f',
 		]);
-		// '/  pn' is also the start of '/  pnpm', so wait for the longer text to go.
+		// '/ pn' is also the start of '/ pnpm', so wait for the longer text to go.
 		const shorter = await waitForChange(
 			tmux,
 			'paste',
-			screen => screen.includes('/  pn') && !screen.includes('/  pnpm'),
+			screen => screen.includes('/ pn') && !screen.includes('/ pnpm'),
 		);
-		expect(shorter).not.toContain('/  pnpm');
+		expect(shorter).not.toContain('/ pnpm');
 
 		await send(tmux, 'paste', 'Escape');
 		await send(tmux, 'paste', 'q');
@@ -304,8 +304,8 @@ describe('interactive screens appear live even when the environment looks like C
 		// A sidebar entry opens its page.
 		const entry = locate(first, 'Hook lifecycle');
 		await sendLiteral(tmux, 'mouse', click(entry.column, entry.row));
-		const second = await waitForScreen(tmux, 'mouse', '2 of 13');
-		expect(second).toContain('docs › Config Basics › Hook lifecycle');
+		const second = await waitForScreen(tmux, 'mouse', '2/13');
+		expect(second).toMatch(/docs\s+Config Basics\s+Hook lifecycle/);
 
 		// The wheel scrolls the reader by lines, like the arrow keys.
 		const before = second.split('\n')[3];
@@ -814,7 +814,8 @@ describe('interactive screens appear live even when the environment looks like C
 		expect(waiting).toMatch(
 			/Still waiting for github\.com \(1\ds\)\. Ctrl\+C stops waiting\./,
 		);
-		await waitForScreen(tmux, 'slow', 'Published chore/trunk-setup', 300);
+		// The finished run clears the screen, so the exit marker is what is left to wait for.
+		await waitForScreen(tmux, 'slow', 'TRUNK-HAS-EXITED', 300);
 	}, 120_000);
 
 	test('Ctrl+C during a push stops it, says how to finish, and pushes nothing', async () => {

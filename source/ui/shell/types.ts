@@ -11,6 +11,7 @@ import type {
 import type {Palette, Theme} from '../kit/theme.js';
 import type {Glyphs} from '../kit/glyphs.js';
 import type {FailureState} from '../screens/callouts.js';
+import type {DocumentationState} from '../screens/docs.js';
 import type {OverwriteModel, OverwriteState} from '../screens/overwrite.js';
 import type {RunState} from '../screens/running.js';
 import type {Fx} from './motion.js';
@@ -20,6 +21,7 @@ import type {Wizard} from './wizard.js';
 export type Screen =
 	| Readonly<{kind: 'idle'}>
 	| Readonly<{kind: 'wizard'}>
+	| Readonly<{kind: 'docs'; state: DocumentationState}>
 	| Readonly<{kind: 'run'; run: RunState}>
 	| Readonly<{
 			kind: 'overwrite';
