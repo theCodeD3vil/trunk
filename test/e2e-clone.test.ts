@@ -109,8 +109,11 @@ describe('trunk-cli clone end to end', () => {
 		const status = await git(['-C', setupWorktree, 'status', '--porcelain']);
 		expect(status.trim()).toBe('');
 
-		const configShow = await wt(['-C', setupWorktree, 'config', 'show']);
-		expect(configShow.toLowerCase()).not.toContain('warning');
+		const output = await wt(fixture, ['-C', setupWorktree, 'config', 'show']);
+		expect(output).toContain(
+			'# Isolated Worktrunk configuration for clone tests.',
+		);
+		expect(output.toLowerCase()).not.toContain('warning');
 	}, 60_000);
 
 	test('ends by naming the approvals step and wt up, without a smoke test', async () => {
@@ -453,6 +456,10 @@ async function createFixture(
 		mkdir(source),
 		mkdir(workingDirectory),
 		mkdir(join(home, '.config'), {recursive: true}),
+		writeFile(
+			join(root, 'worktrunk.toml'),
+			'# Isolated Worktrunk configuration for clone tests.\n',
+		),
 	]);
 
 	await git(['init', '--initial-branch', defaultBranch, source]);
@@ -497,6 +504,7 @@ async function createFixture(
 			['GIT_COMMITTER_NAME', 'Trunk Tests'],
 			['GIT_COMMITTER_EMAIL', 'trunk@example.com'],
 			['WORKTRUNK_CONFIG_PATH', join(root, 'worktrunk.toml')],
+			['WORKTRUNK_SYSTEM_CONFIG_PATH', join(root, 'system.toml')],
 			['XDG_CONFIG_HOME', join(home, '.config')],
 		]),
 		tools: await probeTools(),
@@ -551,8 +559,17 @@ async function git(arguments_: readonly string[]): Promise<string> {
 	return result.stdout;
 }
 
-async function wt(arguments_: readonly string[]): Promise<string> {
-	const wtPath = await resolveExecutable('wt');
-	const result = await runCommand(wtPath ?? 'wt', arguments_);
+async function wt(
+	fixture: Fixture,
+	arguments_: readonly string[],
+): Promise<string> {
+	// Config inspection probes shell integration too; never load the user's dotfiles.
+	const result = await runCommand(fixture.tools.wt.path ?? 'wt', arguments_, {
+		env: fixture.environment,
+	});
+	if (result.code !== 0) {
+		throw new Error(`wt ${arguments_.join(' ')}: ${result.stderr}`);
+	}
+
 	return `${result.stdout}${result.stderr}`;
 }
