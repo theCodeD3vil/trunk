@@ -5,6 +5,7 @@
  * does, what the preview lights, how far along an effect is at a given moment,
  * and that no frame is wider or taller than the terminal it is drawn for.
  */
+import {spawnSync} from 'node:child_process';
 import {describe, expect, test} from 'bun:test';
 import {agentIds, maximumAgents} from '../source/core/agents.js';
 import type {SetupValues} from '../source/core/resolve.js';
@@ -73,6 +74,7 @@ function request(overrides: Partial<ConfigureRequest> = {}): ConfigureRequest {
 		project: 'acme/admin',
 		rootName: 'acme-admin',
 		destination: '~/Projects/acme-admin',
+		commandDestination: '/Users/test/Projects/acme-admin',
 		source: 'https://github.com/acme/admin.git',
 		identifier: 'github.com/acme/admin',
 		defaultBranch: 'main',
@@ -271,8 +273,35 @@ describe('the form', () => {
 			target: 'copy',
 		});
 		expect(scriptCommand(asked, {...values, tmux: false, mcAlias: false})).toBe(
-			'trunk-cli clone https://github.com/acme/admin.git --yes --prefix acme --no-tmux --no-mc',
+			'trunk-cli clone https://github.com/acme/admin.git /Users/test/Projects/acme-admin --yes --prefix acme --no-tmux --no-mc',
 		);
+	});
+
+	test('the copied command preserves shell metacharacters and both clone arguments', () => {
+		const source = "https://example.test/a'b;$(bad)";
+		const destination = "/Users/test/My project's;$(bad)";
+		const command = scriptCommand(
+			request({
+				source,
+				destination: '~/display',
+				commandDestination: destination,
+			}),
+			values,
+		);
+		const result = spawnSync(
+			'sh',
+			['-c', `set -- ${command}; printf '%s\\n' "$@"`],
+			{encoding: 'utf8'},
+		);
+		expect(result.status).toBe(0);
+		expect(result.stdout.split('\n').slice(0, 6)).toEqual([
+			'trunk-cli',
+			'clone',
+			source,
+			destination,
+			'--yes',
+			'--prefix',
+		]);
 	});
 });
 
@@ -433,6 +462,28 @@ function draw(controller: Shell, now: number, cols = 104, rows = 30): Line[] {
 }
 
 describe('the frame', () => {
+	test('canvas draws and clips whole graphemes in terminal cells', () => {
+		const canvas = createCanvas(5, 1);
+		expect(canvas.surface.put(0, 0, '界e\u0301X', {k: 'text'})).toBe(4);
+		expect(text(canvas.lines()[0]!)).toBe('界e\u0301X');
+		canvas.surface.put(1, 0, 'a');
+		expect(text(canvas.lines()[0]!)).toBe(' ae\u0301X');
+		canvas.surface.put(4, 0, '界');
+		expect(text(canvas.lines()[0]!)).toBe(' ae\u0301X');
+	});
+	test('does not advance or confirm a wizard hidden by the resize message', () => {
+		const {controller} = shell();
+		controller.configure(request(), 0);
+		controller.resize(60, 13, 0);
+		for (let index = 0; index < 10; index++) {
+			expect(controller.key('enter', 0)).toBeUndefined();
+		}
+
+		expect(controller.wizard?.stage).toBe('prefix');
+		controller.resize(80, 24, 0);
+		controller.key('enter', 0);
+		expect(controller.wizard?.stage).toBe('tmux');
+	});
 	test('is settled once the effects are over, and caught part way before', () => {
 		const {controller} = shell();
 		controller.configure(request(), 0);

@@ -10,6 +10,7 @@
 import process from 'node:process';
 import {clickPrefix, hoverPrefix} from './keys.js';
 import type {Line} from './kit/lines.js';
+import {width} from './width.js';
 
 /**
  * Enables press, wheel and movement reporting in SGR form; the reverse turns it
@@ -38,7 +39,7 @@ export function clickTarget(
 
 	let start = 0;
 	for (const segment of line.segs) {
-		const end = start + [...segment.t].length;
+		const end = start + width(segment.t);
 		if (column - 1 < end) {
 			return segment.k ?? line.row;
 		}

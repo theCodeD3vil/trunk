@@ -17,6 +17,8 @@ export type ConfigureRequest = Readonly<{
 	rootName: string;
 	/** Where the project lives, for display. */
 	destination: string;
+	/** Absolute destination for executable commands, separate from its display label. */
+	commandDestination?: string;
 	/** The URL or path as it was given, for the command the review shows. */
 	source?: string;
 	/** `host/owner/repo` when there is a remote, shown beside the project name. */

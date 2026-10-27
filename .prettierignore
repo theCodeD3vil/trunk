@@ -1,4 +1,6 @@
 dist
+.kount/
+.kountcache.json
 .agents
 .claude
 plans

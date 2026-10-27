@@ -4,6 +4,7 @@
  * existing screens' `Line`s drawn onto the grid.
  */
 import type {Line} from '../kit/lines.js';
+import {graphemes, width} from '../width.js';
 import type {Surface} from './canvas.js';
 import {duration, ease, mix, running, shakeX} from './motion.js';
 import type {Context} from './types.js';
@@ -119,15 +120,27 @@ export function drawLines(
 	const room = Math.max(1, s.w - x - 1);
 	let row = y;
 	for (const line of lines) {
-		const cells = line.segs
-			.flatMap(seg => [...seg.t].map(char => ({char, seg})))
-			.slice(strip);
-		const pieces = [];
-		for (let at = 0; at < Math.max(1, cells.length); at += room) {
-			pieces.push(cells.slice(at, at + room));
-			if (line.soft !== true) {
-				break;
+		const cells = line.segs.flatMap(seg =>
+			graphemes(seg.t).map(char => ({char, seg, size: width(char)})),
+		);
+		const pieces: Array<typeof cells> = [[]];
+		let skipped = 0;
+		let used = 0;
+		for (const cell of cells) {
+			if (skipped < strip) {
+				skipped += cell.size;
+				continue;
 			}
+
+			if (used + cell.size > room) {
+				if (line.soft !== true) break;
+				if (cell.size > room) continue;
+				pieces.push([]);
+				used = 0;
+			}
+
+			pieces.at(-1)!.push(cell);
+			used += cell.size;
 		}
 
 		for (const piece of pieces) {

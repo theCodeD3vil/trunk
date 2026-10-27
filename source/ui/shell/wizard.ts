@@ -178,19 +178,28 @@ export function scriptCommand(
 	request: ConfigureRequest,
 	values: SetupValues,
 ): string {
-	const where = request.source ?? request.destination;
-	const parts = [
-		`trunk-cli ${request.command}`,
-		/\s/.test(where) ? `'${where}'` : where,
+	const quote = (value: string): string =>
+		/^[\w@%+=:,./-]+$/.test(value)
+			? value
+			: `'${value.replaceAll("'", "'\\''")}'`;
+	const destination = request.commandDestination ?? request.destination;
+	const parts = ['trunk-cli', request.command];
+	if (request.command === 'clone' && request.source !== undefined) {
+		parts.push(request.source);
+	}
+
+	parts.push(
+		destination,
 		'--yes',
-		`--prefix ${values.prefix === '' ? '…' : values.prefix}`,
-	];
+		'--prefix',
+		values.prefix === '' ? '…' : values.prefix,
+	);
 	if (!values.tmux) {
 		parts.push('--no-tmux');
 	}
 
 	if (values.agents.length > 0) {
-		parts.push(`--agents ${values.agents.join(',')}`);
+		parts.push('--agents', values.agents.join(','));
 	}
 
 	if (values.copyIgnored) {
@@ -205,7 +214,7 @@ export function scriptCommand(
 		parts.push('--direct');
 	}
 
-	return parts.join(' ');
+	return parts.map(part => quote(part)).join(' ');
 }
 
 /** What the view should make a fuss of. The rules decide when; the view decides how. */

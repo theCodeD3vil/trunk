@@ -6,8 +6,9 @@
  */
 import process from 'node:process';
 import {useEffect, useRef} from 'react';
-import {useRenderer} from '@opentui/react';
-import {hoverPrefix, parseInput} from './keys.js';
+import {decodePasteBytes} from '@opentui/core';
+import {useKeyboard, usePaste, useRenderer} from '@opentui/react';
+import {hoverPrefix, normalizedKey, parseInput, pasteKeys} from './keys.js';
 import type {Line} from './kit/lines.js';
 import {
 	clickTarget,
@@ -41,6 +42,16 @@ export function useKeys(
 	const latest = useRef({onKey, lines, onHover});
 	latest.current = {onKey, lines, onHover};
 
+	useKeyboard(event => {
+		const key = normalizedKey(event);
+		if (key !== undefined) latest.current.onKey(key);
+	});
+	usePaste(event => {
+		for (const key of pasteKeys(decodePasteBytes(event.bytes))) {
+			latest.current.onKey(key);
+		}
+	});
+
 	useEffect(() => {
 		// The renderer's own mouse mode would take clicks before they reach this handler.
 		const useMouse = mouseEnabled() && Boolean(process.stdout.isTTY);
@@ -55,6 +66,8 @@ export function useKeys(
 		}
 
 		const onSequence = (sequence: string): boolean => {
+			// Keyboard input belongs to OpenTUI, including Kitty CSI-u sequences.
+			if (!sequence.startsWith('\u001B[<')) return false;
 			// A reply such as `ESC P >|tmux 3.8` would otherwise be typed into a field.
 			if (terminalReply.test(sequence)) {
 				return false;

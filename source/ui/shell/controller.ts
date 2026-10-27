@@ -17,7 +17,7 @@ import {buildPreview, followTop, settle} from './preview.js';
 import {runOf} from './rail.js';
 import type {Frame, Screen, Ui} from './types.js';
 import {geometry} from './chrome.js';
-import {layoutOf} from './view.js';
+import {layoutOf, minimum} from './view.js';
 import {
 	initialWizard,
 	openStages,
@@ -63,6 +63,9 @@ export function createController(options: ControllerOptions) {
 	let screen: Screen = {kind: 'idle'};
 	let request: ConfigureRequest | undefined;
 	let wizard: Wizard | undefined;
+	let previewKey:
+		| {request: ConfigureRequest; values: SetupValues; stage: Wizard['stage']}
+		| undefined;
 	let closed = false;
 	let ui: Ui = blankUi(options.motion);
 
@@ -141,15 +144,20 @@ export function createController(options: ControllerOptions) {
 			return;
 		}
 
-		const next = buildPreview(request, wizard.values, wizard.stage);
-		const same =
-			ui.rows.length === next.lines.length &&
-			ui.rows.every(
-				(row, index) =>
-					row.text === next.lines[index] && row.hot === next.hot[index],
-			);
-		if (!same) {
-			patch({rows: settle(next)});
+		if (
+			previewKey?.request !== request ||
+			previewKey.values !== wizard.values ||
+			previewKey.stage !== wizard.stage
+		) {
+			const next = buildPreview(request, wizard.values, wizard.stage);
+			const same =
+				ui.rows.length === next.lines.length &&
+				ui.rows.every(
+					(row, index) =>
+						row.text === next.lines[index] && row.hot === next.hot[index],
+				);
+			if (!same) patch({rows: settle(next)});
+			previewKey = {request, values: wizard.values, stage: wizard.stage};
 		}
 
 		const height = layoutOf(frameAt(now)).previewLines;
@@ -310,6 +318,7 @@ export function createController(options: ControllerOptions) {
 		/** Opens the form for these questions. */
 		configure(next: ConfigureRequest, now: number): void {
 			const first = initialWizard(next);
+			previewKey = undefined;
 			patch({zoom: false});
 			commit({screen: {kind: 'wizard'}, request: next, wizard: first}, now);
 			// A first picture of the file, with nothing animating.
@@ -325,6 +334,10 @@ export function createController(options: ControllerOptions) {
 				request === undefined ||
 				wizard === undefined
 			) {
+				return undefined;
+			}
+
+			if (size.cols < minimum.cols || size.rows < minimum.rows) {
 				return undefined;
 			}
 

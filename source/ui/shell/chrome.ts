@@ -6,6 +6,7 @@
  * Everything here draws on a surface that is the app itself, so a column of 0 is
  * the app's left border however wide the terminal is.
  */
+import {cellSlice, width as textWidth} from '../width.js';
 import type {Surface} from './canvas.js';
 import {duration, mix} from './motion.js';
 import {highlight} from './preview.js';
@@ -109,13 +110,13 @@ export function drawTopBar(s: Surface, context: Context): void {
 		Math.max(8, room - mode.length - 2),
 		g.ell,
 	);
-	const after = room - mode.length - 2 - [...name].length - 2;
+	const after = room - mode.length - 2 - textWidth(name) - 2;
 	const where = after >= 8 ? cut(source, after, g.ell) : '';
 	const width =
 		mode.length +
 		2 +
-		[...name].length +
-		(where === '' ? 0 : 2 + [...where].length);
+		textWidth(name) +
+		(where === '' ? 0 : 2 + textWidth(where));
 	let at = s.w - 2 - width;
 	at = s.put(at, 0, mode, {c: 'pill'});
 	at = s.put(at + 2, 0, name, {c: 'b'});
@@ -191,7 +192,7 @@ export function drawToast(s: Surface, context: Context, geo: Geo): void {
 
 	const warn = toast.tone === 'warn';
 	const lines = wrap(toast.text, Math.max(8, Math.min(44, geo.cols - 16)));
-	const inner = Math.max(...lines.map(line => [...line].length));
+	const inner = Math.max(...lines.map(line => textWidth(line)));
 	const width = inner + toastPadX * 2;
 	const x = geo.cols - 2 - width;
 	const y = geo.bodyY;
@@ -273,7 +274,7 @@ export function drawPreview(
 		});
 		let x = 5;
 		for (const run of colours[index] ?? []) {
-			const text = [...run.t].slice(0, Math.max(0, right - x)).join('');
+			const text = cellSlice(run.t, Math.max(0, right - x));
 			x = s.put(x, y, text, {
 				c: run.c === '' ? (row.hot ? 'c-fg' : 'c-dim') : run.c,
 				fg: colourOf(context, run.c, row.hot),

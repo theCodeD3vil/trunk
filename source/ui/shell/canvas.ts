@@ -6,6 +6,7 @@
  * what lets one renderer, and one way of resolving a click, serve them all.
  */
 import type {Line, Seg} from '../kit/lines.js';
+import {graphemes, width} from '../width.js';
 
 export type Cell = {
 	ch: string;
@@ -65,17 +66,42 @@ export class Surface {
 	 */
 	put(x: number, y: number, text: string, style: Style = {}): number {
 		let column = x;
-		for (const ch of text) {
-			const cell = this.get(column, y);
-			if (cell !== undefined) {
-				cell.ch = ch;
-				cell.c = style.c ?? '';
-				cell.fg = style.fg;
-				cell.bg = style.bg ?? cell.bg;
-				cell.k = style.k ?? cell.k;
+		for (const ch of graphemes(text)) {
+			const size = width(ch);
+			if (
+				size > 0 &&
+				y >= 0 &&
+				y < this.h &&
+				column >= 0 &&
+				column + size <= this.w
+			) {
+				const row = this.cells[this.y0 + y];
+				if (row === undefined) {
+					column += size;
+					continue;
+				}
+
+				for (let offset = 0; offset < size; offset++) {
+					const cell = this.get(column + offset, y);
+					if (cell === undefined) continue;
+					// Erase any old wide glyph touched by this write.
+					const absolute = this.x0 + column + offset;
+					if (cell.ch === '' && absolute > 0) row[absolute - 1]!.ch = ' ';
+					if (cell.ch !== '' && row[absolute + 1]?.ch === '')
+						row[absolute + 1]!.ch = ' ';
+				}
+
+				for (let offset = 0; offset < size; offset++) {
+					const cell = this.get(column + offset, y)!;
+					cell.ch = offset === 0 ? ch : '';
+					cell.c = style.c ?? '';
+					cell.fg = style.fg;
+					cell.bg = style.bg ?? cell.bg;
+					cell.k = style.k ?? cell.k;
+				}
 			}
 
-			column += 1;
+			column += size;
 		}
 
 		return column;

@@ -1,15 +1,16 @@
 /** The small text jobs every panel shares: cutting to a width and breaking into lines. */
 
-const width = (text: string): number => [...text].length;
+import {cellSlice, graphemes, width} from '../width.js';
 
 /** `text` cut to `room` cells, with an ellipsis where it was cut. */
 export function cut(text: string, room: number, ellipsis = '…'): string {
-	const chars = [...text];
-	if (chars.length <= room) {
+	if (width(text) <= room) {
 		return text;
 	}
 
-	return room <= 0 ? '' : `${chars.slice(0, room - 1).join('')}${ellipsis}`;
+	return room <= 0
+		? ''
+		: `${cellSlice(text, Math.max(0, room - width(ellipsis)))}${ellipsis}`;
 }
 
 /** `text` in the middle of `room` cells. */
@@ -67,10 +68,18 @@ export function flow<T extends {text: string}>(
 		// A word longer than the room, such as a path, is the one thing that is cut.
 		if (room > 0 && width(unit.text) > room) {
 			push();
-			const chars = [...unit.text];
-			for (let at = 0; at < chars.length; at += room) {
-				const piece = {...unit, text: chars.slice(at, at + room).join('')};
-				if (at + room >= chars.length) {
+			const chars = graphemes(unit.text);
+			while (chars.length > 0) {
+				let text = '';
+				while (chars.length > 0 && width(text + chars[0]!) <= room)
+					text += chars.shift();
+				if (text === '') {
+					chars.shift();
+					continue;
+				}
+
+				const piece = {...unit, text};
+				if (chars.length === 0) {
 					line = [piece];
 					used = width(piece.text);
 				} else {

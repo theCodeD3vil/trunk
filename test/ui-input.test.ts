@@ -177,6 +177,17 @@ describe('clicks', () => {
 });
 
 describe('mouse reporting', () => {
+	test('hit testing counts terminal cells, not Unicode code points', () => {
+		const lines = [
+			createKit(unicodeGlyphs, 20).line(
+				['界e\u0301', '', 'target'],
+				['X', '', 'next'],
+			),
+		];
+		expect(
+			[1, 2, 3, 4, 5].map(column => clickTarget(lines, column, 1)),
+		).toEqual(['target', 'target', 'target', 'next', undefined]);
+	});
 	test('is on unless TRUNK_MOUSE=0, for people who select text a lot', () => {
 		expect(mouseEnabled(env())).toBe(true);
 		expect(mouseEnabled(env(['TRUNK_MOUSE', '1']))).toBe(true);

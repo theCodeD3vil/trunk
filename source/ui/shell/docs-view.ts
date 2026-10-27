@@ -8,6 +8,7 @@
 import {topics} from '../../docs/index.js';
 import {search} from '../../docs/search.js';
 import {createKit, type Kit, type Line} from '../kit/lines.js';
+import {width as textWidth} from '../width.js';
 import {
 	flat,
 	highlight,
@@ -83,7 +84,7 @@ function drawCrumb(
 		Math.max(0, Math.min(room, 24)),
 		g.ell,
 	);
-	const after = room - [...name].length - 2;
+	const after = room - textWidth(name) - 2;
 	const where =
 		after >= 6
 			? cut(
@@ -94,8 +95,8 @@ function drawCrumb(
 			: '';
 	const width =
 		mode.length +
-		(name === '' ? 0 : 2 + [...name].length) +
-		(where === '' ? 0 : 2 + [...where].length);
+		(name === '' ? 0 : 2 + textWidth(name)) +
+		(where === '' ? 0 : 2 + textWidth(where));
 	let at = s.put(s.w - 2 - width, 0, mode, {c: 'pill'});
 	if (name !== '') {
 		at = s.put(at + 2, 0, name, {c: 'b'});

@@ -8,6 +8,7 @@
  * the theme. Every glyph is single-width, which is what lets widths be counted
  * as characters.
  */
+import {cellSlice, graphemes, width as textWidth} from '../width.js';
 import type {Glyphs} from './glyphs.js';
 
 /** A run of text with a style, and optionally the key a click on it presses. */
@@ -70,7 +71,7 @@ export function createKit(g: Glyphs, cols: number) {
 		segs: parts.map(part => normalize(part)),
 	});
 	const width = (l: Line): number =>
-		l.segs.reduce((total, segment) => total + [...segment.t].length, 0);
+		l.segs.reduce((total, segment) => total + textWidth(segment.t), 0);
 	const spaces = (count: number): string => ' '.repeat(Math.max(0, count));
 	const withBg = (l: Line, bg: LineBackground): Line => ({...l, bg});
 	const withRow = (l: Line, row: string): Line => ({...l, row});
@@ -89,13 +90,10 @@ export function createKit(g: Glyphs, cols: number) {
 				break;
 			}
 
-			const chars = [...segment.t];
-			segs.push(
-				chars.length <= left
-					? segment
-					: {...segment, t: chars.slice(0, left).join('')},
-			);
-			left -= chars.length;
+			const text = cellSlice(segment.t, left);
+			segs.push({...segment, t: text});
+			left -= textWidth(text);
+			if (text !== segment.t) break;
 		}
 
 		return {...l, segs};
@@ -127,7 +125,7 @@ export function createKit(g: Glyphs, cols: number) {
 		for (const word of text.split(/\s+/).filter(Boolean)) {
 			if (current === '') {
 				current = word;
-			} else if (current.length + 1 + word.length <= w) {
+			} else if (textWidth(current) + 1 + textWidth(word) <= w) {
 				current += ` ${word}`;
 			} else {
 				lines.push(current);
@@ -147,14 +145,23 @@ export function createKit(g: Glyphs, cols: number) {
 	 * projects apart; anything else keeps its start. Either way the cut is marked.
 	 */
 	function fit(text: string, w: number): string {
-		const chars = [...text];
-		if (chars.length <= w) {
+		const chars = graphemes(text);
+		if (textWidth(text) <= w) {
 			return text;
 		}
 
-		return /^[/~]/.test(text)
-			? `${g.ell}${chars.slice(chars.length - (w - 1)).join('')}`
-			: `${chars.slice(0, Math.max(0, w - 1)).join('')}${g.ell}`;
+		if (w <= 0) return '';
+		if (/^[/~]/.test(text)) {
+			let tail = '';
+			for (const ch of chars.reverse()) {
+				if (textWidth(ch + tail) > w - 1) break;
+				tail = ch + tail;
+			}
+
+			return `${g.ell}${tail}`;
+		}
+
+		return `${cellSlice(text, w - 1)}${g.ell}`;
 	}
 
 	const wrapLines = (text: string, w: number, style = 'c-dim'): Line[] =>
@@ -179,8 +186,8 @@ export function createKit(g: Glyphs, cols: number) {
 		const tag = options.tag === undefined ? undefined : ` ${options.tag} `;
 		const used =
 			left.length +
-			(title === undefined ? 0 : [...title].length + 1) +
-			(tag === undefined ? 0 : [...tag].length + 1) +
+			(title === undefined ? 0 : textWidth(title) + 1) +
+			(tag === undefined ? 0 : textWidth(tag) + 1) +
 			1;
 		const top = line(
 			[left, border],

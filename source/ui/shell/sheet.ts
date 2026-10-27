@@ -6,6 +6,7 @@
  */
 import {createKit, type Kit, type Line} from '../kit/lines.js';
 import type {Theme} from '../kit/theme.js';
+import {width} from '../width.js';
 import {createCanvas} from './canvas.js';
 import {drawFrame, drawTopBar, geometry} from './chrome.js';
 import {blankUi} from './controller.js';
@@ -53,7 +54,7 @@ export function sheetLines(options: SheetOptions): Line[] {
 	app.paint(0, 0, cols, rows, p.bg);
 	drawFrame(app, context, geo, undefined);
 	drawTopBar(app.view(0, 0, cols, 1), context);
-	app.put(cols - 2 - [...crumb].length, 0, crumb, {c: 'c-faint'});
+	app.put(cols - 2 - width(crumb), 0, crumb, {c: 'c-faint'});
 	drawLines(
 		app.view(1, geo.bodyY, cols - 2, geo.bodyH),
 		context,

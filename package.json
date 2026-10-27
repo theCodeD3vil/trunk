@@ -43,7 +43,8 @@
 		"@opentui/core": "0.7.0",
 		"@opentui/react": "0.7.0",
 		"meow": "^11.0.0",
-		"react": "^19.2.0"
+		"react": "^19.2.0",
+		"string-width": "^7.2.0"
 	},
 	"devDependencies": {
 		"@iarna/toml": "^2.2.5",

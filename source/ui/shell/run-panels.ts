@@ -15,6 +15,7 @@ import {
 	type StepView,
 } from '../screens/running.js';
 import {createKit, type Kit} from '../kit/lines.js';
+import {cellSuffix, width as textWidth} from '../width.js';
 import type {Surface} from './canvas.js';
 import {lead, heading, type Spacing} from './panels.js';
 import {duration, mix} from './motion.js';
@@ -231,12 +232,15 @@ function group(s: Surface, context: Context, y: number, label: string): number {
 
 /** A long path keeps its tail, which is what tells projects apart. */
 function fitCommand(command: string, room: number, ellipsis: string): string {
-	if (!command.startsWith('cd ') || [...command].length <= room) {
+	if (!command.startsWith('cd ') || textWidth(command) <= room) {
 		return command;
 	}
 
 	const chars = command.slice(3);
-	return `cd ${ellipsis}${chars.slice(chars.length - (room - 4))}`;
+	return `cd ${ellipsis}${cellSuffix(
+		chars,
+		Math.max(0, room - 3 - textWidth(ellipsis)),
+	)}`;
 }
 
 /** The green card: what was made, and what to do next. */
@@ -291,7 +295,7 @@ function drawDone(
 			0,
 			...request.next
 				.filter(item => item.note !== undefined)
-				.map(item => [...item.command].length),
+				.map(item => textWidth(item.command)),
 		) + 2;
 	for (const [index, item] of request.next.entries()) {
 		const row = y + 2 + index;
@@ -302,7 +306,7 @@ function drawDone(
 		s.put(lead + 2, row, ` ${index + 1}  `, {c: 'c-dim'});
 		const room = inner - 4 - 'copied  '.length - 1;
 		const {note} = item;
-		const noted = note !== undefined && numberWidth + [...note].length <= room;
+		const noted = note !== undefined && numberWidth + textWidth(note) <= room;
 		s.put(
 			lead + 6,
 			row,

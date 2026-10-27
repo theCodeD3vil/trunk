@@ -10,6 +10,56 @@
 
 export const abortKey = 'ctrl-c';
 
+/** Translate OpenTUI's normalized key event to the vocabulary screens use. */
+export function normalizedKey(key: {
+	name: string;
+	sequence: string;
+	ctrl: boolean;
+	meta: boolean;
+	option: boolean;
+	super?: boolean;
+	hyper?: boolean;
+}): string | undefined {
+	if (key.meta || key.option || key.super === true || key.hyper === true)
+		return undefined;
+	if (key.ctrl) {
+		return new Map([
+			['c', abortKey],
+			['p', 'ctrl-p'],
+			['a', 'home'],
+			['e', 'end'],
+		]).get(key.name);
+	}
+
+	const named = new Map([
+		['return', 'enter'],
+		['enter', 'enter'],
+		['escape', 'esc'],
+		['pageup', 'b'],
+		['pagedown', 'space'],
+		['up', 'up'],
+		['down', 'down'],
+		['left', 'left'],
+		['right', 'right'],
+		['home', 'home'],
+		['end', 'end'],
+		['delete', 'delete'],
+		['backspace', 'backspace'],
+		['space', 'space'],
+	]).get(key.name);
+	if (named !== undefined) return named;
+	return [...key.sequence].length === 1 && key.sequence >= ' '
+		? key.sequence
+		: undefined;
+}
+
+/** Paste is text, never terminal control or confirmation keys. */
+export function pasteKeys(text: string): string[] {
+	return [...text]
+		.filter(char => char >= ' ' && char !== '\u007F')
+		.map(char => (char === ' ' ? 'space' : char));
+}
+
 /** A left click at a 1-based screen position, as `click:<column>:<row>`. */
 export const clickPrefix = 'click:';
 

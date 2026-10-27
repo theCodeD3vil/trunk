@@ -6,6 +6,7 @@
 import type {ConfigureRequest} from '../../core/session.js';
 import type {RunState} from '../screens/running.js';
 import {mix} from './motion.js';
+import {cut} from './text.js';
 import type {Surface} from './canvas.js';
 import type {Context, Screen} from './types.js';
 import {
@@ -283,10 +284,7 @@ export function drawRail(s: Surface, context: Context, model: RailModel): void {
 				? p.fg
 				: mix(p.dim, p.fg, hover);
 		const nameWidth = s.w - nameX - 2;
-		const name =
-			[...item.label].length > nameWidth
-				? `${[...item.label].slice(0, nameWidth - 1).join('')}${g.ell}`
-				: item.label;
+		const name = cut(item.label, nameWidth, g.ell);
 		s.put(nameX, y, name, {
 			c: `${
 				item.status === 'skipped'
@@ -299,10 +297,7 @@ export function drawRail(s: Surface, context: Context, model: RailModel): void {
 		});
 		if (stepH > 1 && item.value !== '') {
 			const valueWidth = nameWidth;
-			const value =
-				[...item.value].length > valueWidth
-					? `${[...item.value].slice(0, valueWidth - 1).join('')}${g.ell}`
-					: item.value;
+			const value = cut(item.value, valueWidth, g.ell);
 			const target =
 				item.status === 'active' || item.status === 'running'
 					? p.acc

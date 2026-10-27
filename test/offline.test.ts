@@ -46,6 +46,7 @@ describe('offline', () => {
 			'@opentui/react',
 			'meow',
 			'react',
+			'string-width',
 		]);
 	});
 });
