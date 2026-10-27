@@ -11,7 +11,14 @@
 import type {Glyphs} from './glyphs.js';
 
 /** A run of text with a style, and optionally the key a click on it presses. */
-export type Seg = Readonly<{t: string; c: string; k?: string}>;
+export type Seg = Readonly<{
+	t: string;
+	c: string;
+	k?: string;
+	/** An exact colour for this run, for a fade or a tint that no class name can say. */
+	fg?: string;
+	bg?: string;
+}>;
 type Tuple = readonly [text: string, style?: string, key?: string];
 export type Part = string | Tuple | Seg;
 

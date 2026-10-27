@@ -98,12 +98,12 @@ Every screen ends with a key bar of the keys that work on it, and it stays on th
 
 The screens use up to 104 columns. At 100 columns or more the form and the docs show two panes; below that they fold to one. On a short terminal, such as 80 by 24, the result card folds its step list to one line so the question is never pushed off the screen. They follow your terminal:
 
-| Variable                      | Effect                                                                      |
-| ----------------------------- | --------------------------------------------------------------------------- |
-| `NO_COLOR`                    | Draw with bold, dim, and underline only, no colour                          |
-| `TRUNK_MOUSE=0`               | Do not ask the terminal to report the mouse; keys only                      |
-| `TRUNK_ASCII=1`               | Use plain ASCII instead of box-drawing characters, as a Linux console needs |
-| `TRUNK_THEME=light` or `dark` | Pick the palette; otherwise `COLORFGBG` decides, and dark is the default    |
+| Variable         | Effect                                                                      |
+| ---------------- | --------------------------------------------------------------------------- |
+| `NO_COLOR`       | Draw with bold, dim, and underline only, no colour                          |
+| `TRUNK_MOUSE=0`  | Do not ask the terminal to report the mouse; keys only                      |
+| `TRUNK_ASCII=1`  | Use plain ASCII instead of box-drawing characters, as a Linux console needs |
+| `TRUNK_MOTION=0` | Draw every screen still: no easing, pops, or shakes on picking and moving   |
 
 Trunk switches to ASCII by itself on `TERM=linux`, `TERM=dumb`, and a locale that is not UTF-8. Without a terminal, or with `--yes`, none of this is used and the output is plain lines.
 

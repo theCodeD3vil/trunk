@@ -13,12 +13,17 @@ export const abortKey = 'ctrl-c';
 /** A left click at a 1-based screen position, as `click:<column>:<row>`. */
 export const clickPrefix = 'click:';
 
+/** The pointer moving over a 1-based screen position, as `hover:<column>:<row>`. */
+export const hoverPrefix = 'hover:';
+
 /** The arrow a final letter names, in either of the two forms terminals use. */
 const arrows = new Map([
 	['A', 'up'],
 	['B', 'down'],
 	['C', 'right'],
 	['D', 'left'],
+	['H', 'home'],
+	['F', 'end'],
 ]);
 
 // A wheel notch is one line, and the keyboard already scrolls by lines.
@@ -31,8 +36,22 @@ const wheel = new Map([
 /* eslint-disable no-control-regex */
 const mouse = /\u001B\[<(\d+);(\d+);(\d+)([Mm])/y;
 const csi = /\u001B\[([\d;?]*)[ -/]*([@-~])/y;
-const ss3 = /\u001BO([A-D])/y;
+const ss3 = /\u001BO([A-DHF])/y;
 /* eslint-enable no-control-regex */
+
+/** Control characters that are keys of their own: Ctrl+C, Ctrl+A and Ctrl+E, Backspace. */
+const controls = new Map([
+	[0x03, abortKey],
+	[0x01, 'home'],
+	[0x05, 'end'],
+	[0x7f, 'backspace'],
+	[0x08, 'backspace'],
+]);
+
+/** Reports with bit 32 set are the pointer moving, with or without a button held. */
+const isMotion = (button: number): boolean =>
+	// eslint-disable-next-line no-bitwise -- The button code is a bit field.
+	(button & 32) !== 0 && (button & 64) === 0;
 
 /** Where a matcher ends when it matches at `index`, or undefined. */
 function matchAt(pattern: RegExp, text: string, index: number) {
@@ -43,11 +62,15 @@ function matchAt(pattern: RegExp, text: string, index: number) {
 /** The key a CSI sequence stands for, or undefined for ones no screen uses. */
 function csiKey(parameters: string, final: string): string | undefined {
 	if (final === '~') {
-		// Forward delete acts as backspace; page keys scroll the way Space and b do.
+		// Page keys scroll the way Space and b do.
 		return new Map([
-			['3', 'backspace'],
+			['1', 'home'],
+			['3', 'delete'],
+			['4', 'end'],
 			['5', 'b'],
 			['6', 'space'],
+			['7', 'home'],
+			['8', 'end'],
 		]).get(parameters);
 	}
 
@@ -56,7 +79,7 @@ function csiKey(parameters: string, final: string): string | undefined {
 
 /**
  * Splits raw terminal input into key names: arrows, Enter, Esc, Backspace,
- * Space, printable characters one by one, `ctrl-c`, and clicks. Anything else,
+ * Space, printable characters one by one, `ctrl-c`, clicks and pointer moves. Anything else,
  * such as Tab, Alt combinations and unknown sequences, is dropped.
  */
 export function parseInput(chunk: string): string[] {
@@ -73,6 +96,8 @@ export function parseInput(chunk: string): string[] {
 					keys.push(`${clickPrefix}${column}:${row}`);
 				} else if (kind === 'M' && wheel.has(button!)) {
 					keys.push(wheel.get(button!)!);
+				} else if (kind === 'M' && isMotion(Number(button))) {
+					keys.push(`${hoverPrefix}${column}:${row}`);
 				}
 
 				continue;
@@ -113,10 +138,9 @@ export function parseInput(chunk: string): string[] {
 			continue;
 		}
 
-		if (code === 0x03) {
-			keys.push(abortKey);
-		} else if (code === 0x7f || code === 0x08) {
-			keys.push('backspace');
+		const control = controls.get(code);
+		if (control !== undefined) {
+			keys.push(control);
 		} else if (char === ' ') {
 			keys.push('space');
 		} else if (code >= 0x20) {

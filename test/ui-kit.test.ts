@@ -32,37 +32,33 @@ const labels = new Set([
 	'leftright',
 	'dots',
 	'enter',
+	'space',
 	'boxOn',
 	'boxOff',
 	'boxNo',
+	'pickOn',
+	'pickOff',
+	'pickNo',
 ]);
 
 function glyphValues(glyphs: Glyphs): string[] {
 	return Object.entries(glyphs)
 		.filter(([name]) => !labels.has(name))
 		.flatMap(([, value]) =>
-			Array.isArray(value) ? (value as string[]) : [value as string],
+			typeof value === 'string' ? [value] : Object.values(value),
 		);
 }
 
 describe('theme', () => {
-	test('defaults to the dark palette with colour and unicode glyphs', () => {
+	test('is always the dark palette, with colour and unicode glyphs', () => {
 		const theme = resolveTheme(env(['LANG', 'en_US.UTF-8']));
 
-		expect(theme.name).toBe('dark');
+		expect(theme.palette).toBe(darkPalette);
 		expect(theme.mono).toBe(false);
 		expect(theme.ascii).toBe(false);
 		expect(theme.glyphs).toBe(unicodeGlyphs);
-	});
-
-	test('TRUNK_THEME and COLORFGBG choose the light palette', () => {
-		expect(resolveTheme(env(['TRUNK_THEME', 'light'])).name).toBe('light');
-		expect(resolveTheme(env(['COLORFGBG', '0;15'])).name).toBe('light');
-		expect(resolveTheme(env(['COLORFGBG', '15;0'])).name).toBe('dark');
-		// An explicit choice beats the terminal's guess.
-		expect(
-			resolveTheme(env(['TRUNK_THEME', 'dark'], ['COLORFGBG', '0;15'])).name,
-		).toBe('dark');
+		// A light terminal does not change it: there is no light palette.
+		expect(resolveTheme(env(['COLORFGBG', '0;15'])).palette).toBe(darkPalette);
 	});
 
 	test('NO_COLOR removes colour only when it is set to something', () => {

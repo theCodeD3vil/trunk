@@ -83,10 +83,24 @@ describe('parseInput', () => {
 		expect(parseInput('\n')).toEqual(['enter']);
 	});
 
-	test('delete and the page keys act as backspace and scrolling', () => {
-		expect(parseInput(`${escape}[3~`)).toEqual(['backspace']);
+	test('delete is its own key; the page keys act as scrolling', () => {
+		expect(parseInput(`${escape}[3~`)).toEqual(['delete']);
 		expect(parseInput(`${escape}[5~`)).toEqual(['b']);
 		expect(parseInput(`${escape}[6~`)).toEqual(['space']);
+	});
+
+	test('home and end come in every form a terminal sends them', () => {
+		for (const sequence of ['[H', '[1~', '[7~', 'OH', '\u0001']) {
+			expect(
+				parseInput(`${sequence.length === 1 ? '' : escape}${sequence}`),
+			).toEqual(['home']);
+		}
+
+		for (const sequence of ['[F', '[4~', '[8~', 'OF', '\u0005']) {
+			expect(
+				parseInput(`${sequence.length === 1 ? '' : escape}${sequence}`),
+			).toEqual(['end']);
+		}
 	});
 
 	test('drops what no screen uses: Tab, Alt combinations and unknown sequences', () => {
@@ -94,21 +108,25 @@ describe('parseInput', () => {
 		expect(parseInput(`${escape}[Z`)).toEqual([]);
 		expect(parseInput(`${escape}x`)).toEqual([]);
 		expect(parseInput(`${escape}[15~`)).toEqual([]);
-		expect(parseInput('\u0001')).toEqual([]);
+		expect(parseInput('\u0002')).toEqual([]);
 		// A lone Escape followed by more input is still an Escape.
 		expect(parseInput(`${escape}${escape}[A`)).toEqual(['esc', 'up']);
 	});
 
 	test('reads a left click and the wheel from SGR mouse reports', () => {
 		expect(parseInput(`${escape}[<0;12;5M`)).toEqual(['click:12:5']);
-		// A release, a right click and a drag are not clicks.
+		// A release and a right click are not clicks.
 		expect(parseInput(`${escape}[<0;12;5m`)).toEqual([]);
 		expect(parseInput(`${escape}[<2;12;5M`)).toEqual([]);
-		expect(parseInput(`${escape}[<32;12;5M`)).toEqual([]);
 		expect(parseInput(`${escape}[<64;1;1M${escape}[<65;1;1M`)).toEqual([
 			'up',
 			'down',
 		]);
+	});
+
+	test('reads the pointer moving, with or without a button held', () => {
+		expect(parseInput(`${escape}[<35;12;5M`)).toEqual(['hover:12:5']);
+		expect(parseInput(`${escape}[<32;3;4M`)).toEqual(['hover:3:4']);
 	});
 
 	test('a click between keys keeps its place in the order', () => {
@@ -166,7 +184,7 @@ describe('mouse reporting', () => {
 	});
 
 	test('turns off exactly what it turned on', () => {
-		expect(mouseOn).toBe(`${escape}[?1000h${escape}[?1006h`);
-		expect(mouseOff).toBe(`${escape}[?1006l${escape}[?1000l`);
+		expect(mouseOn).toBe(`${escape}[?1000h${escape}[?1003h${escape}[?1006h`);
+		expect(mouseOff).toBe(`${escape}[?1006l${escape}[?1003l${escape}[?1000l`);
 	});
 });

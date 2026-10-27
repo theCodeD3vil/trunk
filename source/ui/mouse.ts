@@ -8,12 +8,15 @@
  * terminal minus one row, so the first line is always on the first row.
  */
 import process from 'node:process';
-import {clickPrefix} from './keys.js';
+import {clickPrefix, hoverPrefix} from './keys.js';
 import type {Line} from './kit/lines.js';
 
-/** Enables press and wheel reporting in SGR form; the reverse turns it off. */
-export const mouseOn = '\u001B[?1000h\u001B[?1006h';
-export const mouseOff = '\u001B[?1006l\u001B[?1000l';
+/**
+ * Enables press, wheel and movement reporting in SGR form; the reverse turns it
+ * off. Movement is what lets a thing brighten under the pointer.
+ */
+export const mouseOn = '\u001B[?1000h\u001B[?1003h\u001B[?1006h';
+export const mouseOff = '\u001B[?1006l\u001B[?1003l\u001B[?1000l';
 
 /** `TRUNK_MOUSE=0` opts out, for people who select text in the terminal often. */
 export function mouseEnabled(
@@ -59,4 +62,21 @@ export function resolveClick(
 	return column === undefined || row === undefined
 		? undefined
 		: clickTarget(lines, column, row);
+}
+
+/** Where a `click:` or `hover:` key points, as 1-based screen coordinates. */
+export function pointOf(
+	key: string,
+): Readonly<{column: number; row: number}> | undefined {
+	const prefix = key.startsWith(clickPrefix)
+		? clickPrefix
+		: key.startsWith(hoverPrefix)
+		? hoverPrefix
+		: undefined;
+	if (prefix === undefined) {
+		return undefined;
+	}
+
+	const [column, row] = key.slice(prefix.length).split(':').map(Number);
+	return column === undefined || row === undefined ? undefined : {column, row};
 }

@@ -7,7 +7,7 @@
  */
 import {diffLines} from '../../core/diff.js';
 import type {OverwriteRequest} from '../../core/session.js';
-import {margin, type Kit, type Line} from '../kit/lines.js';
+import {margin, type KeyHint, type Kit, type Line} from '../kit/lines.js';
 
 export type DiffRow =
 	| Readonly<{kind: 'hunk'; text: string}>
@@ -209,13 +209,20 @@ function shownRows(
 		: model.rows;
 }
 
-export function overwriteLines(
+/** The screen without its frame: the diff, the question that is never trimmed, and the keys. */
+export type OverwriteParts = Readonly<{
+	body: Line[];
+	tail: Line[];
+	hints: KeyHint[];
+}>;
+
+export function overwriteParts(
 	kit: Kit,
-	request: OverwriteRequest,
 	model: OverwriteModel,
+	request: OverwriteRequest,
 	state: OverwriteState,
 	rows: number,
-): Line[] {
+): OverwriteParts {
 	const {g, line, cols} = kit;
 	const contentWidth = cols - margin * 2;
 	const total = Math.max(1, model.added + model.removed);
@@ -225,8 +232,6 @@ export function overwriteLines(
 			? 0
 			: Math.max(1, Math.round((model.added / total) * bar));
 	const body: Line[] = [
-		...kit.header([request.command, 'existing config'], request.project),
-		line(),
 		line('  ', [`${request.path} already exists`, 'b']),
 		line('  ', [
 			`It has ${model.existingLines} lines. Replacing it drops ${model.removed} of yours and adds ${model.added}.`,
@@ -332,14 +337,33 @@ export function overwriteLines(
 			['   Keeping is the default and changes nothing.', 'c-dim'],
 		),
 	];
-	return kit.frame(
+	return {
 		body,
-		kit.keybar([
+		tail,
+		hints: [
 			[g.updown, 'scroll'],
 			['r', state.onlyRemoved ? 'show all' : 'only removals', 'r'],
 			[g.leftright, 'choose'],
 			[g.enter, 'confirm', 'enter'],
-		]),
+		],
+	};
+}
+
+export function overwriteLines(
+	kit: Kit,
+	request: OverwriteRequest,
+	model: OverwriteModel,
+	state: OverwriteState,
+	rows: number,
+): Line[] {
+	const {body, tail, hints} = overwriteParts(kit, model, request, state, rows);
+	return kit.frame(
+		[
+			...kit.header([request.command, 'existing config'], request.project),
+			kit.line(),
+			...body,
+		],
+		kit.keybar(hints),
 		{maxRows: rows, tail},
 	);
 }

@@ -4,7 +4,13 @@
  * same whichever way it happens and the next command is always visible.
  */
 import type {FailureRequest} from '../../core/session.js';
-import {margin, type Kit, type Line, type Part} from '../kit/lines.js';
+import {
+	margin,
+	type KeyHint,
+	type Kit,
+	type Line,
+	type Part,
+} from '../kit/lines.js';
 
 function cardWidth(kit: Kit): number {
 	return Math.min(kit.cols - margin * 2, 84);
@@ -263,13 +269,19 @@ export function failureKey(
 	return {state};
 }
 
+/** The screen without its frame: the card, the question that is never trimmed, and the keys. */
+export type FailureParts = Readonly<{
+	body: Line[];
+	tail: Line[];
+	hints: KeyHint[];
+}>;
+
 /** The interrupted-run card: the reason, what exists now, and keep or roll back. */
-export function failureLines(
+export function failureParts(
 	kit: Kit,
 	request: FailureRequest,
 	state: FailureState,
-	rows: number,
-): Line[] {
+): FailureParts {
 	const {g, line} = kit;
 	const width = cardWidth(kit) - 4;
 	const detail = request.detail
@@ -362,16 +374,28 @@ export function failureLines(
 		);
 	}
 
+	return {
+		body,
+		tail,
+		hints: request.rollback
+			? [
+					[g.leftright, 'choose'],
+					[g.enter, 'confirm', 'enter'],
+			  ]
+			: [[g.enter, 'close', 'enter']],
+	};
+}
+
+export function failureLines(
+	kit: Kit,
+	request: FailureRequest,
+	state: FailureState,
+	rows: number,
+): Line[] {
+	const {body, tail, hints} = failureParts(kit, request, state);
 	return kit.frame(
 		[...kit.header([request.command, 'stopped'], request.project), ...body],
-		kit.keybar(
-			request.rollback
-				? [
-						[g.leftright, 'choose'],
-						[g.enter, 'confirm', 'enter'],
-				  ]
-				: [[g.enter, 'close', 'enter']],
-		),
+		kit.keybar(hints),
 		{maxRows: rows, tail},
 	);
 }

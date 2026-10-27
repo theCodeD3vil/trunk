@@ -3,20 +3,15 @@
  * of `clone` or `init`, so the questions, the review, the run and the result are
  * a single continuous screen. The setup code talks to it through the plain
  * `Session` interface; this file turns each call into a screen and each answer
- * into a resolved promise.
+ * into a resolved promise. What the screen looks like, and everything that
+ * moves on it, is the shell's (`./shell`).
  */
 import {performance} from 'node:perf_hooks';
 import process from 'node:process';
-import React, {
-	useEffect,
-	useReducer,
-	useRef,
-	useState,
-	useSyncExternalStore,
-} from 'react';
+import React, {useEffect, useRef, useSyncExternalStore} from 'react';
 import {flushSync, useTerminalDimensions} from '@opentui/react';
+import {trunkVersion} from '../core/version.js';
 import type {
-	ConfigureRequest,
 	FailureRequest,
 	FinishRequest,
 	OverwriteRequest,
@@ -26,77 +21,40 @@ import type {
 	StepStatus,
 } from '../core/session.js';
 import type {Settings} from '../core/settings.js';
+import {copyToClipboard} from '../docs/clipboard.js';
 import {abortKey} from './keys.js';
-import {createKit, type Line} from './kit/lines.js';
 import {Lines, mount} from './kit/render.js';
-import {resolveTheme, type Theme} from './kit/theme.js';
-import {useKeys} from './use-keys.js';
-import {
-	failureKey,
-	failureLines,
-	type FailureState,
-} from './screens/callouts.js';
+import {resolveTheme} from './kit/theme.js';
+import {useKeys, type Point} from './use-keys.js';
+import {failureKey, type FailureState} from './screens/callouts.js';
 import {
 	buildOverwriteModel,
 	initialOverwrite,
 	overwriteKey,
-	overwriteLines,
 	scrollLimit,
-	type OverwriteModel,
-	type OverwriteState,
 } from './screens/overwrite.js';
-import {reviewKey, reviewLines, type ReviewState} from './screens/review.js';
 import {
 	askPublish,
 	endPublish,
 	initialRun,
 	runKey,
-	runningLines,
 	startPublish,
 	updatePublish,
 	updateStep,
 	type RunState,
 } from './screens/running.js';
-import {
-	focusableFields,
-	initialSetup,
-	setupKey,
-	setupLines,
-	type SetupState,
-} from './screens/setup.js';
-
-type ConfigureScreen = Readonly<{
-	kind: 'configure';
-	request: ConfigureRequest;
-	stage: 'setup' | 'review';
-	setup: SetupState;
-	review: ReviewState;
-	settings?: Settings;
-}>;
-
-type Screen =
-	| Readonly<{kind: 'idle'}>
-	| ConfigureScreen
-	| Readonly<{kind: 'run'; run: RunState}>
-	| Readonly<{
-			kind: 'overwrite';
-			request: OverwriteRequest;
-			model: OverwriteModel;
-			state: OverwriteState;
-	  }>
-	| Readonly<{kind: 'failure'; request: FailureRequest; state: FailureState}>;
-
-/** The most that is ever laid out; wider terminals leave the rest blank. */
-const maximumColumns = 104;
+import {createController, type Controller} from './shell/controller.js';
+import {motionEnabled} from './shell/motion.js';
+import {frameLines} from './shell/view.js';
 
 /** A tiny observable, so the imperative Session API can drive React state. */
 function createStore() {
-	let screen: Screen = {kind: 'idle'};
+	let version = 0;
 	const listeners = new Set<() => void>();
 	return {
-		get: () => screen,
-		set(next: Screen) {
-			screen = next;
+		get: () => version,
+		bump() {
+			version += 1;
 			for (const listener of listeners) {
 				listener();
 			}
@@ -114,108 +72,72 @@ type Store = ReturnType<typeof createStore>;
 
 type AppProperties = Readonly<{
 	store: Store;
-	theme: Theme;
-	onKey: (name: string) => void;
+	controller: Controller;
+	onKey: (name: string, at?: Point) => void;
 }>;
 
-function SessionApp({store, theme, onKey}: AppProperties): React.ReactNode {
-	const screen = useSyncExternalStore(store.subscribe, store.get);
+function SessionApp({
+	store,
+	controller,
+	onKey,
+}: AppProperties): React.ReactNode {
+	useSyncExternalStore(store.subscribe, store.get);
 	const terminal = useTerminalDimensions();
-	// Bumping a counter is the cheapest way to ask React for another frame.
-	const [, redraw] = useReducer((count: number) => count + 1, 0);
-	const [caret, setCaret] = useState(true);
-	const columns = Math.min(terminal.width || 80, maximumColumns);
-	const rows = terminal.height || 40;
+	const now = performance.now();
+	controller.resize(terminal.width || 80, terminal.height || 40, now);
+	const frame = controller.frame(now);
+	const lines = frameLines(frame);
 
-	const spinning =
-		screen.kind === 'run' &&
-		(screen.run.steps.some(step => step.status === 'active') ||
-			screen.run.publish?.rows.some(row => row.status === 'active') === true);
-	const typing = screen.kind === 'configure' && screen.stage === 'setup';
+	// Effects and the spinner schedule their own next frame; a still screen schedules none.
 	useEffect(() => {
-		if (!spinning) {
+		const wait = controller.delay(now);
+		if (wait === undefined) {
 			return undefined;
 		}
 
-		const timer = setInterval(() => {
-			redraw();
-		}, 80);
+		const timer = setTimeout(() => {
+			store.bump();
+		}, wait);
 		return () => {
-			clearInterval(timer);
+			clearTimeout(timer);
 		};
-	}, [spinning]);
-	useEffect(() => {
-		if (!typing) {
-			return undefined;
-		}
+	});
 
-		const timer = setInterval(() => {
-			setCaret(value => !value);
-		}, 530);
-		return () => {
-			clearInterval(timer);
-		};
-	}, [typing]);
-
-	const kit = createKit(theme.glyphs, columns);
-	let lines: readonly Line[] = [];
-	switch (screen.kind) {
-		case 'configure': {
-			lines =
-				screen.stage === 'setup' || screen.settings === undefined
-					? setupLines(kit, screen.request, screen.setup, {caret, rows})
-					: reviewLines(
-							kit,
-							screen.request,
-							screen.settings,
-							screen.review,
-							rows,
-					  );
-			break;
-		}
-
-		case 'run': {
-			lines = runningLines(kit, screen.run, performance.now(), rows);
-			break;
-		}
-
-		case 'overwrite': {
-			lines = overwriteLines(
-				kit,
-				screen.request,
-				screen.model,
-				screen.state,
-				rows,
-			);
-			break;
-		}
-
-		case 'failure': {
-			lines = failureLines(kit, screen.request, screen.state, rows);
-			break;
-		}
-
-		default: {
-			break;
-		}
-	}
-
-	// Clicks are resolved against exactly what this render drew.
-	const drawn = useRef<readonly Line[]>(lines);
+	// Clicks and hovers are resolved against exactly what this render drew.
+	const drawn = useRef(lines);
 	drawn.current = lines;
-	useKeys(onKey, () => drawn.current);
+	useKeys(
+		onKey,
+		() => drawn.current,
+		target => {
+			if (controller.hover(target, performance.now())) {
+				store.bump();
+			}
+		},
+	);
 
-	return <Lines lines={lines} theme={theme} width={columns} caret={caret} />;
+	return (
+		<Lines lines={lines} theme={frame.theme} width={terminal.width || 80} />
+	);
 }
 
 /** Mounts the app and returns the imperative Session the setup code drives. */
 export async function openSession(): Promise<Session> {
-	const theme = resolveTheme();
 	const store = createStore();
+	const controller = createController({
+		theme: resolveTheme(),
+		version: trunkVersion(),
+		motion: motionEnabled(),
+		copy: copyToClipboard,
+		wake() {
+			store.bump();
+		},
+		clock: () => performance.now(),
+	});
 	let aborted = false;
 	let run: RunState | undefined;
 	/** Handles keys for whatever question is showing; a no-op between questions. */
-	let onKey: (name: string) => void = () => undefined;
+	let onKey: (name: string, at?: Point) => void = () => undefined;
 	/** Resolves the question on screen with undefined, when the user cancels. */
 	let cancelPending: (() => void) | undefined;
 	/** Set while a push or pull request runs; aborting it stops the command. */
@@ -223,13 +145,20 @@ export async function openSession(): Promise<Session> {
 
 	const showRun = () => {
 		if (run !== undefined) {
-			store.set({kind: 'run', run});
+			controller.show({kind: 'run', run}, performance.now());
+			store.bump();
 		}
 	};
 
-	const dispatch = (name: string) => {
+	const dispatch = (name: string, at?: Point) => {
 		if (name !== abortKey) {
-			onKey(name);
+			if (name === 'c' || name.startsWith('copy:')) {
+				const index = name === 'c' ? undefined : Number(name.slice(5));
+				controller.copyNext(index);
+			}
+
+			onKey(name, at);
+			store.bump();
 			return;
 		}
 
@@ -277,13 +206,17 @@ export async function openSession(): Promise<Session> {
 	};
 
 	const app = await mount(
-		<SessionApp store={store} theme={theme} onKey={dispatch} />,
+		<SessionApp store={store} controller={controller} onKey={dispatch} />,
 	);
 
 	/** Shows a screen and waits for `onKey` to produce an answer. */
 	const ask = async <T,>(
-		show: () => Screen,
-		handle: (name: string, answer: (value: T | undefined) => void) => void,
+		show: () => void,
+		handle: (
+			name: string,
+			answer: (value: T | undefined) => void,
+			at?: Point,
+		) => void,
 	): Promise<T | undefined> => {
 		if (aborted) {
 			return undefined;
@@ -300,66 +233,36 @@ export async function openSession(): Promise<Session> {
 				answer(undefined);
 			};
 
-			onKey = name => {
-				handle(name, answer);
+			onKey = (name, at) => {
+				handle(name, answer, at);
 			};
 
-			store.set(show());
+			show();
+			store.bump();
 		});
 	};
 
 	return {
 		async configure(request) {
-			const everythingFixed =
-				focusableFields(request, request.values).length === 0;
-			let screen: ConfigureScreen = {
-				kind: 'configure',
-				request,
-				stage: everythingFixed ? 'review' : 'setup',
-				setup: initialSetup(request),
-				review: {sel: 0},
-				settings: everythingFixed
-					? request.toSettings(request.values)
-					: undefined,
-			};
 			return ask<Settings>(
-				() => screen,
+				() => {
+					controller.configure(request, performance.now());
+				},
 				(name, answer) => {
-					const update = (next: Partial<ConfigureScreen>) => {
-						screen = {...screen, ...next};
-						store.set(screen);
-					};
-
-					if (screen.stage === 'setup') {
-						const step = setupKey(request, screen.setup, name);
-						if (step.done) {
-							try {
-								update({
-									setup: step.state,
-									stage: 'review',
-									settings: request.toSettings(step.state.values),
-									review: {sel: 0},
-								});
-							} catch {
-								// The values are not valid yet; the form already says why.
-								update({setup: step.state});
-							}
-						} else if (step.handled) {
-							update({setup: step.state});
-						}
-
+					const values = controller.key(name, performance.now());
+					if (values === undefined) {
 						return;
 					}
 
-					const step = reviewKey(screen.review, name);
-					if (step.action === 'create' && screen.settings !== undefined) {
-						answer(screen.settings);
-					} else if (step.action === 'cancel') {
-						answer(undefined);
-					} else if (step.action === 'back') {
-						update({stage: 'setup'});
-					} else {
-						update({review: step.state});
+					try {
+						answer(request.toSettings(values));
+					} catch (error) {
+						// The form already says why a field is wrong; anything else is said here.
+						controller.toast(
+							error instanceof Error ? error.message : String(error),
+							performance.now(),
+							'warn',
+						);
 					}
 				},
 			);
@@ -380,22 +283,26 @@ export async function openSession(): Promise<Session> {
 		async overwrite(request: OverwriteRequest) {
 			const model = buildOverwriteModel(request.existing, request.generated);
 			let state = initialOverwrite;
-			const answer = await ask<'keep' | 'replace'>(
-				() => ({kind: 'overwrite', request, model, state}),
-				(name, resolve) => {
-					const step = overwriteKey(
-						state,
-						name,
-						scrollLimit(model, state, process.stdout.rows || 40),
-					);
-					state = step.state;
-					if (step.answer === undefined) {
-						store.set({kind: 'overwrite', request, model, state});
-					} else {
-						resolve(step.answer);
-					}
-				},
-			);
+			const show = () => {
+				controller.show(
+					{kind: 'overwrite', request, model, state, run},
+					performance.now(),
+				);
+			};
+
+			const answer = await ask<'keep' | 'replace'>(show, (name, resolve) => {
+				const step = overwriteKey(
+					state,
+					name,
+					scrollLimit(model, state, (process.stdout.rows || 40) - 1),
+				);
+				state = step.state;
+				if (step.answer === undefined) {
+					show();
+				} else {
+					resolve(step.answer);
+				}
+			});
 			showRun();
 			return answer;
 		},
@@ -418,18 +325,15 @@ export async function openSession(): Promise<Session> {
 				return 'skip';
 			}
 
-			return ask<'push' | 'skip'>(
-				() => ({kind: 'run', run: state}),
-				(name, resolve) => {
-					const step = runKey(state, name);
-					state = step.state;
-					run = state;
-					showRun();
-					if (step.answer === 'push' || step.answer === 'skip') {
-						resolve(step.answer);
-					}
-				},
-			);
+			return ask<'push' | 'skip'>(showRun, (name, resolve) => {
+				const step = runKey(state, name);
+				state = step.state;
+				run = state;
+				showRun();
+				if (step.answer === 'push' || step.answer === 'skip') {
+					resolve(step.answer);
+				}
+			});
 		},
 
 		result(lines: readonly ResultLine[]) {
@@ -469,17 +373,14 @@ export async function openSession(): Promise<Session> {
 			}
 
 			run = askPublish(run, problem);
-			return ask<'retry' | 'later'>(
-				() => ({kind: 'run', run: run!}),
-				(name, resolve) => {
-					const step = runKey(run!, name);
-					run = step.state;
-					showRun();
-					if (step.answer === 'retry' || step.answer === 'later') {
-						resolve(step.answer);
-					}
-				},
-			);
+			return ask<'retry' | 'later'>(showRun, (name, resolve) => {
+				const step = runKey(run!, name);
+				run = step.state;
+				showRun();
+				if (step.answer === 'retry' || step.answer === 'later') {
+					resolve(step.answer);
+				}
+			});
 		},
 
 		publishEnd(lines) {
@@ -492,18 +393,22 @@ export async function openSession(): Promise<Session> {
 
 		async fail(request: FailureRequest) {
 			let state: FailureState = {sel: 0};
-			const answer = await ask<'keep' | 'rollback'>(
-				() => ({kind: 'failure', request, state}),
-				(name, resolve) => {
-					const step = failureKey(request, state, name);
-					state = step.state;
-					if (step.answer === undefined) {
-						store.set({kind: 'failure', request, state});
-					} else {
-						resolve(step.answer);
-					}
-				},
-			);
+			const show = () => {
+				controller.show(
+					{kind: 'failure', request, state, run},
+					performance.now(),
+				);
+			};
+
+			const answer = await ask<'keep' | 'rollback'>(show, (name, resolve) => {
+				const step = failureKey(request, state, name);
+				state = step.state;
+				if (step.answer === undefined) {
+					show();
+				} else {
+					resolve(step.answer);
+				}
+			});
 			// Back to the steps, which now show the cross where it stopped.
 			showRun();
 			return answer;
@@ -513,12 +418,17 @@ export async function openSession(): Promise<Session> {
 
 		async close() {
 			onKey = () => undefined;
-			// Redraw once without the key bar: this frame stays in the scrollback.
-			if (run !== undefined) {
-				run = {...run, closed: true, cancelling: false};
-				// Committed now, so the renderer draws it before it is torn down.
-				flushSync(showRun);
+			if (run?.cancelling === true) {
+				run = {...run, cancelling: false};
+				showRun();
 			}
+
+			// Redraw once without the key bar: this frame stays in the scrollback.
+			controller.close();
+			// Committed now, so the renderer draws it before it is torn down.
+			flushSync(() => {
+				store.bump();
+			});
 
 			await app.unmount();
 		},

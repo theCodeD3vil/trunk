@@ -17,6 +17,10 @@ export type ConfigureRequest = Readonly<{
 	rootName: string;
 	/** Where the project lives, for display. */
 	destination: string;
+	/** The URL or path as it was given, for the command the review shows. */
+	source?: string;
+	/** `host/owner/repo` when there is a remote, shown beside the project name. */
+	identifier?: string;
 	/** Known for `init`; a clone only learns it after cloning. */
 	defaultBranch?: string;
 	/**

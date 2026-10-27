@@ -24,7 +24,7 @@ export type Palette = Readonly<{
 }>;
 
 export const darkPalette: Palette = Object.freeze({
-	bg: '#0F1412',
+	bg: '#000000',
 	line: '#27312C',
 	sel: '#1B2521',
 	fg: '#D9E2DC',
@@ -40,45 +40,13 @@ export const darkPalette: Palette = Object.freeze({
 	del: '#3A1C1F',
 });
 
-export const lightPalette: Palette = Object.freeze({
-	bg: '#FBFAF6',
-	line: '#DAD8CE',
-	sel: '#EAF0EA',
-	fg: '#1E2A24',
-	dim: '#66746B',
-	faint: '#87938B',
-	acc: '#0B7566',
-	accInk: '#FFFFFF',
-	ok: '#2C7B2F',
-	warn: '#96600A',
-	err: '#B3261E',
-	info: '#3557C7',
-	add: '#DDF1DF',
-	del: '#FBE2DF',
-});
-
 export type Theme = Readonly<{
-	name: 'dark' | 'light';
 	palette: Palette;
 	glyphs: Glyphs;
 	/** No colour at all: emphasis comes from bold, dim, underline and inverse. */
 	mono: boolean;
 	ascii: boolean;
 }>;
-
-/**
- * A light background is reported by some terminals as `COLORFGBG=fg;bg` with a
- * bright bg. Anything else, including no answer, is treated as dark.
- */
-function prefersLight(environment: NodeJS.ProcessEnv): boolean {
-	const override = environment['TRUNK_THEME'];
-	if (override === 'light' || override === 'dark') {
-		return override === 'light';
-	}
-
-	const background = environment['COLORFGBG']?.split(';').at(-1);
-	return background === '15' || background === '7';
-}
 
 /** Box drawing needs a UTF-8 terminal; a Linux console or dumb TTY cannot show it. */
 function needsAscii(environment: NodeJS.ProcessEnv): boolean {
@@ -99,10 +67,8 @@ export function resolveTheme(
 	environment: NodeJS.ProcessEnv = process.env,
 ): Theme {
 	const ascii = needsAscii(environment);
-	const light = prefersLight(environment);
 	return Object.freeze({
-		name: light ? 'light' : 'dark',
-		palette: light ? lightPalette : darkPalette,
+		palette: darkPalette,
 		glyphs: ascii ? asciiGlyphs : unicodeGlyphs,
 		// NO_COLOR only counts when it is set to something, as the convention says.
 		mono: Boolean(environment['NO_COLOR']),

@@ -18,7 +18,7 @@ import {
 import {createRoot} from '@opentui/react';
 import type {ColourLevel} from '../../core/interactive.js';
 import type {Line, LineBackground, Seg} from './lines.js';
-import type {Palette, Theme} from './theme.js';
+import {resolveTheme, type Palette, type Theme} from './theme.js';
 
 export type Style = Readonly<{
 	color?: string;
@@ -28,6 +28,7 @@ export type Style = Readonly<{
 	italic?: boolean;
 	inverse?: boolean;
 	dim?: boolean;
+	strike?: boolean;
 }>;
 
 /** Maps a segment's class names, and its line's highlight, to a style. */
@@ -77,6 +78,11 @@ function applyClass(
 
 		case 'i': {
 			style.italic = true;
+			return;
+		}
+
+		case 's': {
+			style.strike = true;
 			return;
 		}
 
@@ -180,7 +186,8 @@ function attributesOf(style: Style): number {
 		(style.dim ? TextAttributes.DIM : 0) |
 		(style.italic ? TextAttributes.ITALIC : 0) |
 		(style.underline ? TextAttributes.UNDERLINE : 0) |
-		(style.inverse ? TextAttributes.INVERSE : 0)
+		(style.inverse ? TextAttributes.INVERSE : 0) |
+		(style.strike ? TextAttributes.STRIKETHROUGH : 0)
 	);
 }
 /* eslint-enable no-bitwise */
@@ -235,8 +242,15 @@ export function Lines({
 									return (
 										<span
 											key={position}
-											fg={style.color ?? terminalForeground}
-											bg={style.backgroundColor}
+											fg={
+												(theme.mono ? undefined : segment.fg) ??
+												style.color ??
+												terminalForeground
+											}
+											bg={
+												(theme.mono ? undefined : segment.bg) ??
+												style.backgroundColor
+											}
 											attributes={attributesOf(style)}
 										>
 											{visibleText(segment, caret)}
@@ -262,8 +276,11 @@ export type Mounted = Readonly<{
  * is a key like any other here; each app decides what it means.
  */
 export async function mount(element: React.ReactNode): Promise<Mounted> {
+	const theme = resolveTheme();
 	const renderer = await createCliRenderer({
 		screenMode: 'main-screen',
+		// The app paints every cell itself, so the terminal's own background never shows.
+		backgroundColor: theme.mono ? undefined : theme.palette.bg,
 		// The last frame stays where it was drawn, with the shell prompt under it.
 		clearOnShutdown: false,
 		exitOnCtrlC: false,

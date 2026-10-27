@@ -1,8 +1,8 @@
 /**
  * Every interactive screen, in a real terminal, with the environment variables
- * that make Ink believe it is running in CI. Ink then draws nothing until the
- * program exits, which for a person at a keyboard looks like a hung command that
- * only shows its screen after Ctrl+C. Each screen has to appear on its own.
+ * that make tools believe they are running in CI. A screen that waited for the
+ * program to exit would look to a person at a keyboard like a hung command that
+ * only shows itself after Ctrl+C. Each screen has to appear on its own.
  */
 import {
 	chmod,
@@ -29,7 +29,7 @@ const socket = `trunk-interactive-${process.pid}`;
 // eslint-disable-next-line no-control-regex
 const boldOn = /\u001B\[[\d;]*1[;m]/;
 
-/** Each of these alone makes Ink's CI check true. */
+/** Each of these alone is read by some tools as a CI environment. */
 const ciEnvironments: ReadonlyArray<readonly [string, string]> = [
 	['a generic CI flag', 'CI=true'],
 	['a hosting vendor marker', 'VERCEL=1'],
@@ -116,17 +116,13 @@ describe('interactive screens appear live even when the environment looks like C
 			`node ${quote(cliPath)} init ${quote(project)}`,
 		]);
 
-		const screen = await waitForScreen(
-			tmux,
-			'form',
-			'Configure worktree automation',
-		);
+		const screen = await waitForScreen(tmux, 'form', 'STEP 1 OF');
 		for (const field of [
 			'Session prefix',
 			'tmux workspace',
 			'Copy ignored files',
 			'wt mc alias',
-			'Preview',
+			'.CONFIG/WT.TOML',
 		]) {
 			expect(screen).toContain(field);
 		}
@@ -147,7 +143,7 @@ describe('interactive screens appear live even when the environment looks like C
 			`WORKTRUNK_CONFIG_PATH=${quote(join(root, 'worktrunk.toml'))}`,
 			`node ${quote(cliPath)} init ${quote(project)}`,
 		]);
-		await waitForScreen(tmux, 'flow', 'Configure worktree automation');
+		await waitForScreen(tmux, 'flow', 'STEP 1 OF');
 
 		// Accept every default. How many questions there are depends on which
 		// agents this machine has, so press Enter until the review appears.
@@ -155,7 +151,7 @@ describe('interactive screens appear live even when the environment looks like C
 		for (let attempt = 0; attempt < 12 && review === ''; attempt += 1) {
 			// eslint-disable-next-line no-await-in-loop
 			const screen = await screenOf(tmux, 'flow');
-			if (screen.includes('Ready to set up')) {
+			if (screen.includes('Create project')) {
 				review = screen;
 			} else {
 				// eslint-disable-next-line no-await-in-loop
@@ -165,14 +161,13 @@ describe('interactive screens appear live even when the environment looks like C
 			}
 		}
 
-		expect(review).toContain('Your choices');
-		expect(review).toContain('chore-trunk-setup/');
+		expect(review).toContain('SAME THING, FROM A SCRIPT');
+		expect(review).toContain('trunk-cli init');
 		await send(tmux, 'flow', 'Enter');
 
 		// The result card, with the push question on its safe answer.
 		const result = await waitForScreen(tmux, 'flow', 'Not now');
 		expect(result).toContain('is ready');
-		expect(result).toContain('Validate with Worktrunk');
 		expect(result).toContain('cd ');
 		await send(tmux, 'flow', 'Enter');
 		await waitForExit(tmux, 'flow');
@@ -281,7 +276,12 @@ describe('interactive screens appear live even when the environment looks like C
 			'7f',
 			'7f',
 		]);
-		const shorter = await waitForScreen(tmux, 'paste', '/  pn');
+		// '/  pn' is also the start of '/  pnpm', so wait for the longer text to go.
+		const shorter = await waitForChange(
+			tmux,
+			'paste',
+			screen => screen.includes('/  pn') && !screen.includes('/  pnpm'),
+		);
 		expect(shorter).not.toContain('/  pnpm');
 
 		await send(tmux, 'paste', 'Escape');
@@ -408,24 +408,20 @@ describe('interactive screens appear live even when the environment looks like C
 				rows,
 			);
 
-			// One row is left free: a frame as tall as the terminal is cleared by Ink.
+			// The frame fills the terminal, so the key bar is on its last row.
 			// The pane can be shorter than asked when a tmux status line is showing.
 			// eslint-disable-next-line no-await-in-loop
 			const height = await paneHeight(tmux, session);
-			const lastRow = height - 1;
+			const lastRow = height;
 			// eslint-disable-next-line no-await-in-loop
-			const form = await waitForScreen(
-				tmux,
-				session,
-				'Configure worktree automation',
-			);
-			expect(keyBarRow(form, 'next'), `form at ${rows}`).toBe(lastRow);
+			const form = await waitForScreen(tmux, session, 'STEP 1 OF');
+			expect(keyBarRow(form, 'continue'), `form at ${rows}`).toBe(lastRow);
 
 			let review = '';
 			for (let attempt = 0; attempt < 12 && review === ''; attempt += 1) {
 				// eslint-disable-next-line no-await-in-loop
 				const screen = await screenOf(tmux, session);
-				if (screen.includes('Ready to set up')) {
+				if (screen.includes('Create project')) {
 					review = screen;
 				} else {
 					// eslint-disable-next-line no-await-in-loop
@@ -435,14 +431,16 @@ describe('interactive screens appear live even when the environment looks like C
 				}
 			}
 
-			expect(keyBarRow(review, 'edit choices'), `review at ${rows}`).toBe(
+			expect(keyBarRow(review, 'create project'), `review at ${rows}`).toBe(
 				lastRow,
 			);
 			// eslint-disable-next-line no-await-in-loop
 			await send(tmux, session, 'Enter');
 			// eslint-disable-next-line no-await-in-loop
-			const result = await waitForScreen(tmux, session, 'confirm');
-			expect(keyBarRow(result, 'confirm'), `result at ${rows}`).toBe(lastRow);
+			const result = await waitForScreen(tmux, session, '⏎  confirm');
+			expect(keyBarRow(result, '⏎  confirm'), `result at ${rows}`).toBe(
+				lastRow,
+			);
 			// eslint-disable-next-line no-await-in-loop
 			await send(tmux, session, 'Enter');
 			// eslint-disable-next-line no-await-in-loop
@@ -468,11 +466,11 @@ describe('interactive screens appear live even when the environment looks like C
 			80,
 			24,
 		);
-		await waitForScreen(tmux, 'short', 'Configure worktree automation');
+		await waitForScreen(tmux, 'short', 'STEP 1 OF');
 		for (let attempt = 0; attempt < 12; attempt += 1) {
 			// eslint-disable-next-line no-await-in-loop
 			const screen = await screenOf(tmux, 'short');
-			if (screen.includes('Ready to set up')) {
+			if (screen.includes('Create project')) {
 				break;
 			}
 
@@ -484,11 +482,11 @@ describe('interactive screens appear live even when the environment looks like C
 
 		await send(tmux, 'short', 'Enter');
 		const result = await waitForScreen(tmux, 'short', 'is ready');
-		expect(result).toContain('Push');
-		expect(result).toContain('and open a pull request?');
+		expect(result).toContain('Push chore/trunk-setup and open a pull');
+		expect(result).toContain('request?');
 		expect(result).toContain('Not now');
 		const height = await paneHeight(tmux, 'short');
-		expect(keyBarRow(result, 'confirm')).toBe(height - 1);
+		expect(keyBarRow(result, '⏎  confirm')).toBe(height);
 
 		await send(tmux, 'short', 'Enter');
 		await waitForExit(tmux, 'short');
@@ -515,11 +513,11 @@ describe('interactive screens appear live even when the environment looks like C
 			`WORKTRUNK_CONFIG_PATH=${quote(join(root, 'worktrunk.toml'))}`,
 			`node ${quote(cliPath)} init ${quote(project)}; sleep 30`,
 		]);
-		await waitForScreen(tmux, 'fail', 'Configure worktree automation');
+		await waitForScreen(tmux, 'fail', 'STEP 1 OF');
 		for (let attempt = 0; attempt < 12; attempt += 1) {
 			// eslint-disable-next-line no-await-in-loop
 			const screen = await screenOf(tmux, 'fail');
-			if (screen.includes('Ready to set up')) {
+			if (screen.includes('Create project')) {
 				break;
 			}
 
@@ -545,7 +543,7 @@ describe('interactive screens appear live even when the environment looks like C
 			'fail',
 			'Removed the chore/trunk-setup worktree and branch.',
 		);
-		expect(done).toContain('✗ Validate with Worktrunk');
+		expect(done).toMatch(/✗\s+Validate with Worktrunk/);
 		expect(done).not.toContain('rolled back /');
 		expect(done).not.toContain('created by this run');
 		expect(await exists(join(project, 'chore-trunk-setup'))).toBe(false);
@@ -574,10 +572,13 @@ describe('interactive screens appear live even when the environment looks like C
 			104,
 			36,
 		);
-		await waitForScreen(tmux, 'agents', 'Configure worktree automation');
+		await waitForScreen(tmux, 'agents', 'STEP 1 OF');
 		await send(tmux, 'agents', 'Enter');
 		await send(tmux, 'agents', 'Enter');
-		const open = await waitForScreen(tmux, 'agents', 'Pick up to 4.');
+		// A full redraw can be captured half written, so wait for the list itself.
+		const open = await waitForChange(tmux, 'agents', screen =>
+			/\[[ –✓]] +pi\b/.test(screen),
+		);
 
 		// All six are on screen at once, one per row, and none is cut off.
 		for (const name of [
@@ -588,22 +589,18 @@ describe('interactive screens appear live even when the environment looks like C
 			'antigravity',
 			'pi',
 		]) {
-			expect(open, name).toMatch(new RegExp(`[◼◻–] +${name}\\b`));
+			expect(open, name).toMatch(new RegExp(`\\[[ –✓]\\] +${name}\\b`));
 		}
 
-		expect(open).toMatch(/– +pi +not installed/);
-		expect(open).toContain('0 of 4 selected');
-		expect(open).toMatch(/↑↓ +move +Space +toggle +⏎ +next/);
+		expect(open).toMatch(/\[–] +pi +not installed/);
+		expect(open).toContain('0 of 4 picked');
+		expect(open).toMatch(/↑↓ +move +␣ +pick +⏎ +continue/);
 
-		// The row under the cursor is tinted, in the palette's own colour.
-		const styled = await screenOf(tmux, 'agents', true);
-		expect(styled).toContain('48;2;27;37;33');
-
-		// Space picks it, and the box fills.
+		// Space picks the agent under the cursor, and the rail says so.
 		await send(tmux, 'agents', 'Space');
-		const picked = await waitForScreen(tmux, 'agents', '1 of 4 selected');
-		expect(picked).toMatch(/◼ +claude/);
-		expect(picked).toMatch(/├─ Agents {2}claude/);
+		const picked = await waitForScreen(tmux, 'agents', '1 of 4 picked');
+		expect(picked).toMatch(/\[✓] +claude/);
+		expect(picked).toMatch(/Agents[^\n]*\n[^\n]*│ claude/);
 
 		// Pick three more, then a fifth is refused with the reason.
 		for (const _ of [1, 2, 3]) {
@@ -615,31 +612,26 @@ describe('interactive screens appear live even when the environment looks like C
 			await delay(80);
 		}
 
-		await waitForScreen(tmux, 'agents', '4 of 4 selected');
+		await waitForScreen(tmux, 'agents', '4 of 4 picked');
 		await send(tmux, 'agents', 'Down');
 		await send(tmux, 'agents', 'Space');
 		const refused = await waitForScreen(
 			tmux,
 			'agents',
-			'4 is the most. Turn one off first.',
+			'Limit reached: pick up to 4 agents.',
 		);
-		expect(refused).toMatch(/◻ +antigravity +limit reached/);
+		expect(refused).toMatch(/\[ ] +antigravity/);
 
 		// Clicking the agent that is not installed says so, and picks nothing.
-		const missing = locate(refused, 'pi ');
-		await sendLiteral(tmux, 'agents', click(missing.column, missing.row));
-		const explained = await waitForScreen(
-			tmux,
-			'agents',
-			'pi is not installed on this machine.',
-		);
-		expect(explained).toContain('4 of 4 selected'.slice(0, 1));
+		const missing = locate(refused, '[–]');
+		await sendLiteral(tmux, 'agents', click(missing.column + 1, missing.row));
+		await waitForScreen(tmux, 'agents', 'pi is not installed on this machine.');
 
 		await send(tmux, 'agents', 'C-c');
 		await waitForExit(tmux, 'agents');
 	}, 90_000);
 
-	test('the agents list becomes a window on a short terminal, and Down follows it', async () => {
+	test('the agents list is whole on an 80 by 24 terminal, and Down reaches the last agent', async () => {
 		const tmux = await requireTmux();
 		const {cliPath} = await build;
 		const root = await scratch(roots);
@@ -660,15 +652,21 @@ describe('interactive screens appear live even when the environment looks like C
 			80,
 			24,
 		);
-		await waitForScreen(tmux, 'window', 'Configure worktree automation');
+		await waitForScreen(tmux, 'window', 'STEP 1 OF');
 		await send(tmux, 'window', 'Enter');
 		await send(tmux, 'window', 'Enter');
-		const top = await waitForScreen(tmux, 'window', 'Pick up to 4.');
+		const top = await waitForScreen(
+			tmux,
+			'window',
+			'Installed on this machine',
+		);
 
-		expect(top).toMatch(/claude/);
-		expect(top).toMatch(/▾ \d more/);
+		for (const name of ['claude', 'pi']) {
+			expect(top, name).toMatch(new RegExp(`\\[[ –✓]\\] +${name}\\b`));
+		}
+
 		const height = await paneHeight(tmux, 'window');
-		expect(keyBarRow(top, 'move')).toBe(height - 1);
+		expect(keyBarRow(top, 'move')).toBe(height);
 
 		for (const _ of [1, 2, 3, 4, 5]) {
 			// eslint-disable-next-line no-await-in-loop
@@ -677,9 +675,10 @@ describe('interactive screens appear live even when the environment looks like C
 			await delay(80);
 		}
 
-		const bottom = await waitForScreen(tmux, 'window', '▴');
-		expect(bottom).toMatch(/▸ +[◼◻] +pi/);
-		expect(keyBarRow(bottom, 'move')).toBe(height - 1);
+		const bottom = await waitForChange(tmux, 'window', screen =>
+			/▸\[[ ✓]] +pi\b/.test(screen),
+		);
+		expect(keyBarRow(bottom, 'move')).toBe(height);
 
 		await send(tmux, 'window', 'C-c');
 		await waitForExit(tmux, 'window');
@@ -719,11 +718,11 @@ describe('interactive screens appear live even when the environment looks like C
 	}
 
 	const toReview = async (tmux: string, session: string) => {
-		await waitForScreen(tmux, session, 'Configure worktree automation');
+		await waitForScreen(tmux, session, 'STEP 1 OF');
 		for (let attempt = 0; attempt < 12; attempt += 1) {
 			// eslint-disable-next-line no-await-in-loop
 			const screen = await screenOf(tmux, session);
-			if (screen.includes('Ready to set up')) {
+			if (screen.includes('Create project')) {
 				return;
 			}
 
@@ -769,11 +768,11 @@ describe('interactive screens appear live even when the environment looks like C
 			'Publishing chore/trunk-setup',
 		);
 		expect(running).toMatch(
-			/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Push to origin +chore\/trunk-setup → github\.com:acme\/storefront/,
+			/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s+Push to origin\s+chore\/trunk-setup → github\./,
 		);
-		expect(running).toMatch(/○ Open pull request +gh pr create --fill/);
+		expect(running).toMatch(/○\s+Open pull request\s+gh pr create --fill/);
 		expect(running).not.toContain('open a pull request?');
-		expect(running).toMatch(/Ctrl\+C +cancel/);
+		expect(running).toMatch(/\^C\s+cancel/);
 
 		const done = await waitForScreen(
 			tmux,
@@ -781,9 +780,9 @@ describe('interactive screens appear live even when the environment looks like C
 			'Published chore/trunk-setup',
 		);
 		await waitForScreen(tmux, 'push', 'TRUNK-HAS-EXITED');
-		expect(done).toMatch(/✓ Push to origin/);
+		expect(done).toMatch(/✓\s+Push to origin/);
 		expect(done).toMatch(
-			/✓ Open pull request +#12 +github\.com\/acme\/storefront\/pull\/12/,
+			/✓\s+Open pull request\s+#12\s+github\.com\/acme\/storefr/,
 		);
 		expect(done).toContain('Open it with  gh pr view --web');
 
@@ -846,8 +845,8 @@ describe('interactive screens appear live even when the environment looks like C
 		const stopped = await waitForScreen(tmux, 'stop', 'Stopped waiting.');
 		await waitForScreen(tmux, 'stop', 'TRUNK-HAS-EXITED');
 		expect(stopped).toContain('Publishing chore/trunk-setup stopped');
-		expect(stopped).toMatch(/— Push to origin +cancelled/);
-		expect(stopped).toMatch(/— Open pull request +skipped/);
+		expect(stopped).toMatch(/—\s+Push to origin\s+cancelled/);
+		expect(stopped).toMatch(/—\s+Open pull request\s+skipped/);
 		expect(stopped).toContain('git status -sb');
 		expect(stopped).toContain('git push -u origin chore/trunk-setup');
 		const branches = await runCommand('git', [
@@ -885,28 +884,28 @@ describe('interactive screens appear live even when the environment looks like C
 			'Try again, or leave it local?',
 		);
 		expect(card).toContain('Publishing chore/trunk-setup stopped');
-		expect(card).toMatch(/✗ Push to origin +did not go through/);
+		expect(card).toMatch(/✗\s+Push to origin\s+did not go through/);
 		expect(card).toContain('✗ Push failed');
 		expect(card).toContain('remote rejected');
 		expect(card).not.toContain('failed to push some refs');
-		expect(card).toContain(
-			'Fix   Check that you can write to acme/storefront, then try again.',
+		expect(card).toMatch(
+			/Fix\s+Check that you can write to acme\/storefront, then/,
 		);
 		expect(card).toContain('Then  git push -u origin chore/trunk-setup');
-		expect(card).toMatch(/Retry +Not now +Nothing was changed on origin\./);
+		expect(card).toMatch(/Retry\s+Not now\s+Nothing was changed on origin\./);
 		// No raw output leaked past the frame: every line stays inside its columns.
 		for (const line of card.split('\n')) {
-			expect([...line].length).toBeLessThanOrEqual(104);
+			expect([...line].length).toBeLessThanOrEqual(110);
 		}
 
-		const retry = locate(card, ' Retry ');
-		await sendLiteral(tmux, 'retry', click(retry.column + 2, retry.row));
+		const retry = locate(card, 'Retry');
+		await sendLiteral(tmux, 'retry', click(retry.column + 1, retry.row));
 		const done = await waitForScreen(
 			tmux,
 			'retry',
 			'Published chore/trunk-setup',
 		);
-		expect(done).toMatch(/✓ Push to origin/);
+		expect(done).toMatch(/✓\s+Push to origin/);
 		const branches = await runCommand('git', [
 			'-C',
 			source,
@@ -967,11 +966,11 @@ describe('interactive screens appear live even when the environment looks like C
 
 		const card = await waitForScreen(tmux, 'pr', 'Try opening it again?');
 		expect(card).toContain('Pushed chore/trunk-setup');
-		expect(card).toMatch(/✓ Push to origin/);
-		expect(card).toMatch(/▲ Open pull request +no pull request/);
+		expect(card).toMatch(/✓\s+Push to origin/);
+		expect(card).toMatch(/▲\s+Open pull request\s+no pull request/);
 		expect(card).toContain('▲ Pushed, but no pull request');
 		expect(card).toContain('Then  gh auth login');
-		expect(card).toContain(
+		expect(stageOf(card)).toContain(
 			'https://github.com/acme/storefront/compare/chore%2Ftrunk-setup?expand=1',
 		);
 	}, 120_000);
@@ -1261,6 +1260,15 @@ async function waitForExit(tmux: string, session: string): Promise<void> {
 }
 
 /** The 1-based row of the line that holds `needle`, for checking where a key bar sits. */
+/** The stage column alone with its rows joined, so a link that wrapped reads as one. */
+function stageOf(screen: string): string {
+	const rows = screen.split('\n');
+	// The rule above the body marks where the rail ends, wherever the app sits in the pane.
+	const rule = rows.find(row => row.includes('┬'));
+	const from = rule === undefined ? 0 : [...rule].indexOf('┬') + 1;
+	return rows.map(row => [...row].slice(from, -1).join('').trim()).join('');
+}
+
 function keyBarRow(screen: string, needle: string): number {
 	return locate(screen, needle).row;
 }

@@ -220,6 +220,8 @@ export async function runInteractiveSetup(
 		project: plan.project,
 		rootName,
 		destination: displayPath(plan.projectDirectory),
+		source: plan.command === 'clone' ? plan.remote?.url : undefined,
+		identifier: plan.remote?.identifier,
 		defaultBranch: plan.defaultBranch,
 		probedDefaultBranch: () => probed,
 		direct: flags.direct ?? false,
